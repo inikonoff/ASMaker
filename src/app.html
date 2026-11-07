@@ -151,6 +151,7 @@ aside{background:var(--panel);overflow:auto;min-height:0}
 .group-box{fill:none;stroke:var(--acc);stroke-width:1;vector-effect:non-scaling-stroke}
 .handle{fill:#fff;stroke:var(--acc);stroke-width:1.5;vector-effect:non-scaling-stroke;pointer-events:all}
 .guide{stroke:var(--guide);stroke-width:1;vector-effect:non-scaling-stroke}
+.guide.gap{stroke-width:1.5}
 .dim{fill:var(--muted);font-weight:500;font-family:inherit}
 .dim.acc{fill:var(--acc)}
 .lbl{fill:var(--text);font-weight:600;font-family:inherit}
@@ -496,7 +497,23 @@ function commit(key) {
   past.push(JSON.stringify(doc)); if (past.length > 200) past.shift();
   future = []; lastKey = key || null; lastAt = now;
 }
-function mutate(key, fn) { commit(key); fn(); doc.objects.forEach(syncDerived); changed(); }
+const textBoxes = () => new Map(doc.objects.filter(o => o.type === 'text').map(o => [o.id, { x: o.x, y: o.y, w: o.w, h: o.h }]));
+/* когда у текста меняется размер (шрифт, кегль, интервалы…), а положение никто не трогал,
+   он остаётся выровненным: по центру стенда — по центру, иначе по своему выравниванию строк */
+function keepTextAnchors(before) {
+  const b = base();
+  for (const o of doc.objects) {
+    const p = o.type === 'text' && before.get(o.id);
+    if (!p || o.x !== p.x || o.y !== p.y || (Math.abs(o.w - p.w) < 0.01 && Math.abs(o.h - p.h) < 0.01)) continue;
+    const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
+    let ax = o.rot ? 'c' : o.align === 'center' ? 'c' : o.align === 'right' ? 'r' : 'l';
+    if (Math.abs(cx - b.w / 2) < 0.6) ax = 'c';
+    const ay = o.rot || Math.abs(cy - b.h / 2) < 0.6 ? 'c' : 't';
+    o.x = r2(ax === 'c' ? cx - o.w / 2 : ax === 'r' ? p.x + p.w - o.w : p.x);
+    o.y = r2(ay === 'c' ? cy - o.h / 2 : p.y);
+  }
+}
+function mutate(key, fn) { commit(key); const before = textBoxes(); fn(); doc.objects.forEach(syncDerived); keepTextAnchors(before); changed(); }
 function restore(json) { doc = JSON.parse(json); selIds = selIds.filter(i => byId(i)); if (sel && !byId(sel)) sel = selIds[selIds.length - 1] || null; lastKey = null; changed(); }
 function undo() { if (!past.length) return; future.push(JSON.stringify(doc)); restore(past.pop()); }
 function redo() { if (!future.length) return; past.push(JSON.stringify(doc)); restore(future.pop()); }
@@ -874,7 +891,7 @@ function textLayout(o) {
 let relayoutT = 0;
 function relayoutTexts() {
   clearTimeout(relayoutT);
-  relayoutT = setTimeout(() => { for (const o of doc.objects) if (o.type === 'text') syncDerived(o); nodes.forEach(n => { if (n.type === 'text') n.sig = null; }); invalidate('scene', 'overlay', 'props'); }, 30);
+  relayoutT = setTimeout(() => { const before = textBoxes(); for (const o of doc.objects) if (o.type === 'text') syncDerived(o); keepTextAnchors(before); nodes.forEach(n => { if (n.type === 'text') n.sig = null; }); invalidate('scene', 'overlay', 'props'); }, 30);
 }
 function textMarkup(o, exp) {
   const L = textLayout(o), f = fontDef(o.font);
@@ -1119,7 +1136,7 @@ function renderOverlay() {
       }
     }
   }
-  if (drag && drag.guides) for (const g of drag.guides) kids.push(sv('line', Object.assign({ class: 'guide' }, g)));
+  if (drag && drag.guides) for (const g of drag.guides) kids.push(sv('line', Object.assign({ class: 'guide' }, g, g.class === 'guide gap' ? { 'stroke-dasharray': `${4 / z} ${3 / z}` } : {})));
   overlay.replaceChildren(...kids);
   const showGhost = drag && drag.moved && (drag.type === 'move' || drag.type === 'resize');
   const go = showGhost && byId(drag.id), gi = go && go.image, gh = gi && assets[gi.asset];
@@ -1852,6 +1869,26 @@ function snapAxis(pos, size, list, thr, offs = [0, size / 2, size]) {
   }
   return best || { delta: 0, line: null };
 }
+/* соседи слева/справа (или сверху/снизу), перекрывающиеся по другой оси; если элемент почти посередине — ставим ровно посередине */
+function midSnap(axis, x, y, s, exclude, thr) {
+  const P = axis === 'x' ? 'x' : 'y', S = axis === 'x' ? 'w' : 'h', Q = axis === 'x' ? 'y' : 'x', T = axis === 'x' ? 'h' : 'w';
+  const me = { x, y, w: s.w, h: s.h }, lo = me[Q], hi = me[Q] + me[T];
+  let a = null, c = null;
+  for (const o of doc.objects) {
+    if (!isBox(o) || !o.visible || exclude.has(o.id) || o[Q] >= hi || o[Q] + o[T] <= lo) continue;
+    const end = o[P] + o[S];
+    if (end <= me[P] + me[S] / 2 && (!a || end > a[P] + a[S])) a = o;
+    if (o[P] >= me[P] + me[S] / 2 && (!c || o[P] < c[P])) c = o;
+  }
+  if (!a || !c) return null;
+  const A = a[P] + a[S], C = c[P], target = (A + C - me[S]) / 2, d = Math.abs(me[P] - target);
+  return target >= A && d < thr ? { d, delta: target - me[P], A, C, a, c } : null;
+}
+function gapMarks(axis, bx, m) {
+  // две одинаковые «рулетки» между соседями и элементом
+  if (axis === 'x') { const yy = bx.y + bx.h / 2; return [{ x1: m.A, x2: bx.x, y1: yy, y2: yy, class: 'guide gap' }, { x1: bx.x + bx.w, x2: m.C, y1: yy, y2: yy, class: 'guide gap' }]; }
+  const xx = bx.x + bx.w / 2; return [{ y1: m.A, y2: bx.y, x1: xx, x2: xx, class: 'guide gap' }, { y1: bx.y + bx.h, y2: m.C, x1: xx, x2: xx, class: 'guide gap' }];
+}
 function guideLines(sx, sy, box) {
   const b = base(), g = [];
   if (sx != null) g.push({ x1: sx, x2: sx, y1: Math.min(0, box.y), y2: Math.max(b.h, box.y + box.h) });
@@ -1950,7 +1987,13 @@ stage.addEventListener('pointermove', e => {
     let x = s.x + (w.x - drag.sw.x), y = s.y + (w.y - drag.sw.y);
     if (!free) {
       const ax = snapAxis(x, s.w, drag.xs, thr), ay = snapAxis(y, s.h, drag.ys, thr);
-      x += ax.delta; y += ay.delta; drag.guides = guideLines(ax.line, ay.line, { x, y, w: s.w, h: s.h });
+      const ids = new Set(drag.group.map(g => g.id)), mx = midSnap('x', x, y, s, ids, thr), my = midSnap('y', x, y, s, ids, thr);
+      const useMx = mx && (ax.d == null || mx.d <= ax.d), useMy = my && (ay.d == null || my.d <= ay.d);
+      x += useMx ? mx.delta : ax.delta; y += useMy ? my.delta : ay.delta;
+      drag.guides = guideLines(useMx ? null : ax.line, useMy ? null : ay.line, { x, y, w: s.w, h: s.h });
+      const bx = { x, y, w: s.w, h: s.h };
+      if (useMx) drag.guides.push(...gapMarks('x', bx, mx));
+      if (useMy) drag.guides.push(...gapMarks('y', bx, my));
     }
     const dx = x - s.x, dy = y - s.y;
     for (const g of drag.group) { const k = byId(g.id); if (k) { k.x = r2(g.x + dx); k.y = r2(g.y + dy); } }
