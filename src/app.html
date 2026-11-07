@@ -1769,6 +1769,8 @@ function buildEmpty() {
       el('dt', {}, k('Ctrl', 'Z')), el('dd', {}, 'отменить'),
       el('dt', {}, k('Ctrl', 'Shift', 'Z')), el('dd', {}, 'повторить'),
       el('dt', {}, k('Ctrl', 'D')), el('dd', {}, 'дублировать'),
+      el('dt', {}, k('Ctrl', 'C'), ' / ', k('Ctrl', 'X'), ' / ', k('Ctrl', 'V')), el('dd', {}, 'копировать / вырезать / вставить (и в другой вкладке)'),
+      el('dt', {}, k('Ctrl'), ' или ', k('Alt'), ' + перетаскивание'), el('dd', {}, 'быстрый дубликат'),
       el('dt', {}, k('Shift'), ' + клик'), el('dd', {}, 'добавить / убрать из выделения'),
       el('dt', {}, k('Ctrl', 'A')), el('dd', {}, 'выделить все элементы'),
       el('dt', {}, k('Delete')), el('dd', {}, 'удалить слой'),
@@ -1938,7 +1940,8 @@ stage.addEventListener('pointerdown', e => {
     if (ob && !ob.locked && ob.visible) {
       if (isBox(ob)) {
         const group = inGroup ? selected().filter(x => isBox(x) && !x.locked && x.visible) : [ob];
-        drag = { ...base0, type: 'boxmove', id, group: group.map(g => ({ id: g.id, x: g.x, y: g.y })), start: bboxOf(group), ...snapTargets(group.map(g => g.id)) };
+        const dupe = e.ctrlKey || e.metaKey || e.altKey; // перетаскивание с Ctrl/Alt — тянем копию
+        drag = { ...base0, type: 'boxmove', id, dupe, group: group.map(g => ({ id: g.id, x: g.x, y: g.y })), start: bboxOf(group), ...snapTargets(dupe ? [] : group.map(g => g.id)) };
         return;
       }
     }
@@ -1966,9 +1969,20 @@ stage.addEventListener('pointermove', e => {
     const hits = doc.objects.filter(o => isBox(o) && o.visible && o.x < r.x + r.w && r.x < o.x + o.w && o.y < r.y + r.h && r.y < o.y + o.h).map(o => o.id);
     setSel([...drag.keep, ...hits]); invalidate('overlay'); return;
   }
-  const o = byId(drag.id); if (!o) { drag = null; return; }
-  if (!drag.moved) { if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 3) return; commit(); drag.moved = true; }
-  const s = drag.start, free = e.ctrlKey || e.metaKey, thr = 8 / view.z, b = base();
+  let o = byId(drag.id); if (!o) { drag = null; return; }
+  if (!drag.moved) {
+    if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 3) return;
+    commit(); drag.moved = true;
+    if (drag.dupe) { // копии встают на место оригиналов и уезжают за курсором, оригиналы остаются
+      const copies = [];
+      for (const g of drag.group) {
+        const src = byId(g.id), c = JSON.parse(JSON.stringify(src)); c.id = uid(); c.name = src.name + ' копия'; c.locked = false;
+        doc.objects.splice(doc.objects.indexOf(src) + 1, 0, c); copies.push(c); g.id = c.id;
+      }
+      drag.id = copies[0].id; setSel(copies.map(c => c.id)); invalidate('layers');
+    }
+  }
+  const s = drag.start, free = drag.dupe ? e.shiftKey && (e.ctrlKey || e.metaKey) : e.ctrlKey || e.metaKey, thr = 8 / view.z, b = base();
   drag.guides = null;
   if (drag.type === 'move' && o.image) {
     const i = o.image; let x = s.x + (w.x - drag.sw.x), y = s.y + (w.y - drag.sw.y);
@@ -2060,10 +2074,46 @@ stage.addEventListener('drop', e => {
   const hit = document.elementsFromPoint(e.clientX, e.clientY).map(n => n.closest && n.closest('[data-id]')).find(n => n && ['pocket', 'shape'].includes(byId(n.dataset.id)?.type));
   importImage(f, hit ? hit.dataset.id : null);
 });
+/* ---- копировать / вырезать / вставить: элементы кладутся в системный буфер как текст ASMaker:{…},
+   поэтому вставка работает и в другой вкладке; внутренняя копия — на случай, если буфер недоступен ---- */
+const CLIP_PREFIX = 'ASMaker:';
+let clipMem = null, pasteN = 0;
+const typingNow = () => /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable || !$('#modal').hidden;
+function clipPayload() {
+  const list = selected().filter(isBox); if (!list.length) return null;
+  const a = {}; for (const o of list) if (o.image && assets[o.image.asset]) a[o.image.asset] = assets[o.image.asset];
+  return { objects: JSON.parse(JSON.stringify(list)), assets: a, fonts: usedCustomFonts().filter(f => list.some(o => o.font === f.label)) };
+}
+function copySel(e, cut) {
+  const pl = clipPayload(); if (!pl) return false;
+  clipMem = pl; pasteN = 0;
+  try { e.clipboardData.setData('text/plain', CLIP_PREFIX + JSON.stringify(pl)); } catch {}
+  if (cut) deleteSel();
+  toast((cut ? 'Вырезано' : 'Скопировано') + ': ' + pl.objects.length + ' эл. Вставка — Ctrl+V');
+  return true;
+}
+async function pasteObjects(pl) {
+  if (!pl || !Array.isArray(pl.objects) || !pl.objects.length) return;
+  if (Array.isArray(pl.fonts) && pl.fonts.length) await loadCustomFonts(pl.fonts);
+  Object.assign(assets, pl.assets || {});
+  pasteN++;
+  const ids = new Set(doc.objects.map(o => o.id)), add = [];
+  for (const raw of pl.objects) {
+    const o = normalizeObj({ ...raw, id: uid() }, ids); if (!o || !isBox(o)) continue;
+    o.x = r2(o.x + 20 * pasteN); o.y = r2(o.y + 20 * pasteN); o.locked = false; add.push(o);
+  }
+  if (!add.length) return;
+  mutate(null, () => add.forEach(insertObj));
+  setSel(add.map(o => o.id));
+}
+document.addEventListener('copy', e => { if (!typingNow() && copySel(e, false)) e.preventDefault(); });
+document.addEventListener('cut', e => { if (!typingNow() && copySel(e, true)) e.preventDefault(); });
 document.addEventListener('paste', e => {
-  if (/INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return;
+  if (typingNow()) return;
+  const txt = e.clipboardData?.getData('text/plain') || '';
+  if (txt.startsWith(CLIP_PREFIX)) { e.preventDefault(); try { pasteObjects(JSON.parse(txt.slice(CLIP_PREFIX.length))); } catch { toast('Не удалось вставить'); } return; }
   const item = [...(e.clipboardData?.items || [])].find(x => x.type.startsWith('image/'));
-  if (!item) return;
+  if (!item) { if (clipMem) { e.preventDefault(); pasteObjects(clipMem); } return; }
   e.preventDefault();
   const o = sel && byId(sel);
   importImage(item.getAsFile(), o && (o.type === 'pocket' || o.type === 'shape') ? o.id : null);
