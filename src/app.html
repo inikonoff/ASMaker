@@ -387,8 +387,13 @@ function pocketGeom(o) {
   const s = o.sides, t = o.tape, g = o.gap, L = s.l ? t : 0, R = s.r ? t : 0, T = s.t ? t : 0, Bo = s.b ? t : 0;
   return { w: o.iw + 2 * g + L + R, h: o.ih + 2 * g + T + Bo, ix: L + g, iy: T + g };
 }
-/* длина проклеенных сторон кармана, мм — по ней считаются и скотч, и цветная самоклейка */
-function tapedLen(o) { const g = pocketGeom(o), s_ = o.sides; return (s_.t ? g.w : 0) + (s_.b ? g.w : 0) + (s_.l ? g.h : 0) + (s_.r ? g.h : 0); }
+/* длина полос по проклеенным сторонам кармана, мм. Полосы режутся встык: в каждом углу, где
+   сходятся две проклеенные стороны, одна полоса короче на ширину другой — вычитаем ширину полосы */
+function tapedLen(o, stripW = 0) {
+  const g = pocketGeom(o), s_ = o.sides, sum = (s_.t ? g.w : 0) + (s_.b ? g.w : 0) + (s_.l ? g.h : 0) + (s_.r ? g.h : 0);
+  const corners = [['t', 'r'], ['r', 'b'], ['b', 'l'], ['l', 't']].filter(([a, c]) => s_[a] && s_[c]).length;
+  return Math.max(0, sum - corners * stripW);
+}
 function syncDerived(o) {
   let l = null;
   if (o.type === 'pocket') l = pocketGeom(o);
@@ -2293,19 +2298,19 @@ function specSections() {
   const mat = [];
   if (P.length) {
     const plastic = P.reduce((t, o) => { const g = pocketGeom(o); return t + g.w * g.h; }, 0) / 1e6;
-    mat.push(['Прозрачный пластик для карманов', `${nf(plastic, 2)} м²`]);
+    mat.push(['Прозрачный пластик для карманов', `${fmtQty(plastic, 'м²')} м²`]);
     const tape = new Map();
-    for (const o of P) { const g = pocketGeom(o), s_ = o.sides, len = (s_.t ? g.w : 0) + (s_.b ? g.w : 0) + (s_.l ? g.h : 0) + (s_.r ? g.h : 0); tape.set(o.tape, (tape.get(o.tape) || 0) + len); }
-    for (const [wd, len] of tape) mat.push([`Двусторонний скотч ${mmTxt(wd)} мм`, `${nf(len / 1000, 2)} м`]);
+    for (const o of P) tape.set(o.tape, (tape.get(o.tape) || 0) + tapedLen(o, o.tape));
+    for (const [wd, len] of tape) mat.push([`Двусторонний скотч ${mmTxt(wd)} мм`, `${fmtQty(len / 1000, 'м.пог.')} м`]);
     const film = filmTotals(P);
-    if (film.len) { const r = [FILM_NAME, `${nf(film.len, 2)} м · ${nf(film.area, 3)} м²`]; r.film = film; mat.push(r); }
+    if (film.len) { const r = [FILM_NAME, `${fmtQty(film.len, 'м.пог.')} м · ${fmtQty(film.area, 'м²')} м²`]; r.film = film; mat.push(r); }
   }
   if (holes.length) mat.push([`Отверстия Ø ${mmTxt(H.d)} мм`, `${holes.length} шт`]);
   if (mat.length) {
     const wst = doc.pricing.waste;
     if (wst > 0) {
       const wm = estimateItems().filter(i => i.active && i.waste);
-      for (const r of mat) { if (r.film) { const f = 1 + wst / 100; r.push(`${nf(r.film.len * f, 2)} м · ${nf(r.film.area * f, 3)} м²`); continue; } const it = wm.find(i => i.matName === r[0]); r.push(it ? fmtQty(it.qty * (1 + wst / 100), it.baseUnit) + ' ' + it.baseUnit : r[1]); }
+      for (const r of mat) { if (r.film) { const f = 1 + wst / 100; r.push(`${fmtQty(r.film.len * f, 'м.пог.')} м · ${fmtQty(r.film.area * f, 'м²')} м²`); continue; } const it = wm.find(i => i.matName === r[0]); r.push(it ? fmtQty(it.qty * (1 + wst / 100), it.baseUnit) + ' ' + it.baseUnit : r[1]); }
       secs.push({ title: 'Материалы', head: ['Материал', 'Количество', `С запасом ${nf(wst, wst % 1 ? 1 : 0)}%`], rows: mat });
     } else secs.push({ title: 'Материалы', head: ['Материал', 'Количество'], rows: mat });
   }
@@ -2326,7 +2331,7 @@ function specSections() {
 }
 /* ---- смета ---- */
 const FILM_NAME = 'Цв. с/к по периметру кармана';
-function filmTotals(P) { let len = 0, area = 0; for (const o of P) if (o.film) { const l = tapedLen(o) / 1000; len += l; area += l * o.filmW / 1000; } return { len, area }; }
+function filmTotals(P) { let len = 0, area = 0; for (const o of P) if (o.film) { const l = tapedLen(o, o.filmW) / 1000; len += l; area += l * o.filmW / 1000; } return { len, area }; }
 const PRICE_BOOK_KEY = STORE + ':prices';
 const priceBook = (() => { try { return JSON.parse(localStorage.getItem(PRICE_BOOK_KEY)) || {}; } catch { return {}; } })();
 function savePriceBook() { try { localStorage.setItem(PRICE_BOOK_KEY, JSON.stringify(priceBook)); } catch {} }
@@ -2340,7 +2345,7 @@ function estimateItems() {
   const decor = !!(b.image || b.fillType !== 'solid' || b.fill !== '#ffffff' || S.length || T.length);
   const plastic = P.reduce((t, o) => { const g = pocketGeom(o); return t + g.w * g.h; }, 0) / 1e6;
   const tape = new Map();
-  for (const o of P) { const g = pocketGeom(o), s_ = o.sides, len = (s_.t ? g.w : 0) + (s_.b ? g.w : 0) + (s_.l ? g.h : 0) + (s_.r ? g.h : 0); tape.set(o.tape, (tape.get(o.tape) || 0) + len / 1000); }
+  for (const o of P) tape.set(o.tape, (tape.get(o.tape) || 0) + tapedLen(o, o.tape) / 1000);
   const items = [
     { key: 'pvc' + b.thickness, name: `ПВХ белый ${b.thickness} мм`, dim: 'area', qty: area, extra: { 'лист': sheets }, waste: true, active: true, baseUnit: 'м²', matName: null },
     { key: 'print', name: 'Печать на основу', dim: 'area', qty: area, waste: true, active: decor, baseUnit: 'м²' },
@@ -2510,7 +2515,7 @@ function openSpec() {
   m.replaceChildren(el('div', { class: 'dlg', role: 'dialog' },
     el('div', { class: 'dlg-h' }, el('span', {}, 'Спецификация: ' + (doc.title || DEFAULT_TITLE)), B('', '✕', close, { cls: 'icon', title: 'Закрыть (Esc)' })),
     el('div', { class: 'dlg-b' }, secs.map(s_ => [el('h4', {}, s_.title), table(s_)]),
-      el('p', { class: 'hint' }, 'Размеры — в миллиметрах. Скотч считается по проклеенным сторонам каждого кармана, пластик — по внешнему размеру карманов. Скрытые слои в расчёт не входят.'),
+      el('p', { class: 'hint' }, 'Размеры — в миллиметрах. Скотч и самоклейка считаются по проклеенным сторонам каждого кармана, полосы встык (в углах без нахлёста), пластик — по внешнему размеру карманов. Скрытые слои в расчёт не входят.'),
       estimateEditor()),
     el('div', { class: 'dlg-f' },
       B('download', 'Таблица CSV', () => specExport('csv'), { cls: 'btn', title: 'Для Excel и Google Таблиц' }),
