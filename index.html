@@ -1191,8 +1191,9 @@ function handles(kids, x, y, w, h, sides = ['n', 'e', 's', 'w']) {
 function renderOverlay() {
   const z = view.z, kids = [], b = base();
   if (b && b.visible) {
-    kids.push(svText(b.name, 0, -8 / z, 12 / z, 'lbl'));
-    kids.push(svText(`${fmtLen(b.w)} × ${fmtLen(b.h)} ${unitLabel()}`, 0, b.h + 20 / z, 12 / z, 'dim'));
+    // имя подложки и её размер — одной строкой над левым верхним углом
+    const t = svText(b.name, 0, -8 / z, 12 / z, 'lbl'), ts = sv('tspan', { class: 'dim', dx: 8 / z });
+    ts.textContent = `${fmtLen(b.w)} × ${fmtLen(b.h)} ${unitLabel()}`; t.append(ts); kids.push(t);
   }
   const o = selIds.length === 1 && sel && byId(sel);
   if (selIds.length > 1) {
