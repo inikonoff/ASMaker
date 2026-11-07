@@ -1840,6 +1840,7 @@ function buildEmpty() {
     el('p', {}, 'Выберите слой на холсте или в панели слоёв. Новые элементы — кнопками под списком слоёв.'),
     el('dl', { class: 'keys' },
       el('dt', {}, 'Колесо'), el('dd', {}, 'масштаб'),
+      el('dt', {}, k('Alt'), ' + колесо'), el('dd', {}, 'точный масштаб, шаг 1%'),
       el('dt', {}, k('Пробел'), ' + мышь'), el('dd', {}, 'двигать холст (также средняя или правая кнопка мыши)'),
       el('dt', {}, 'Рамка мышью'), el('dd', {}, 'выделить несколько элементов'),
       el('dt', {}, k('R'), ' / ', k('Shift', 'R')), el('dd', {}, 'повернуть на 90° по / против часовой'),
@@ -2134,7 +2135,12 @@ stage.addEventListener('wheel', e => {
   e.preventDefault();
   const k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
   // колесо — масштаб вокруг курсора; горизонтальная прокрутка тачпада двигает холст
-  if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && !e.ctrlKey) { view.x -= e.deltaX * k; invalidate('view'); return; }
+  if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && !e.ctrlKey && !e.altKey) { view.x -= e.deltaX * k; invalidate('view'); return; }
+  if (e.altKey) { // точный масштаб: шаг 1% (100% — реальный размер)
+    const d = e.deltaY || e.deltaX; if (!d) return;
+    const pct = view.z / PX_PER_MM * 100, next = Math.max(1, (d > 0 ? Math.ceil(pct - 1e-6) - 1 : Math.floor(pct + 1e-6) + 1));
+    zoomAt(next / 100 * PX_PER_MM, e.clientX, e.clientY); return;
+  }
   zoomAt(view.z * Math.exp(-e.deltaY * k * (e.ctrlKey ? 0.01 : 0.0018)), e.clientX, e.clientY);
 }, { passive: false });
 stage.addEventListener('auxclick', e => e.preventDefault());
