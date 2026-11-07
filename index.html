@@ -363,7 +363,7 @@ const makeBase = () => ({ ...common(), type: 'base', name: 'База', x: 0, y: 
 const makeShape = (kind = 'solid') => ({ ...common(), type: 'shape', name: 'Слой', x: 0, y: 0, w: 300, h: 200, rot: 0, radius: 0, image: null,
   ...fillDefaults(kind === 'grad' ? '#2563eb' : '#f59e0b', '#a5f3fc', kind === 'grad' ? 'linear' : kind === 'empty' ? 'none' : 'solid') });
 const makePocket = () => ({ ...common(), type: 'pocket', name: 'Карман', x: 0, y: 0, w: 0, h: 0, rot: 0, iw: 210, ih: 297,
-  sides: { t: false, r: true, b: true, l: true }, tape: 10, tapeColor: '#ffffff', gap: 2, notch: true, showName: true, image: null });
+  sides: { t: false, r: true, b: true, l: true }, tape: 10, tapeColor: '#ffffff', gap: 2, notch: true, showName: true, film: true, filmW: 15, image: null });
 const makeText = () => ({ ...common(), type: 'text', name: 'Текст', x: 0, y: 0, w: 0, h: 0, rot: 0,
   text: 'Заголовок стенда', font: 'Montserrat', size: 60, weight: 700, italic: false, underline: false, strike: false, caps: false,
   align: 'center', lh: 1.2, ls: 0, skew: 0, color: '#1f2937', colorOpacity: 1, strokeW: 0, strokeColor: '#ffffff', wrap: false, boxW: 600 });
@@ -389,6 +389,8 @@ function pocketGeom(o) {
   const s = o.sides, t = o.tape, g = o.gap, L = s.l ? t : 0, R = s.r ? t : 0, T = s.t ? t : 0, Bo = s.b ? t : 0;
   return { w: o.iw + 2 * g + L + R, h: o.ih + 2 * g + T + Bo, ix: L + g, iy: T + g };
 }
+/* длина проклеенных сторон кармана, мм — по ней считаются и скотч, и цветная самоклейка */
+function tapedLen(o) { const g = pocketGeom(o), s_ = o.sides; return (s_.t ? g.w : 0) + (s_.b ? g.w : 0) + (s_.l ? g.h : 0) + (s_.r ? g.h : 0); }
 function syncDerived(o) {
   let l = null;
   if (o.type === 'pocket') l = pocketGeom(o);
@@ -450,6 +452,7 @@ function normalizeObj(raw, ids) {
     const s = o.sides || {}; o.sides = { t: !!s.t, r: !!s.r, b: !!s.b, l: !!s.l };
     o.tape = clamp(+o.tape || 10, 1, 60); o.gap = clamp(+o.gap || 0, 0, 30); o.notch = !!o.notch;
     o.tapeColor = normHex(o.tapeColor) || '#ffffff';
+    o.film = o.film !== false; o.filmW = clamp(+o.filmW || 15, 1, 100);
     if (o.image && typeof o.image.asset !== 'string') o.image = null;
     else if (o.image) o.image = { asset: o.image.asset, opacity: isFinite(o.image.opacity) ? o.image.opacity : 1 };
     syncDerived(o);
@@ -815,6 +818,12 @@ function pocketMarkup(o, exp) {
   const d = plasticPath(o, w, h);
   m += `<path d="${d}" fill="#ffffff" fill-opacity=".22"/><path d="${d}" fill="url(#glare)"/>` +
     `<path d="${d}" fill="none" stroke="#111827" stroke-opacity=".8" stroke-width="${exp ? 0.8 : 1.5}"${vs}/>`;
+  if (o.film) { // цветная самоклейка поверх краёв пластика по проклеенным сторонам
+    const f = Math.min(o.filmW, w / 2, h / 2), fr = (x, y, fw, fh) => `<rect x="${x}" y="${y}" width="${fw}" height="${fh}" fill="${o.tapeColor}"/>`;
+    let fm = '';
+    if (s.t) fm += fr(0, 0, w, f); if (s.b) fm += fr(0, h - f, w, f); if (s.l) fm += fr(0, 0, f, h); if (s.r) fm += fr(w - f, 0, f, h);
+    if (fm) m += `<g>${fm}</g>` + `<path d="${d}" fill="none" stroke="#111827" stroke-opacity=".45" stroke-width="${exp ? 0.5 : 1}"${vs}/>`;
+  }
   return m;
 }
 /* 4 по углам; дальше пары по очереди: на длинные стороны, на короткие, снова на длинные... */
@@ -1389,7 +1398,7 @@ function bindFn(read, apply) { const b = { read, apply, last: read() }; bindings
 function renderProps() {
   const o = sel && byId(sel);
   const multi = selIds.length > 1;
-  const sig = multi ? 'multi|' + selIds.join() + unit : o ? [o.id, o.type, o.locked, o.fillType, o.image ? o.image.asset : '-', unit, o.font, o.wrap].join('|') : 'none';
+  const sig = multi ? 'multi|' + selIds.join() + unit : o ? [o.id, o.type, o.locked, o.fillType, o.image ? o.image.asset : '-', unit, o.font, o.wrap, o.film].join('|') : 'none';
   if (sig !== propsSig) {
     propsSig = sig; bindings = [];
     const build = { base: buildBase, shape: buildShape, pocket: buildPocket, holes: buildHoles, text: buildText, grid: buildGrid }[o && o.type];
@@ -1666,6 +1675,8 @@ function buildPocket(o) {
         el('div', { class: 'grid2', style: 'margin-top:8px' },
           lenField('Лента', () => O().tape, (v, k) => upd(k, x => x.tape = v), { min: 1, max: 60, title: 'Ширина ленты скотча' }),
           lenField('Зазор', () => O().gap, (v, k) => upd(k, x => x.gap = v), { min: 0, max: 30, title: 'Запас между вкладышем и скотчем' })),
+        row(checkField('Цветная самоклейка по периметру (рамка)', () => O().film, v => upd(null, x => x.film = v))),
+        O().film ? row(lenField('Ширина рамки', () => O().filmW, (v, k) => upd(k, x => x.filmW = v), { min: 1, max: 100, title: 'Ширина полосы самоклейки — нужна для площади в спецификации' })) : null,
         cap('Цвет рамки'),
         row(colorField(() => O().tapeColor, (v, k) => upd(k ? 'tapeColor' : null, x => x.tapeColor = v))),
         row(checkField('Вырез для пальца на открытой стороне', () => O().notch, v => upd(null, x => x.notch = v))))),
@@ -2288,13 +2299,15 @@ function specSections() {
     const tape = new Map();
     for (const o of P) { const g = pocketGeom(o), s_ = o.sides, len = (s_.t ? g.w : 0) + (s_.b ? g.w : 0) + (s_.l ? g.h : 0) + (s_.r ? g.h : 0); tape.set(o.tape, (tape.get(o.tape) || 0) + len); }
     for (const [wd, len] of tape) mat.push([`Двусторонний скотч ${mmTxt(wd)} мм`, `${nf(len / 1000, 2)} м`]);
+    const film = filmTotals(P);
+    if (film.len) { const r = [FILM_NAME, `${nf(film.len, 2)} м · ${nf(film.area, 3)} м²`]; r.film = film; mat.push(r); }
   }
   if (holes.length) mat.push([`Отверстия Ø ${mmTxt(H.d)} мм`, `${holes.length} шт`]);
   if (mat.length) {
     const wst = doc.pricing.waste;
     if (wst > 0) {
       const wm = estimateItems().filter(i => i.active && i.waste);
-      for (const r of mat) { const it = wm.find(i => i.matName === r[0]); r.push(it ? fmtQty(it.qty * (1 + wst / 100), it.baseUnit) + ' ' + it.baseUnit : r[1]); }
+      for (const r of mat) { if (r.film) { const f = 1 + wst / 100; r.push(`${nf(r.film.len * f, 2)} м · ${nf(r.film.area * f, 3)} м²`); continue; } const it = wm.find(i => i.matName === r[0]); r.push(it ? fmtQty(it.qty * (1 + wst / 100), it.baseUnit) + ' ' + it.baseUnit : r[1]); }
       secs.push({ title: 'Материалы', head: ['Материал', 'Количество', `С запасом ${nf(wst, wst % 1 ? 1 : 0)}%`], rows: mat });
     } else secs.push({ title: 'Материалы', head: ['Материал', 'Количество'], rows: mat });
   }
@@ -2314,10 +2327,12 @@ function specSections() {
   return secs;
 }
 /* ---- смета ---- */
+const FILM_NAME = 'Цв. с/к по периметру кармана';
+function filmTotals(P) { let len = 0, area = 0; for (const o of P) if (o.film) { const l = tapedLen(o) / 1000; len += l; area += l * o.filmW / 1000; } return { len, area }; }
 const PRICE_BOOK_KEY = STORE + ':prices';
 const priceBook = (() => { try { return JSON.parse(localStorage.getItem(PRICE_BOOK_KEY)) || {}; } catch { return {}; } })();
 function savePriceBook() { try { localStorage.setItem(PRICE_BOOK_KEY, JSON.stringify(priceBook)); } catch {} }
-const fmtQty = (q, unit) => { const dim = (UNITS[unit] || ['count'])[0]; return nf(q, ['count', 'sheet'].includes(dim) || unit === 'мм' || unit === 'см²' ? 0 : 2); };
+const fmtQty = (q, unit) => { const dim = (UNITS[unit] || ['count'])[0]; return nf(q, ['count', 'sheet'].includes(dim) || unit === 'мм' || unit === 'см²' ? 0 : q < 1 ? 3 : 2); };
 /* материалы проекта: количество в базовой единице (м², м.пог., шт) плюс особые единицы вроде «лист» */
 function estimateItems() {
   const b = base(), P = doc.objects.filter(o => o.type === 'pocket' && o.visible), H = holesObj(), holes = H && H.visible ? holePoints(H, b).length : 0;
@@ -2335,6 +2350,8 @@ function estimateItems() {
   ];
   if (tape.size) for (const [wd, len] of tape) items.push({ key: 'tape' + wd, name: `Двусторонний скотч ${mmTxt(wd)} мм`, dim: 'len', qty: len, waste: true, active: true, baseUnit: 'м.пог.', matName: `Двусторонний скотч ${mmTxt(wd)} мм` });
   else items.push({ key: 'tape10', name: 'Двусторонний скотч', dim: 'len', qty: 0, waste: true, active: false, baseUnit: 'м.пог.' });
+  const film = filmTotals(P);
+  items.push({ key: 'film', name: FILM_NAME, dim: 'len', qty: film.len, extra: { 'м²': film.area, 'см²': film.area * 1e4 }, waste: true, active: film.len > 0, baseUnit: 'м²' });
   items.push({ key: 'holes', name: 'Отверстия под крепёж', dim: 'count', qty: holes, waste: false, active: holes > 0, baseUnit: 'шт' });
   items.push({ key: 'pocketWork', name: 'Изготовление и монтаж карманов', dim: 'count', qty: P.length, waste: false, active: P.length > 0, baseUnit: 'шт' });
   return items;
