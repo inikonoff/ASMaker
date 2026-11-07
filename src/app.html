@@ -1,0 +1,2673 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASMaker — конструктор рекламных стендов</title>
+<meta name="description" content="Бесплатный онлайн-конструктор рекламных стендов с карманами: подложка ПВХ, карманы А3–А6, текст с кириллическими шрифтами, смета материалов и экспорт в TIFF, PDF, PNG для типографии.">
+<link rel="canonical" href="https://inikonoff.github.io/ASMaker/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#2563eb">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ASMaker">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:url" content="https://inikonoff.github.io/ASMaker/">
+<meta property="og:title" content="ASMaker — конструктор рекламных стендов">
+<meta property="og:description" content="Подложка ПВХ, карманы А3–А6, текст, смета и экспорт в TIFF, PDF, PNG — прямо в браузере, бесплатно.">
+<meta property="og:image" content="https://inikonoff.github.io/ASMaker/og.jpg">
+<meta property="og:image:secure_url" content="https://inikonoff.github.io/ASMaker/og.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="ASMaker: стенд с шестью карманами и заголовком «Информация»">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ASMaker — конструктор рекламных стендов">
+<meta name="twitter:description" content="Подложка ПВХ, карманы, текст, смета и экспорт для типографии — прямо в браузере.">
+<meta name="twitter:image" content="https://inikonoff.github.io/ASMaker/og.jpg">
+<style>
+:root{
+  --bg:#e7e9ec;--panel:#fff;--panel2:#f6f7f9;--hover:#f1f3f6;--input:#fff;--stage:#e4e6e9;--line:#e3e5e8;--line2:#c8cdd4;--cross:#a9afb8;--text:#1d2129;--muted:#6b7280;
+  --acc:#2563eb;--acc-soft:#e8efff;--warn:#b45309;--bad:#e11d48;--guide:#e5399b;
+  font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--text)
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg)}
+body{display:grid;grid-template-rows:48px 1fr}
+header{display:flex;align-items:center;gap:4px;padding:0 10px;background:var(--panel);border-bottom:1px solid var(--line);min-width:0}
+.brand{font-weight:650;margin-right:8px;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.brand .title{cursor:text;border-radius:6px;padding:3px 6px;margin-left:-6px;max-width:320px;overflow:hidden;text-overflow:ellipsis}
+.brand .title:hover{background:var(--hover);box-shadow:inset 0 0 0 1px var(--line)}
+.brand input{font:inherit;font-weight:650;color:inherit;background:var(--input);height:30px;border:1px solid var(--acc);border-radius:6px;padding:0 6px;width:260px;outline:2px solid var(--acc-soft)}
+textarea.txt{width:100%;height:auto;min-height:64px;padding:6px 8px;resize:vertical;line-height:1.35;font:inherit}
+.seg.tog button{font-size:14px;padding:0}
+.seg.tog button.on{background:var(--acc);color:#fff}
+#gridPath{stroke:var(--cross)}
+.pop{position:absolute;top:44px;right:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.2);padding:12px;width:260px;z-index:15}
+.pop[hidden]{display:none}
+.pop h5{margin:0 0 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#modal td.num,#modal th.num{text-align:right;white-space:nowrap}
+#modal tr.off td{opacity:.42}
+#modal .cell-in{width:100%;height:28px;border:1px solid var(--line);border-radius:6px;padding:0 6px;background:var(--input);color:inherit;font:inherit;min-width:0}
+#modal .cell-in.num{text-align:right}
+#modal td.in{padding:3px 4px}
+#modal .est-top{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:4px 0 10px}
+#modal .est-top .nf{flex:none;width:170px}
+#modal .total-line{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:15px;font-weight:650}
+.layer .sw.none{background:repeating-conic-gradient(#e5e7eb 0 25%,#fff 0 50%) 0 0/8px 8px}
+.btns.tools button{flex:1 1 0;padding:0}
+.row > select{flex:1 1 0}
+#modal{position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:20;display:grid;place-items:center;padding:20px}
+#modal[hidden]{display:none}
+#modal .dlg{background:var(--panel);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:min(900px,100%);max-height:calc(100vh - 40px);display:flex;flex-direction:column;min-height:0}
+#modal .dlg-h{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:650;font-size:15px}
+#modal .dlg-b{overflow:auto;padding:6px 18px 18px;flex:1;min-height:0}
+#modal .dlg-f{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
+#modal h4{margin:16px 0 6px;font-size:13px}
+#modal table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+#modal th,#modal td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+#modal th{background:var(--panel2);font-weight:600}
+#modal tr.total td{font-weight:650;background:var(--panel2)}
+.layer .sw.txt{border:0;font-size:12px;color:var(--text);width:22px}
+.brand i{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,#2563eb,#60a5fa);display:inline-block;position:relative}
+.brand i::after{content:"";position:absolute;left:5px;right:5px;top:7px;bottom:4px;border:2px solid #fff;border-top:0;border-radius:0 0 2px 2px}
+.sep{width:1px;height:22px;background:var(--line);margin:0 4px;flex:none}
+.spacer{flex:1}
+button{font:inherit;color:inherit;background:none;border:1px solid transparent;border-radius:8px;height:32px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;transition:background .12s,transform .12s}
+button:hover:not(:disabled){background:var(--hover)}
+button:active:not(:disabled){transform:scale(.96)}
+button:disabled{opacity:.38;cursor:default}
+button.icon{width:32px;padding:0;justify-content:center}
+svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.btn{border-color:var(--line);background:var(--input)}
+.btn.primary{background:var(--acc);color:#fff;border-color:var(--acc)}
+.btn.primary:hover:not(:disabled){background:#1d4fd8}
+.btn.danger:hover:not(:disabled){color:var(--bad);border-color:#fecdd3;background:#fff1f2}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;padding:2px;flex:none}
+.seg button{height:26px;border-radius:6px;padding:0 10px}
+.seg button.on{background:var(--acc-soft);color:var(--acc);font-weight:600}
+.seg.full{display:flex;width:100%}
+.seg.full button{flex:1;justify-content:center;padding:0 4px}
+#zoomPct{min-width:58px;justify-content:center;font-variant-numeric:tabular-nums;padding:0 6px}
+main{--lw:var(--layersW,240px);--pw:var(--propsW,296px);display:grid;grid-template-columns:16px var(--lw) 1fr var(--pw) 16px;min-height:0;position:relative}
+#railL{grid-column:1;grid-row:1} #layersPane{grid-column:2;grid-row:1} #stage{grid-column:3;grid-row:1} #propsPane{grid-column:4;grid-row:1} #railR{grid-column:5;grid-row:1}
+main.noL{--lw:0px} main.noL #layersPane,main.noL #layersResizer{display:none}
+main.noR{--pw:0px} main.noR #propsPane,main.noR #propsResizer{display:none}
+.rail{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:center;background:var(--panel2);cursor:pointer;color:var(--muted);transition:background .12s,color .12s}
+#railL{border-right:1px solid var(--line)} #railR{border-left:1px solid var(--line)}
+.rail:hover{background:var(--acc-soft);color:var(--acc)}
+.rail svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.rail span{display:flex;flex-direction:column;align-items:center;gap:10px}
+.rail i{writing-mode:vertical-rl;font-style:normal;font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+#propsResizer{position:absolute;top:0;bottom:0;right:calc(16px + var(--pw));width:9px;margin-right:-5px;cursor:col-resize;z-index:6}
+#layersResizer{position:absolute;top:0;bottom:0;left:calc(16px + var(--lw));width:9px;margin-left:-5px;cursor:col-resize;z-index:6}
+#layersResizer:hover,#layersResizer.on,#propsResizer:hover,#propsResizer.on{background:linear-gradient(to right,transparent 3px,var(--acc) 3px,var(--acc) 6px,transparent 6px)}
+aside{background:var(--panel);overflow:auto;min-height:0}
+#layersPane{border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:visible}
+#layerList{padding-bottom:8px;overflow:auto;flex:1;min-height:0}
+#propsPane{border-left:1px solid var(--line)}
+.pane-h{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.layer{display:flex;align-items:center;gap:2px;height:36px;padding:0 4px;margin:1px 6px;border-radius:8px;cursor:pointer;user-select:none;position:relative}
+.layer:hover{background:var(--hover)}
+.layer.sel{background:var(--acc-soft)}
+.layer.drop-above::before,.layer.drop-below::after{content:"";position:absolute;left:6px;right:6px;height:2px;background:var(--acc);border-radius:2px}
+.layer.drop-above::before{top:-2px}.layer.drop-below::after{bottom:-2px}
+.layer.dragging{opacity:.4}
+.layer .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px}
+.layer.hidden .nm,.layer.hidden .sw{opacity:.4}
+.layer button.icon{width:26px;height:26px;border-radius:6px}
+.layer button.icon svg.i{width:16px;height:16px}
+.layer button.off{opacity:.35}
+.layer button.on{color:var(--acc)}
+.layer .sw{width:20px;height:14px;border-radius:3px;border:1px solid var(--line2);flex:none;margin:0 4px;background-size:cover;background-position:center;display:grid;place-items:center}
+.layer .sw.ico{border:0;color:var(--muted)}
+.layer .sw.ico svg.i{width:16px;height:16px}
+.layer .tag{font-size:11px;color:var(--muted);padding-right:2px;white-space:nowrap}
+.layer input.rn{height:26px;flex:1}
+.layers-foot{padding:10px;border-top:1px solid var(--line);position:relative}
+.layers-foot .grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.layers-foot button{justify-content:center;padding:0 6px}
+.layers-foot .wide{grid-column:span 2}
+.soon{font-size:11px;color:var(--muted);text-align:center;margin-top:6px}
+.menu{position:absolute;left:10px;bottom:calc(100% - 4px);background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:4px;display:flex;flex-direction:column;min-width:200px;z-index:5}
+.menu[hidden]{display:none}
+.menu button{justify-content:flex-start}
+.menu .grad{width:18px;height:18px;border-radius:4px;flex:none}
+#stage{position:relative;overflow:hidden;touch-action:none;background:var(--stage);user-select:none}
+#stage.space,#stage.space *{cursor:grab!important}
+#stage.panning,#stage.panning *{cursor:grabbing!important}
+#stage .mv{cursor:move}
+#stage .pick{cursor:pointer}
+#sheetShadow{position:absolute;left:0;top:0;pointer-events:none;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.10),0 8px 24px rgba(0,0,0,.12)}
+#svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+#gridRect{pointer-events:none}
+#overlay{pointer-events:none}
+.ghost{opacity:.32;pointer-events:none}
+.sel-outline{fill:none;stroke:var(--acc);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.sel-outline.locked{stroke:#9ca3af}
+.img-box{fill:none;stroke:var(--acc);stroke-width:1;vector-effect:non-scaling-stroke}
+.handle.side{rx:2}
+.marquee{fill:rgba(37,99,235,.08);stroke:var(--acc);stroke-width:1;vector-effect:non-scaling-stroke}
+.group-box{fill:none;stroke:var(--acc);stroke-width:1;vector-effect:non-scaling-stroke}
+.handle{fill:#fff;stroke:var(--acc);stroke-width:1.5;vector-effect:non-scaling-stroke;pointer-events:all}
+.guide{stroke:var(--guide);stroke-width:1;vector-effect:non-scaling-stroke}
+.dim{fill:var(--muted);font-weight:500;font-family:inherit}
+.dim.acc{fill:var(--acc)}
+.lbl{fill:var(--text);font-weight:600;font-family:inherit}
+#hud{position:absolute;left:10px;bottom:10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:4px 9px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;pointer-events:none}
+#hud:empty{display:none}
+#elTools{position:absolute;left:0;top:0;z-index:3;display:flex;gap:6px;transform:translate(var(--px),var(--py)) translate(-50%,-50%)}
+#elTools[hidden]{display:none}
+#elTools button{width:34px;height:34px;padding:0;border-radius:50%;justify-content:center;background:var(--panel);border:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,.25);color:var(--acc);transition:background .12s,color .12s}
+#elTools button[hidden]{display:none}
+#elTools button:hover{background:var(--acc);color:#fff}
+#elTools button:active{transform:scale(.9)}
+#elTools svg.i{width:18px;height:18px;stroke-width:2}
+#rotTip{position:absolute;z-index:4;transform:translate(-50%,calc(-100% - 26px));background:#1f2937;color:#fff;font-size:12px;line-height:1.5;padding:8px 10px;border-radius:8px;pointer-events:none;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.2)}
+#rotTip[hidden]{display:none}
+#rotTip .mut{color:#9ca3af}
+#stage.dragover::after{content:"Отпустите файл: на карман — во вкладыш, на подложку — фоном";position:absolute;inset:12px;border:2px dashed var(--acc);border-radius:14px;display:grid;place-items:center;background:rgba(37,99,235,.06);color:var(--acc);font-weight:600;font-size:15px;pointer-events:none;text-align:center;padding:20px}
+.sec{padding:12px 14px 14px;border-bottom:1px solid var(--line)}
+.sec h3{margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;align-items:center;justify-content:space-between}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+fieldset:disabled{opacity:.5}
+.row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.row:last-child{margin-bottom:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.cap{color:var(--muted);font-size:12px;margin-bottom:4px}
+.info{font-size:12px;color:var(--text);background:var(--panel2);border-radius:7px;padding:6px 8px;margin-bottom:8px;font-variant-numeric:tabular-nums}
+input.txt,textarea.txt,select{height:30px;border:1px solid var(--line);border-radius:7px;padding:0 8px;font:inherit;background:var(--input);color:inherit;width:100%;min-width:0}
+input.txt:focus,select:focus,.nf:focus-within{outline:2px solid var(--acc-soft);border-color:var(--acc)}
+.nf{display:flex;align-items:center;border:1px solid var(--line);border-radius:7px;height:30px;padding:0 8px;background:var(--input);gap:6px;min-width:0;flex:1}
+.nf b{color:var(--muted);font-weight:500;font-size:12px;flex:none}
+.nf i{color:var(--muted);font-style:normal;font-size:12px;flex:none}
+.nf input{border:0;outline:0;font:inherit;width:100%;min-width:0;background:none;color:inherit;font-variant-numeric:tabular-nums}
+.slider{display:flex;align-items:center;gap:8px;flex:1}
+.slider input[type=range]{flex:1;accent-color:var(--acc);min-width:0}
+.slider .nf{flex:none;width:64px}
+.color{display:flex;gap:6px;align-items:center;flex:1;min-width:0}
+input[type=color]{width:36px;height:30px;padding:2px;border:1px solid var(--line);border-radius:7px;background:var(--input);flex:none;cursor:pointer}
+.color input.txt{text-transform:uppercase;font-variant-numeric:tabular-nums}
+.check{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.check input{accent-color:var(--acc);width:15px;height:15px;margin:0}
+.thumb{height:96px;border-radius:8px;border:1px solid var(--line);background-color:var(--panel2);background-position:center;background-size:contain;background-repeat:no-repeat;margin-bottom:10px}
+.hint{color:var(--muted);font-size:12px;margin:8px 0 0}
+.warn{color:var(--warn);font-size:12px;margin-top:4px;white-space:pre-line}
+.warn.bad{color:var(--bad)}
+.warn:empty{display:none}
+.btns{display:flex;gap:6px;flex-wrap:wrap}
+.btns button{flex:1;justify-content:center;padding:0 8px}
+.drop{border:1.5px dashed var(--line2);border-radius:10px;padding:14px;text-align:center;color:var(--muted)}
+.drop button{display:flex;width:100%;justify-content:center;margin:0 0 8px;white-space:normal;height:auto;min-height:32px;padding:6px 10px;text-align:center}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper output{min-width:44px;text-align:center;font-size:18px;font-weight:650;font-variant-numeric:tabular-nums}
+.sides-svg{width:100%;height:auto;display:block;margin-bottom:4px}
+.sp-plate{fill:var(--acc-soft)}
+.sp-edge{stroke:var(--line2);stroke-width:3;stroke-dasharray:5 4;stroke-linecap:round}
+.sp-edge.on{stroke:var(--acc);stroke-width:8;stroke-dasharray:none}
+.sp-hit{stroke:transparent;stroke-width:22;cursor:pointer}
+.sp-txt{font-size:10px;fill:var(--muted);font-family:inherit}
+.empty p{color:var(--muted);margin:0 0 12px}
+dl.keys{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;margin:0;font-size:12px}
+dl.keys dt{font-weight:600;white-space:nowrap}
+dl.keys dd{margin:0;color:var(--muted)}
+kbd{font:11px/1 ui-monospace,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:2px 4px;background:var(--panel2)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,16px);opacity:0;transition:opacity .2s,transform .2s;background:#1f2937;color:#fff;padding:9px 14px;border-radius:10px;pointer-events:none;z-index:10;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+@media (max-width:1100px){.hide-sm{display:none}}
+</style>
+</head>
+<body>
+<header id="top"></header>
+<main>
+  <button type="button" class="rail" id="railL"></button>
+  <aside id="layersPane">
+    <div class="pane-h">Слои <span id="layerHint" style="text-transform:none;letter-spacing:0;font-weight:400">тяните, чтобы менять порядок</span></div>
+    <div id="layerList"></div>
+    <div class="layers-foot" id="layersFoot"></div>
+  </aside>
+  <section id="stage">
+    <div id="sheetShadow"></div>
+    <svg id="svg" xmlns="http://www.w3.org/2000/svg">
+      <defs id="defs">
+        <pattern id="gridPat" patternUnits="userSpaceOnUse" width="10" height="10"><path id="gridPath" fill="none" stroke="#a9afb8"/></pattern>
+      </defs>
+      <g id="world">
+        <rect id="gridRect" fill="url(#gridPat)"/>
+        <g id="under"><image id="ghost" class="ghost" preserveAspectRatio="none" display="none"/></g>
+        <g id="scene"></g>
+        <g id="overlay"></g>
+      </g>
+    </svg>
+    <div id="hud"></div>
+  </section>
+  <aside id="propsPane"></aside>
+  <button type="button" class="rail" id="railR"></button>
+</main>
+<div id="toast"></div>
+<input type="file" id="imageInput" accept="image/*" hidden>
+<input type="file" id="projectInput" hidden>
+<input type="file" id="fontInput" accept=".ttf,.otf,.woff,.woff2" hidden>
+<div id="modal" hidden></div>
+
+<script>/*FONTS*/</script>
+<script>
+'use strict';
+/* ================= helpers ================= */
+const NS = 'http://www.w3.org/2000/svg';
+const $ = (s, r = document) => r.querySelector(s);
+const uid = () => Math.random().toString(36).slice(2, 10);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const r2 = v => Math.round(v * 100) / 100;
+const PROPS = { value: 1, checked: 1, disabled: 1, hidden: 1 };
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  if (attrs) for (const k in attrs) {
+    const v = attrs[k];
+    if (v == null || v === false) continue;
+    if (k === 'class') e.className = v;
+    else if (k === 'html') e.innerHTML = v;
+    else if (k.startsWith('on') && typeof v === 'function') e.addEventListener(k.slice(2), v);
+    else if (k in PROPS) e[k] = v;
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat(9)) if (c != null && c !== false) e.append(c);
+  return e;
+}
+function setA(e, attrs) { for (const k in attrs) { const v = attrs[k]; if (v == null) e.removeAttribute(k); else e.setAttribute(k, v); } }
+function sv(tag, attrs) { const e = document.createElementNS(NS, tag); if (attrs) setA(e, attrs); return e; }
+
+const ICON = {
+  eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  eyeOff: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><path d="M4 4l16 16"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  unlock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.6-1.7"/>',
+  undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
+  redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  minus: '<path d="M5 12h14"/>',
+  fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  pipette: '<path d="M14 6l4 4"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L17 9l-3-3z"/><path d="M15 7L5.5 16.5 4 20l3.5-1.5L17 9"/>',
+  swap: '<path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+  download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/>',
+  file: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
+  pocket: '<path d="M5 5v14h14V5"/><path d="M9 5a3 3 0 0 0 6 0"/>',
+  layer: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+  holes: '<circle cx="6" cy="6" r="2.2"/><circle cx="18" cy="6" r="2.2"/><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="18" r="2.2"/>',
+  text: '<path d="M5 7V5h14v2M12 5v14M9 19h6"/>',
+  chev: '<path d="M8 10l4 4 4-4"/>',
+  flip: '<path d="M12 3v18" stroke-dasharray="2 2.5"/><path d="M9 7L4 17h5z"/><path d="M15 7l5 10h-5z"/>',
+  grid: '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',
+  alignL: '<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>',
+  alignC: '<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>',
+  alignR: '<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>',
+  distH: '<path d="M4 3v18M20 3v18"/><rect x="9" y="7" width="6" height="10" rx="1"/>',
+  distV: '<path d="M3 4h18M3 20h18"/><rect x="7" y="9" width="10" height="6" rx="1"/>',
+  aL: '<path d="M4 3v18"/><rect x="7" y="6" width="11" height="4" rx="1"/><rect x="7" y="14" width="6" height="4" rx="1"/>',
+  aCH: '<path d="M12 3v18"/><rect x="5" y="6" width="14" height="4" rx="1"/><rect x="8" y="14" width="8" height="4" rx="1"/>',
+  aR: '<path d="M20 3v18"/><rect x="6" y="6" width="11" height="4" rx="1"/><rect x="11" y="14" width="6" height="4" rx="1"/>',
+  aT: '<path d="M3 4h18"/><rect x="6" y="7" width="4" height="11" rx="1"/><rect x="14" y="7" width="4" height="6" rx="1"/>',
+  aCV: '<path d="M3 12h18"/><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="8" width="4" height="8" rx="1"/>',
+  aB: '<path d="M3 20h18"/><rect x="6" y="6" width="4" height="11" rx="1"/><rect x="14" y="11" width="4" height="6" rx="1"/>',
+  moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  list: '<path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01" stroke-width="3"/>',
+  empty: '<rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 2.5"/>',
+  rotate: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+};
+const ic = n => `<svg class="i" viewBox="0 0 24 24">${ICON[n]}</svg>`;
+function B(icon, label, onclick, o = {}) {
+  return el('button', { type: 'button', class: (o.cls || '') + (label ? '' : ' icon'), title: o.title || label, onclick, disabled: o.disabled, id: o.id,
+    html: (icon ? ic(icon) : '') + (label ? `<span>${label}</span>` : '') + (o.after || '') });
+}
+let toastT = 0;
+function toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
+const readDataURL = f => new Promise((ok, err) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = err; r.readAsDataURL(f); });
+const loadImg = src => new Promise((ok, err) => { const i = new Image(); i.onload = () => ok(i); i.onerror = err; i.src = src; });
+let dlNs;
+async function download(blob, name) {
+  if (window.claude && typeof window.claude.use === 'function') {
+    try { if (dlNs === undefined) dlNs = await window.claude.use('downloads'); } catch { dlNs = null; }
+    if (dlNs) {
+      try { await dlNs.save({ filename: name, data: blob }); return true; }
+      catch (e) { if (e && e.code === 'declined') return false; if (e && e.code === 'rejected_extension') return 'rejected'; if (e && e.code === 'rate_limited') { toast('Подождите секунду и повторите'); return false; } }
+    }
+  }
+  const u = URL.createObjectURL(blob); const a = el('a', { href: u, download: name }); document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 1000); return true;
+}
+function normHex(s) { s = String(s || '').trim().replace(/^#/, ''); if (/^[0-9a-f]{3}$/i.test(s)) s = s.split('').map(c => c + c).join(''); return /^[0-9a-f]{6}$/i.test(s) ? '#' + s.toLowerCase() : null; }
+
+/* ================= model ================= */
+const STORE = 'stand-designer/v1';
+const PX_PER_MM = 96 / 25.4;               // 100% = реальный размер на экране
+const SHEET = [2050, 3050];                // стандартный лист ПВХ
+const PRESETS = [[500, 700], [600, 900], [700, 1000], [1000, 1000], [800, 1200], [1000, 1500], [1200, 1800], [1500, 2000], [2050, 3050]];
+const POCKET_FORMATS = [['А3', 297, 420], ['А4', 210, 297], ['А5', 148, 210], ['А6', 105, 148], ['Евро ⅓ А4', 99, 210], ['Фото 10×15', 100, 150], ['Фото 15×21', 150, 210], ['Фото 20×30', 200, 300]];
+const SIDE_NAMES = { t: 'сверху', b: 'снизу', l: 'слева', r: 'справа' };
+const CW = ['t', 'r', 'b', 'l'];
+/* стороны кармана хранятся до поворота; на схеме показываем, как они выглядят на стенде */
+const toLocalSide = (v, rot, flip) => { if (flip && (v === 'l' || v === 'r')) v = v === 'l' ? 'r' : 'l'; return CW[(CW.indexOf(v) - rot / 90 + 4) % 4]; };
+const GRID_STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+
+const common = () => ({ id: uid(), opacity: 1, locked: false, visible: true });
+const fillDefaults = (fill, fill2, type = 'solid') => ({ fillType: type, fill, fill2, angle: 90, fillOpacity: 1 });
+const makeBase = () => ({ ...common(), type: 'base', name: 'База', x: 0, y: 0, w: 1000, h: 700, thickness: 4, ...fillDefaults('#ffffff', '#dbe4ff'), image: null });
+const makeShape = (kind = 'solid') => ({ ...common(), type: 'shape', name: 'Слой', x: 0, y: 0, w: 300, h: 200, rot: 0, radius: 0, image: null,
+  ...fillDefaults(kind === 'grad' ? '#2563eb' : '#f59e0b', '#a5f3fc', kind === 'grad' ? 'linear' : kind === 'empty' ? 'none' : 'solid') });
+const makePocket = () => ({ ...common(), type: 'pocket', name: 'Карман', x: 0, y: 0, w: 0, h: 0, rot: 0, iw: 210, ih: 297,
+  sides: { t: false, r: true, b: true, l: true }, tape: 10, tapeColor: '#ffffff', gap: 2, notch: true, showName: true, image: null });
+const makeText = () => ({ ...common(), type: 'text', name: 'Текст', x: 0, y: 0, w: 0, h: 0, rot: 0,
+  text: 'Заголовок стенда', font: 'Montserrat', size: 60, weight: 700, italic: false, underline: false, strike: false, caps: false,
+  align: 'center', lh: 1.2, ls: 0, skew: 0, color: '#1f2937', colorOpacity: 1, strokeW: 0, strokeColor: '#ffffff', wrap: false, boxW: 600 });
+const makeGrid = () => ({ ...common(), type: 'grid', name: 'Сетка', x: 0, y: 0, w: 0, h: 0, step: 50, color: '#2563eb', lineOpacity: 0.35, snap: true, export: false });
+const makeHoles = () => ({ ...common(), type: 'holes', name: 'Отверстия', x: 0, y: 0, w: 0, h: 0, count: 4, d: 6, inset: 20, color: '#374151' });
+const MAKERS = { base: makeBase, shape: () => makeShape(), pocket: makePocket, holes: makeHoles, text: makeText, grid: makeGrid };
+const DEFAULT_TITLE = 'Конструктор стендов';
+const UNITS = { 'шт': ['count', 1], 'компл.': ['count', 1], 'лист': ['sheet', 1], 'упак.': ['count', 1], 'усл.': ['count', 1], 'ч': ['time', 1],
+  'мм': ['len', 0.001], 'см': ['len', 0.01], 'м.пог.': ['len', 1], 'см²': ['area', 1e-4], 'м²': ['area', 1], 'кг': ['mass', 1], 'л': ['vol', 1] };
+function normPricing(p) {
+  p = p && typeof p === 'object' ? p : {};
+  const num = v => v === '' || v == null || !isFinite(+v) ? null : +v;
+  const items = {};
+  for (const [k, v] of Object.entries(p.items || {})) if (v && UNITS[v.unit]) items[k] = { unit: v.unit, price: num(v.price) };
+  return {
+    waste: isFinite(+p.waste) ? clamp(+p.waste, 0, 500) : 10, currency: String(p.currency || 'руб.').slice(0, 10), items,
+    custom: (Array.isArray(p.custom) ? p.custom : []).filter(c => c && typeof c === 'object').map(c => ({ id: String(c.id || uid()), name: String(c.name || ''), qty: num(c.qty), unit: UNITS[c.unit] ? c.unit : 'шт', price: num(c.price) })),
+  };
+}
+const newDoc = () => ({ version: 3, title: DEFAULT_TITLE, pricing: normPricing(), objects: [makeBase()] });
+
+function pocketGeom(o) {
+  const s = o.sides, t = o.tape, g = o.gap, L = s.l ? t : 0, R = s.r ? t : 0, T = s.t ? t : 0, Bo = s.b ? t : 0;
+  return { w: o.iw + 2 * g + L + R, h: o.ih + 2 * g + T + Bo, ix: L + g, iy: T + g };
+}
+function syncDerived(o) {
+  let l = null;
+  if (o.type === 'pocket') l = pocketGeom(o);
+  else if (o.type === 'text') l = textLayout(o);
+  if (!l) return;
+  const q = o.rot % 180; o.w = r2(q ? l.h : l.w); o.h = r2(q ? l.w : l.h);
+}
+/* размеры элемента до поворота (в его собственной системе координат) */
+const localWH = o => o.type === 'pocket' ? pocketGeom(o) : (o.rot % 180 ? { w: o.h, h: o.w } : { w: o.w, h: o.h });
+function objTransform(o) {
+  if (o.type === 'holes') return null;
+  if (o.type === 'grid') return null;
+  if (!o.rot && !o.flip) return `translate(${o.x} ${o.y})`;
+  const l = localWH(o);
+  return `translate(${r2(o.x + o.w / 2)} ${r2(o.y + o.h / 2)})${o.flip ? ' scale(-1 1)' : ''} rotate(${o.rot}) translate(${r2(-l.w / 2)} ${r2(-l.h / 2)})`;
+}
+
+function normalizeObj(raw, ids) {
+  if (!raw || typeof raw !== 'object' || !MAKERS[raw.type]) return null;
+  const o = Object.assign(MAKERS[raw.type](), raw);
+  if (typeof o.id !== 'string' || ids.has(o.id)) o.id = uid();
+  for (const k of ['x', 'y']) if (!isFinite(o[k])) o[k] = 0;
+  o.name = String(o.name || '').slice(0, 80) || MAKERS[o.type]().name;
+  o.opacity = isFinite(o.opacity) ? clamp(+o.opacity, 0, 1) : 1;
+  o.visible = o.visible !== false; o.locked = !!o.locked;
+  if (o.type === 'base' || o.type === 'shape') {
+    if (!(o.w > 0 && o.h > 0)) return null;
+    o.fill = normHex(o.fill) || '#ffffff'; o.fill2 = normHex(o.fill2) || '#dbe4ff';
+    if (!['solid', 'linear', 'radial'].concat(o.type === 'shape' ? ['none'] : []).includes(o.fillType)) o.fillType = 'solid';
+    o.angle = isFinite(o.angle) ? +o.angle : 90; o.fillOpacity = isFinite(o.fillOpacity) ? clamp(+o.fillOpacity, 0, 1) : 1;
+  }
+  if (o.type === 'base') {
+    o.x = 0; o.y = 0; o.thickness = o.thickness === 5 ? 5 : 4;
+    const i = o.image;
+    if (i && !(i.w > 0 && i.h > 0 && typeof i.asset === 'string')) o.image = null;
+    else if (i) o.image = Object.assign({ x: 0, y: 0, opacity: 1, lockRatio: true, ar: i.w / i.h }, i);
+  }
+  if (o.type === 'shape' || o.type === 'pocket' || o.type === 'text') o.rot = [0, 90, 180, 270].includes(+o.rot) ? +o.rot : 0;
+  if (o.type === 'shape' || o.type === 'pocket') o.flip = !!o.flip;
+  if (o.type === 'text') {
+    o.text = String(o.text ?? ''); if (typeof o.font !== 'string' || !o.font) o.font = FONT_DB[0].label; // свой шрифт может подгрузиться позже
+    o.size = clamp(+o.size || 60, 1, 5000); o.weight = clamp(+o.weight || 400, 100, 900);
+    for (const k of ['italic', 'underline', 'strike', 'caps', 'wrap']) o[k] = !!o[k];
+    if (!['left', 'center', 'right'].includes(o.align)) o.align = 'left';
+    o.lh = clamp(+o.lh || 1.2, 0.5, 5); o.ls = clamp(+o.ls || 0, -0.5, 2); o.skew = clamp(+o.skew || 0, -45, 45);
+    o.color = normHex(o.color) || '#1f2937'; o.strokeColor = normHex(o.strokeColor) || '#ffffff';
+    o.colorOpacity = isFinite(o.colorOpacity) ? clamp(+o.colorOpacity, 0, 1) : 1; o.strokeW = clamp(+o.strokeW || 0, 0, 100);
+    o.boxW = clamp(+o.boxW || 600, 10, 20000);
+    syncDerived(o);
+  }
+  if (o.type === 'grid') { o.step = clamp(+o.step || 50, 2, 5000); o.color = normHex(o.color) || '#2563eb'; o.lineOpacity = isFinite(o.lineOpacity) ? clamp(+o.lineOpacity, 0, 1) : 0.35; o.snap = o.snap !== false; o.export = !!o.export; }
+  if (o.type === 'shape') {
+    o.radius = isFinite(o.radius) ? Math.max(0, +o.radius) : 0;
+    const im = o.image; o.image = im && typeof im.asset === 'string' ? { asset: im.asset, opacity: isFinite(im.opacity) ? im.opacity : 1, fit: ['cover', 'contain', 'stretch'].includes(im.fit) ? im.fit : 'cover', ar: im.ar > 0 ? im.ar : 1 } : null;
+  }
+  if (o.type === 'pocket') o.showName = o.showName !== false;
+  if (o.type === 'pocket') {
+    if (!(o.iw > 0 && o.ih > 0)) return null;
+    const s = o.sides || {}; o.sides = { t: !!s.t, r: !!s.r, b: !!s.b, l: !!s.l };
+    o.tape = clamp(+o.tape || 10, 1, 60); o.gap = clamp(+o.gap || 0, 0, 30); o.notch = !!o.notch;
+    o.tapeColor = normHex(o.tapeColor) || '#ffffff';
+    if (o.image && typeof o.image.asset !== 'string') o.image = null;
+    else if (o.image) o.image = { asset: o.image.asset, opacity: isFinite(o.image.opacity) ? o.image.opacity : 1 };
+    syncDerived(o);
+  }
+  if (o.type === 'holes') {
+    o.count = clamp(Math.round((+o.count || 4) / 2) * 2, 4, 60);
+    o.d = clamp(+o.d || 6, 1, 50); o.inset = clamp(+o.inset || 20, 0, 1000); o.color = normHex(o.color) || '#374151';
+  }
+  ids.add(o.id);
+  return o;
+}
+function normalize(d) {
+  if (!d || !Array.isArray(d.objects)) return null;
+  const ids = new Set(), out = d.objects.map(r => normalizeObj(r, ids)).filter(Boolean);
+  const bi = out.findIndex(o => o.type === 'base'); if (bi < 0) return null;
+  const [b] = out.splice(bi, 1);
+  const rest = out.filter(o => o.type !== 'base');
+  const single = t => { const i = rest.findIndex(o => o.type === t); return (o, j) => o.type !== t || j === i; }; // по одному слою отверстий и сетки
+  const sh = single('holes'), sg = single('grid');
+  return { version: 3, title: String(d.title || DEFAULT_TITLE).slice(0, 120), pricing: normPricing(d.pricing), objects: [b, ...rest.filter((o, j) => sh(o, j) && sg(o, j))] };
+}
+
+let doc = newDoc(), assets = {}, unit = 'mm', sel = null, selIds = [];
+const view = { x: 0, y: 0, z: 0.5 };
+const byId = id => doc.objects.find(o => o.id === id);
+const base = () => doc.objects.find(o => o.type === 'base');
+const holesObj = () => doc.objects.find(o => o.type === 'holes');
+const isBox = o => !!o && (o.type === 'pocket' || o.type === 'shape' || o.type === 'text');
+const canFlip = o => !!o && (o.type === 'pocket' || o.type === 'shape');
+const gridObj = () => doc.objects.find(o => o.type === 'grid');
+
+/* units */
+const U = () => unit === 'cm' ? 10 : 1;
+const unitLabel = () => unit === 'cm' ? 'см' : 'мм';
+const fmtLen = mm => String(+(mm / U()).toFixed(unit === 'cm' ? 2 : 1)).replace('.', ',');
+function parseLen(s) { const v = parseFloat(String(s).replace(/\s/g, '').replace(',', '.')); return isFinite(v) ? v * U() : null; }
+function formatName(w, h) {
+  const a = Math.min(w, h), b = Math.max(w, h), f = POCKET_FORMATS.find(p => p[1] === a && p[2] === b);
+  return f ? f[0] : `${fmtLen(w)}×${fmtLen(h)}`;
+}
+
+/* ================= history ================= */
+let past = [], future = [], lastKey = null, lastAt = 0;
+function commit(key) {
+  const now = performance.now();
+  if (key && key === lastKey && now - lastAt < 800) { lastAt = now; return; }
+  past.push(JSON.stringify(doc)); if (past.length > 200) past.shift();
+  future = []; lastKey = key || null; lastAt = now;
+}
+function mutate(key, fn) { commit(key); fn(); doc.objects.forEach(syncDerived); changed(); }
+function restore(json) { doc = JSON.parse(json); selIds = selIds.filter(i => byId(i)); if (sel && !byId(sel)) sel = selIds[selIds.length - 1] || null; lastKey = null; changed(); }
+function undo() { if (!past.length) return; future.push(JSON.stringify(doc)); restore(past.pop()); }
+function redo() { if (!future.length) return; past.push(JSON.stringify(doc)); restore(future.pop()); }
+
+/* ================= persistence ================= */
+function usedAssets() { const a = {}; for (const o of doc.objects) if (o.image && assets[o.image.asset]) a[o.image.asset] = assets[o.image.asset]; return a; }
+function usedCustomFonts() {
+  const used = new Set(doc.objects.filter(o => o.type === 'text').map(o => o.font));
+  return FONT_DB.filter(f => f.custom && used.has(f.label)).map(f => ({ label: f.label, fmt: f.faces[0].fmt, data: FONT_DATA[f.faces[0].file] }));
+}
+const serialize = (withAssets = true) => ({ app: 'stand-designer', version: 3, unit, doc, assets: withAssets ? usedAssets() : {}, fonts: withAssets ? usedCustomFonts() : [] });
+let saveT = 0, quotaWarned = false;
+function scheduleSave() { clearTimeout(saveT); saveT = setTimeout(saveNow, 500); }
+function saveNow() {
+  clearTimeout(saveT);
+  try { localStorage.setItem(STORE, JSON.stringify(serialize())); }
+  catch {
+    try { localStorage.setItem(STORE, JSON.stringify(serialize(false))); } catch {}
+    if (!quotaWarned) { quotaWarned = true; toast('Картинки слишком большие для автосохранения браузера. Сохраните проект в файл.', 5000); }
+  }
+}
+function loadStored() {
+  try {
+    const raw = localStorage.getItem(STORE); if (!raw) return false;
+    const d = JSON.parse(raw); const n = normalize(d && d.doc); if (!n) return false;
+    doc = n; assets = (d.assets && typeof d.assets === 'object') ? d.assets : {}; unit = d.unit === 'cm' ? 'cm' : 'mm';
+    if (Array.isArray(d.fonts) && d.fonts.length) loadCustomFonts(d.fonts);
+    return true;
+  } catch { return false; }
+}
+const fileBase = () => (doc.title || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || 'стенд';
+async function saveFile() {
+  const name = fileBase() + '.stand.json';
+  if (await download(new Blob([JSON.stringify(serialize(), null, 1)], { type: 'application/json' }), name)) toast('Проект сохранён: ' + name + '. Откройте его кнопкой «Открыть», чтобы продолжить.', 4000);
+}
+async function openFile(file) {
+  try {
+    const d = JSON.parse(await file.text()); const n = normalize(d && (d.doc || d));
+    if (!n) throw 0;
+    if (Array.isArray(d.fonts)) { await loadCustomFonts(d.fonts); for (const f of d.fonts) try { await fontStore.put(f); } catch {} }
+    commit(); Object.assign(assets, d.assets || {}); doc = n; if (d.unit) unit = d.unit === 'cm' ? 'cm' : 'mm';
+    sel = base().id; selIds = [sel]; changed(); fit(); toast('Проект открыт');
+  } catch { toast('Это не похоже на файл проекта'); }
+}
+function newStand() { commit(); doc = newDoc(); sel = base().id; selIds = [sel]; changed(); fit(); toast('Новый стенд. Ctrl+Z вернёт прежний'); }
+
+/* ================= objects: add / delete / order ================= */
+function visibleCenter() { const r = stage.getBoundingClientRect(); return { x: (r.width / 2 - view.x) / view.z, y: (r.height / 2 - view.y) / view.z }; }
+function placeInView(o) {
+  const b = base(), c = visibleCenter();
+  const cx = b.w < o.w ? b.w / 2 : clamp(c.x, o.w / 2, b.w - o.w / 2), cy = b.h < o.h ? b.h / 2 : clamp(c.y, o.h / 2, b.h - o.h / 2);
+  o.x = Math.round(cx - o.w / 2); o.y = Math.round(cy - o.h / 2);
+}
+const nextName = (type, word) => `${word} ${doc.objects.filter(o => o.type === type).length + 1}`;
+function insertObj(o) {
+  const h = doc.objects.findIndex(x => x.type === 'holes');
+  if (h > 0 && o.type !== 'holes') doc.objects.splice(h, 0, o); else doc.objects.push(o); // отверстия остаются сверху
+  if (o.type === 'grid') { const i = doc.objects.indexOf(o); if (i < 0) doc.objects.push(o); }
+}
+function addShape(kind) {
+  const b = base(), o = makeShape(kind);
+  o.name = { grad: 'Градиент', empty: 'Пустой', solid: 'Заливка' }[kind] + ' ' + (doc.objects.filter(x => x.type === 'shape').length + 1);
+  o.w = Math.round(Math.min(400, b.w * 0.4)); o.h = Math.round(Math.min(300, b.h * 0.4)); placeInView(o);
+  mutate(null, () => insertObj(o)); select(o.id);
+}
+function addPocket() {
+  const o = makePocket(); o.name = nextName('pocket', 'Карман'); syncDerived(o); placeInView(o);
+  mutate(null, () => insertObj(o)); select(o.id);
+}
+function addText() {
+  const o = makeText(); o.name = nextName('text', 'Текст'); syncDerived(o); placeInView(o);
+  mutate(null, () => insertObj(o)); select(o.id); focusText();
+}
+function addGrid() {
+  const g = gridObj(); if (g) { select(g.id); toast('Сетка уже есть: настройки справа'); return; }
+  const o = makeGrid(); mutate(null, () => insertObj(o)); select(o.id);
+}
+function focusText() { setTimeout(() => { const t = $('#textArea'); if (t) { t.focus(); t.select(); } }, 60); }
+function addHoles() {
+  const h = holesObj(); if (h) { select(h.id); toast('Отверстия уже есть: количество меняется справа'); return; }
+  const o = makeHoles(); mutate(null, () => doc.objects.push(o)); select(o.id);
+}
+function deleteSel() {
+  const list = selected(); if (!list.length) return;
+  const del = list.filter(o => o.type !== 'base' && !o.locked);
+  if (!del.length) return toast(list.some(o => o.type === 'base') ? 'Подложку удалить нельзя' : 'Слой заблокирован');
+  const ids = new Set(del.map(o => o.id));
+  mutate(null, () => { doc.objects = doc.objects.filter(x => !ids.has(x.id)); });
+  select(null);
+}
+function duplicateSel() {
+  const list = selected().filter(isBox); if (!list.length) return;
+  const copies = [];
+  mutate(null, () => {
+    for (const o of list) {
+      const c = JSON.parse(JSON.stringify(o)); c.id = uid(); c.x += 20; c.y += 20; c.name = o.name + ' копия'; c.locked = false;
+      const i = doc.objects.findIndex(x => x.id === o.id); doc.objects.splice(i + 1, 0, c); copies.push(c.id);
+    }
+  });
+  setSel(copies);
+}
+/* ---- выравнивание и распределение ---- */
+let alignToStand = false, multiGap = 20, distMode = 'gap';
+/* ---- расстановка сеткой: элементы в порядке чтения раскладываются по ячейкам C×R ---- */
+const arrangeOpts = { cols: null, rows: null, mode: 'gap', gx: 30, gy: 30 };
+/* колонки и ряды: задано одно — второе считается; последнее изменённое поле главное */
+function gridDims(n) {
+  n = Math.max(n, 1);
+  if (arrangeOpts.rows && !arrangeOpts.cols) { const R = clamp(arrangeOpts.rows, 1, n); return { C: Math.ceil(n / R), R }; }
+  const C = clamp(arrangeOpts.cols || autoCols(), 1, n); return { C, R: Math.ceil(n / C) };
+}
+const arrangeList = () => selected().filter(o => isBox(o) && !o.locked);
+function readingRows(list) {
+  const rows = [];
+  for (const o of [...list].sort((a, c) => a.y - c.y)) {
+    const r = rows[rows.length - 1];
+    if (r && o.y < r.bottom - Math.min(o.h, r.h) * 0.5) { r.items.push(o); r.bottom = Math.max(r.bottom, o.y + o.h); }
+    else rows.push({ items: [o], bottom: o.y + o.h, h: o.h });
+  }
+  rows.forEach(r => r.items.sort((a, c) => a.x - c.x));
+  return rows;
+}
+function autoCols() {
+  const list = arrangeList(); if (!list.length) return 1;
+  const mx = Math.max(...readingRows(list).map(r => r.items.length));
+  return mx > 1 ? mx : Math.ceil(Math.sqrt(list.length));
+}
+function arrangeGrid() {
+  const list = arrangeList(); if (list.length < 2) return toast('Выберите хотя бы 2 элемента');
+  const ord = readingRows(list).flatMap(r => r.items), n = ord.length, { C, R } = gridDims(n);
+  const cw = Math.max(...ord.map(o => o.w)), ch = Math.max(...ord.map(o => o.h)), b = base();
+  const axis = (B, k, cell, v) => arrangeOpts.mode === 'gap' ? { start: (B - k * cell - (k - 1) * v) / 2, gap: v } : k === 1 ? { start: (B - cell) / 2, gap: 0 } : { start: v, gap: (B - 2 * v - k * cell) / (k - 1) };
+  const X = axis(b.w, C, cw, arrangeOpts.gx), Y = axis(b.h, R, ch, arrangeOpts.gy);
+  mutate(null, () => ord.forEach((o, i) => {
+    const r = Math.floor(i / C), c = i % C, inRow = r === R - 1 ? n - r * C : C, shift = (C - inRow) * (cw + X.gap) / 2, x = byId(o.id);
+    x.x = r2(X.start + shift + c * (cw + X.gap) + (cw - o.w) / 2); x.y = r2(Y.start + r * (ch + Y.gap) + (ch - o.h) / 2);
+  }));
+  if (X.gap < 0 || Y.gap < 0 || X.start < 0 || Y.start < 0) toast('Сетка не помещается на стенд: уменьшите ' + (arrangeOpts.mode === 'gap' ? 'зазоры' : 'отступы') + ' или число колонок');
+}
+function alignSel(k, forceStand) {
+  const list = selected().filter(o => isBox(o) && !o.locked); if (!list.length) return;
+  const b = base(), ref = forceStand || alignToStand || list.length < 2 ? { x: 0, y: 0, w: b.w, h: b.h } : bboxOf(list);
+  mutate(null, () => { for (const x of list.map(o => byId(o.id))) {
+    if (k === 'l') x.x = ref.x; if (k === 'ch') x.x = ref.x + (ref.w - x.w) / 2; if (k === 'r') x.x = ref.x + ref.w - x.w;
+    if (k === 't') x.y = ref.y; if (k === 'cv') x.y = ref.y + (ref.h - x.h) / 2; if (k === 'b') x.y = ref.y + ref.h - x.h;
+    x.x = r2(x.x); x.y = r2(x.y);
+  } });
+}
+/* распределение по стенду: колонки/ряды (элементы, перекрывающиеся по оси) двигаются целиком */
+function distributeOnStand(axis) {
+  const list = selected().filter(o => isBox(o) && !o.locked).map(o => byId(o.id)); if (!list.length) return;
+  const P = axis, S = axis === 'x' ? 'w' : 'h', B = base()[S], v = multiGap;
+  const groups = [];
+  for (const o of [...list].sort((a, c) => a[P] - c[P])) {
+    const g = groups[groups.length - 1];
+    if (g && o[P] < g.end - 0.5) { g.items.push(o); g.end = Math.max(g.end, o[P] + o[S]); } else groups.push({ start: o[P], end: o[P] + o[S], items: [o] });
+  }
+  const sizes = groups.map(g => g.end - g.start), sum = sizes.reduce((a, c) => a + c, 0), n = groups.length;
+  let start, gap;
+  if (distMode === 'gap') { gap = v; start = (B - sum - gap * (n - 1)) / 2; }
+  else { if (n === 1) { start = (B - sum) / 2; gap = 0; } else { start = v; gap = (B - 2 * v - sum) / (n - 1); } }
+  if (gap < 0 || start < 0) toast('Не помещается: уменьшите ' + (distMode === 'gap' ? 'зазор' : 'отступ'));
+  const ids = new Map(list.map(o => [o.id, 0]));
+  let p = start; groups.forEach((g, i) => { for (const o of g.items) ids.set(o.id, p - g.start); p += sizes[i] + gap; });
+  mutate(null, () => { for (const [id, d] of ids) { const x = byId(id); x[P] = r2(x[P] + d); } });
+}
+function distribute(axis, gap) {
+  const list = selected().filter(o => isBox(o) && !o.locked), P = axis, S = axis === 'x' ? 'w' : 'h', b = base();
+  if (list.length < 2 || (gap == null && !alignToStand && list.length < 3)) return toast(gap == null ? 'Для равных промежутков выберите хотя бы 3 элемента или включите «Относительно стенда»' : 'Выберите хотя бы 2 элемента');
+  const items = list.map(o => byId(o.id)).sort((a, c) => a[P] - c[P]), sum = items.reduce((t, o) => t + o[S], 0), total = b[S];
+  let start, g;
+  if (gap != null) { g = gap; start = alignToStand ? (total - sum - g * (items.length - 1)) / 2 : items[0][P]; }
+  else if (alignToStand) { g = (total - sum) / (items.length + 1); start = g; }
+  else { const span = items[items.length - 1][P] + items[items.length - 1][S] - items[0][P]; g = (span - sum) / (items.length - 1); start = items[0][P]; }
+  mutate(null, () => { let p = start; for (const o of items) { byId(o.id)[P] = r2(p); p += o[S] + g; } });
+}
+/* ---- массив карманов ---- */
+const arrayOpts = { cols: 3, rows: 2, gx: 30, gy: 30, center: true };
+function makeArray(id) {
+  const o = byId(id); if (!o || o.locked) return;
+  const { cols, rows, gx, gy, center } = arrayOpts, b = base();
+  const W = cols * o.w + (cols - 1) * gx, H = rows * o.h + (rows - 1) * gy;
+  const x0 = center ? (b.w - W) / 2 : o.x, y0 = center ? (b.h - H) / 2 : o.y, ids = [];
+  let n = doc.objects.filter(x => x.type === 'pocket').length;
+  mutate(null, () => {
+    const t = byId(id), idx = doc.objects.indexOf(t), copies = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const x = r2(x0 + c * (o.w + gx)), y = r2(y0 + r * (o.h + gy));
+      if (!r && !c) { t.x = x; t.y = y; ids.push(t.id); continue; }
+      const k = JSON.parse(JSON.stringify(t)); k.id = uid(); k.x = x; k.y = y; k.name = 'Карман ' + (++n); k.image = t.image; copies.push(k); ids.push(k.id);
+    }
+    doc.objects.splice(idx + 1, 0, ...copies);
+  });
+  setSel(ids);
+  if (W > b.w || H > b.h) toast('Массив не помещается на стенд: уменьшите зазоры или число карманов');
+}
+function moveLayer(id, targetId, above) {
+  if (id === targetId) return;
+  mutate(null, () => {
+    const arr = doc.objects, i = arr.findIndex(o => o.id === id); if (i < 1) return;
+    const [o] = arr.splice(i, 1);
+    let j = arr.findIndex(x => x.id === targetId); if (j < 0) { arr.splice(i, 0, o); return; }
+    j = above ? j + 1 : j; arr.splice(Math.max(1, j), 0, o);
+  });
+}
+
+/* ================= images ================= */
+function placeImage(o, mode) {
+  const i = o.image, ar = i.ar || i.w / i.h, bar = o.w / o.h;
+  let w, h;
+  if (mode === 'center') { w = i.w; h = i.h; }
+  else if (mode === 'fill' ? ar > bar : ar <= bar) { h = o.h; w = h * ar; }
+  else { w = o.w; h = w / ar; }
+  i.w = w; i.h = h; i.x = (o.w - w) / 2; i.y = (o.h - h) / 2;
+}
+const coverW = o => { const i = o.image, ar = i.ar, bar = o.w / o.h; return ar > bar ? o.h * ar : o.w; };
+let imageTarget = null;
+function chooseImage(targetId) { imageTarget = targetId; $('#imageInput').click(); }
+async function importImage(file, targetId) {
+  if (!file || !/^image\//.test(file.type)) return toast('Нужен файл изображения');
+  const t = (targetId && byId(targetId)) || base();
+  if (t.locked) return toast('Слой «' + t.name + '» заблокирован');
+  try {
+    let data = await readDataURL(file);
+    const img = await loadImg(data);
+    let w = img.naturalWidth || 1000, h = img.naturalHeight || 1000;
+    const MAX = t.type === 'pocket' ? 2400 : 4096;
+    const ar0 = w / h;
+    if (Math.max(w, h) > MAX || (file.size > 3e6 && file.type !== 'image/svg+xml')) {
+      const k = Math.min(1, MAX / Math.max(w, h));
+      const c = el('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      data = c.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.9);
+      w = c.width; h = c.height;
+    }
+    const id = uid(); assets[id] = data;
+    mutate(null, () => {
+      const x = byId(t.id), prev = x.image;
+      if (x.type === 'pocket') { x.image = { asset: id, opacity: prev ? prev.opacity : 1 }; return; }
+      if (x.type === 'shape') { x.image = { asset: id, opacity: prev ? prev.opacity : 1, fit: prev ? prev.fit : 'cover', ar: ar0 }; return; }
+      x.image = { asset: id, x: 0, y: 0, w: 1, h: 1, ar: w / h, opacity: prev ? prev.opacity : 1, lockRatio: true };
+      placeImage(x, 'fill');
+    });
+    select(t.id);
+  } catch { toast('Не удалось прочитать изображение'); }
+}
+async function pickColor() {
+  if (!window.EyeDropper) { toast('Пипетка работает в Chrome и Edge'); return null; }
+  try { return normHex((await new EyeDropper().open()).sRGBHex); } catch { return null; }
+}
+
+/* ================= markup (shared by canvas and PNG) ================= */
+const GLARE = '<linearGradient id="glare" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".65"/><stop offset=".3" stop-color="#fff" stop-opacity=".12"/><stop offset=".55" stop-color="#fff" stop-opacity=".02"/><stop offset="1" stop-color="#fff" stop-opacity=".3"/></linearGradient>';
+function paint(o, w, h) {
+  const stops = `<stop offset="0" stop-color="${o.fill}"/><stop offset="1" stop-color="${o.fill2}"/>`, id = 'gr-' + o.id;
+  if (o.fillType === 'linear') {
+    const a = o.angle * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), L = (Math.abs(w * c) + Math.abs(h * s)) / 2;
+    return { defs: `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${r2(w / 2 - c * L)}" y1="${r2(h / 2 - s * L)}" x2="${r2(w / 2 + c * L)}" y2="${r2(h / 2 + s * L)}">${stops}</linearGradient>`, fill: `url(#${id})` };
+  }
+  if (o.fillType === 'none') return { defs: '', fill: 'none' };
+  if (o.fillType === 'radial') return { defs: `<radialGradient id="${id}" cx=".5" cy=".5" r=".71">${stops}</radialGradient>`, fill: `url(#${id})` };
+  return { defs: '', fill: o.fill };
+}
+const cssFill = o => o.fillType === 'linear' ? `linear-gradient(${o.angle + 90}deg,${o.fill},${o.fill2})` : o.fillType === 'radial' ? `radial-gradient(${o.fill},${o.fill2})` : o.fill;
+function basePaint(o) {
+  const p = paint(o, o.w, o.h);
+  return (p.defs ? `<defs>${p.defs}</defs>` : '') + `<rect width="${o.w}" height="${o.h}" fill="#ffffff"/><rect width="${o.w}" height="${o.h}" fill="${p.fill}" fill-opacity="${o.fillOpacity}"/>`;
+}
+function plasticPath(o, w, h) {
+  const side = o.notch ? ['t', 'b', 'l', 'r'].find(k => !o.sides[k]) : null;
+  if (!side) return `M0 0H${w}V${h}H0Z`;
+  const r = Math.min(15, (side === 't' || side === 'b' ? w : h) / 5), cx = w / 2, cy = h / 2;
+  return {
+    t: `M0 0H${cx - r}A${r} ${r} 0 0 0 ${cx + r} 0H${w}V${h}H0Z`,
+    b: `M0 0H${w}V${h}H${cx + r}A${r} ${r} 0 0 0 ${cx - r} ${h}H0Z`,
+    r: `M0 0H${w}V${cy - r}A${r} ${r} 0 0 0 ${w} ${cy + r}V${h}H0Z`,
+    l: `M0 0H${w}V${h}H0V${cy + r}A${r} ${r} 0 0 0 0 ${cy - r}Z`,
+  }[side];
+}
+function pocketMarkup(o, exp) {
+  const g = pocketGeom(o), t = o.tape, s = o.sides, w = g.w, h = g.h, vs = exp ? '' : ' vector-effect="non-scaling-stroke"';
+  let m = '';
+  const href = o.image && assets[o.image.asset];
+  if (href) m += `<image href="${href}"${exp ? ` xlink:href="${href}"` : ''} x="${g.ix}" y="${g.iy}" width="${o.iw}" height="${o.ih}" preserveAspectRatio="xMidYMid slice" opacity="${o.image.opacity}"/>`;
+  else if (!exp) {
+    const fs = Math.min(o.iw, o.ih) * 0.16, nameFs = fs * 0.42, withName = o.showName && o.name;
+    const cf = (o.rot ? ` rotate(${-o.rot})` : '') + (o.flip ? ' scale(-1 1)' : ''); // подпись всегда читается прямо
+    m += `<g transform="translate(${w / 2} ${h / 2})${cf}" fill="#6b7280" fill-opacity=".55" font-family="system-ui,sans-serif" text-anchor="middle" dominant-baseline="central">` +
+      `<text y="${withName ? -nameFs * 0.7 : 0}" font-size="${fs}" font-weight="600">${esc(formatName(o.iw, o.ih))}</text>` +
+      (withName ? `<text y="${fs * 0.55 + nameFs * 0.3}" font-size="${nameFs}" font-weight="500">${esc(o.name)}</text>` : '') + '</g>';
+  }
+  const tape = (x, y, tw, th) => `<rect x="${x}" y="${y}" width="${tw}" height="${th}" fill="${o.tapeColor}" fill-opacity=".97" stroke="#000" stroke-opacity=".3" stroke-width="${exp ? 0.3 : 1}"${vs}/>`;
+  if (s.t) m += tape(0, 0, w, t);
+  if (s.b) m += tape(0, h - t, w, t);
+  if (s.l) m += tape(0, 0, t, h);
+  if (s.r) m += tape(w - t, 0, t, h);
+  const d = plasticPath(o, w, h);
+  m += `<path d="${d}" fill="#ffffff" fill-opacity=".22"/><path d="${d}" fill="url(#glare)"/>` +
+    `<path d="${d}" fill="none" stroke="#111827" stroke-opacity=".8" stroke-width="${exp ? 0.8 : 1.5}"${vs}/>`;
+  return m;
+}
+/* 4 по углам; дальше пары по очереди: на длинные стороны, на короткие, снова на длинные... */
+function holePoints(o, b) {
+  const m = o.inset, k = (o.count - 4) / 2, nLong = Math.ceil(k / 2), nShort = Math.floor(k / 2), land = b.w >= b.h;
+  const pts = [{ x: m, y: m }, { x: b.w - m, y: m }, { x: m, y: b.h - m }, { x: b.w - m, y: b.h - m }];
+  const nH = land ? nLong : nShort, nV = land ? nShort : nLong; // на горизонтальные / вертикальные стороны
+  for (let i = 1; i <= nH; i++) { const x = m + i / (nH + 1) * (b.w - 2 * m); pts.push({ x, y: m }, { x, y: b.h - m }); }
+  for (let i = 1; i <= nV; i++) { const y = m + i / (nV + 1) * (b.h - 2 * m); pts.push({ x: m, y }, { x: b.w - m, y }); }
+  return pts;
+}
+const circleHitsRect = (p, r, k) => { const cx = clamp(p.x, k.x, k.x + k.w), cy = clamp(p.y, k.y, k.y + k.h); return (p.x - cx) ** 2 + (p.y - cy) ** 2 < r * r; };
+function badHoles(o, pts) {
+  const r = o.d / 2, pk = doc.objects.filter(x => x.type === 'pocket' && x.visible), bad = new Set();
+  pts.forEach((p, i) => { if (pk.some(k => circleHitsRect(p, r, k))) bad.add(i); });
+  return bad;
+}
+function holesMarkup(o, exp) {
+  const b = base(); if (!b) return '';
+  const pts = holePoints(o, b), r = o.d / 2, bad = exp ? new Set() : badHoles(o, pts), vs = exp ? '' : ' vector-effect="non-scaling-stroke"';
+  return pts.map((p, i) =>
+    (exp ? '' : `<circle cx="${p.x}" cy="${p.y}" r="${r + 8}" fill="transparent"/>`) +
+    `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${o.color}" fill-opacity=".85" stroke="#fff" stroke-opacity=".7" stroke-width="${exp ? 0.4 : 1}"${vs}/>` +
+    (bad.has(i) ? `<circle cx="${p.x}" cy="${p.y}" r="${r + 3}" fill="none" stroke="#e11d48" stroke-width="2"${vs}/>` : '')).join('');
+}
+const FIT_PAR = { cover: 'xMidYMid slice', contain: 'xMidYMid meet', stretch: 'none' };
+function shapeMarkup(o, exp) {
+  const l = localWH(o), p = paint(o, l.w, l.h), href = o.image && assets[o.image.asset];
+  let m = (p.defs ? `<defs>${p.defs}</defs>` : '');
+  if (p.fill !== 'none') m += `<rect width="${l.w}" height="${l.h}" rx="${o.radius}" fill="${p.fill}" fill-opacity="${o.fillOpacity}"/>`;
+  else if (!exp) m += `<rect width="${l.w}" height="${l.h}" rx="${o.radius}" fill="transparent"/>`;
+  if (href) {
+    const cid = 'sc-' + o.id, clip = o.radius > 0;
+    m += (clip ? `<clipPath id="${cid}"><rect width="${l.w}" height="${l.h}" rx="${o.radius}"/></clipPath>` : '') +
+      `<image href="${href}"${exp ? ` xlink:href="${href}"` : ''} width="${l.w}" height="${l.h}" preserveAspectRatio="${FIT_PAR[o.image.fit]}" opacity="${o.image.opacity}"${clip ? ` clip-path="url(#${cid})"` : ''}/>`;
+  } else if (!exp && p.fill === 'none') {
+    m += `<rect width="${l.w}" height="${l.h}" rx="${o.radius}" fill="none" stroke="#9ca3af" stroke-width="1" stroke-dasharray="6 4" vector-effect="non-scaling-stroke"/>` +
+      `<text x="${l.w / 2}" y="${l.h / 2}" font-size="${Math.min(l.w, l.h) * 0.09}" text-anchor="middle" dominant-baseline="central" fill="#9ca3af" font-family="system-ui,sans-serif">пустой слой</text>`;
+  }
+  return m;
+}
+/* ---- text ---- */
+const mctx = document.createElement('canvas').getContext('2d');
+const fontDef = label => FONT_DB.find(f => f.label === label) || FONT_DB[0];
+function fontWeight(o) {
+  const f = fontDef(o.font);
+  if (f.static) { const ws = [...new Set(f.faces.map(x => +x.weight))]; return ws.reduce((a, b) => Math.abs(b - o.weight) < Math.abs(a - o.weight) ? b : a); }
+  return clamp(o.weight, f.wmin, f.wmax);
+}
+const fontStr = (o, px) => `${o.italic ? 'italic ' : ''}${fontWeight(o)} ${px}px "${fontDef(o.font).css}"`;
+const pendingFonts = new Set();
+function ensureFont(o) {
+  const fs = fontStr(o, 40);
+  if (document.fonts.check(fs, 'Аа') || pendingFonts.has(fs)) return;
+  pendingFonts.add(fs);
+  document.fonts.load(fs, 'АаЯя Aa').then(() => relayoutTexts());
+}
+function wrapLine(line, maxW, measure) {
+  const words = line.split(' '), out = []; let cur = '';
+  for (const w of words) { const t = cur ? cur + ' ' + w : w; if (cur && measure(t) > maxW) { out.push(cur); cur = w; } else cur = t; }
+  out.push(cur); return out;
+}
+function textLayout(o) {
+  ensureFont(o);
+  const size = o.size, str = o.caps ? o.text.toUpperCase() : o.text;
+  mctx.font = fontStr(o, 100);
+  const measure = s => mctx.measureText(s).width / 100 * size + o.ls * size * [...s].length;
+  let lines = str.split('\n');
+  if (o.wrap) lines = lines.flatMap(l => wrapLine(l, o.boxW, measure));
+  const widths = lines.map(measure), lineH = o.lh * size;
+  const tw = o.wrap ? Math.max(o.boxW, ...widths) : Math.max(size * 0.3, ...widths), th = Math.max(lineH * lines.length, size * 0.5);
+  const mm = mctx.measureText('HЖgу'), asc = (mm.fontBoundingBoxAscent || 90) / 100 * size, desc = (mm.fontBoundingBoxDescent || 22) / 100 * size;
+  const skewPad = th * Math.abs(Math.tan(o.skew * Math.PI / 180));
+  return { lines, tw, th, lineH, base0: (lineH - asc - desc) / 2 + asc, padX: skewPad / 2, w: tw + skewPad, h: th };
+}
+let relayoutT = 0;
+function relayoutTexts() {
+  clearTimeout(relayoutT);
+  relayoutT = setTimeout(() => { for (const o of doc.objects) if (o.type === 'text') syncDerived(o); nodes.forEach(n => { if (n.type === 'text') n.sig = null; }); invalidate('scene', 'overlay', 'props'); }, 30);
+}
+function textMarkup(o, exp) {
+  const L = textLayout(o), f = fontDef(o.font);
+  const ax = L.padX + (o.align === 'left' ? 0 : o.align === 'center' ? L.tw / 2 : L.tw);
+  const anchor = { left: 'start', center: 'middle', right: 'end' }[o.align];
+  const spans = L.lines.map((s, i) => `<tspan x="${r2(ax)}" y="${r2(L.base0 + i * L.lineH)}">${esc(s) || ' '}</tspan>`).join('');
+  const deco = [o.underline && 'underline', o.strike && 'line-through'].filter(Boolean).join(' ');
+  const stroke = o.strokeW > 0 ? ` stroke="${o.strokeColor}" stroke-width="${o.strokeW}" stroke-linejoin="round" paint-order="stroke"` : '';
+  const sk = o.skew ? ` transform="translate(${r2(L.w / 2)} ${r2(L.h / 2)}) skewX(${-o.skew}) translate(${r2(-L.w / 2)} ${r2(-L.h / 2)})"` : '';
+  return (exp ? '' : `<rect width="${L.w}" height="${L.h}" fill="transparent"/>`) +
+    `<g${sk}><text font-family="'${f.css}', sans-serif" font-size="${o.size}" font-weight="${fontWeight(o)}" font-style="${o.italic ? 'italic' : 'normal'}"` +
+    ` letter-spacing="${r2(o.ls * o.size)}" text-anchor="${anchor}" fill="${o.color}" fill-opacity="${o.colorOpacity}"${stroke}${deco ? ` text-decoration="${deco}"` : ''} style="white-space:pre">${spans}</text></g>`;
+}
+function fontFaceCSS(labels) {
+  return FONT_DB.filter(f => labels ? labels.has(f.label) : !f.custom).flatMap(f => f.faces.map(x =>
+    `@font-face{font-family:"${f.css}";font-style:${x.style};font-weight:${x.weight};font-display:block;src:url(data:${FONT_MIME[x.fmt || 'woff2']};base64,${FONT_DATA[x.file]}) format("${x.fmt || 'woff2'}");unicode-range:${x.range};}`)).join('\n');
+}
+const FONT_MIME = { woff2: 'font/woff2', woff: 'font/woff', truetype: 'font/ttf', opentype: 'font/otf' };
+document.head.append(el('style', {}, fontFaceCSS()));
+/* ---- свои шрифты: хранятся в IndexedDB на устройстве и в файле проекта ---- */
+const fontStore = (() => {
+  let p = null;
+  const open = () => p || (p = new Promise((ok, err) => {
+    const r = indexedDB.open('stand-designer', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('fonts', { keyPath: 'label' });
+    r.onsuccess = () => ok(r.result); r.onerror = () => err(r.error);
+  }));
+  const tx = (mode, fn) => open().then(db => new Promise((ok, err) => { const t = db.transaction('fonts', mode), q = fn(t.objectStore('fonts')); t.oncomplete = () => ok(q && q.result); t.onerror = () => err(t.error); }));
+  return { all: () => tx('readonly', s => s.getAll()), put: v => tx('readwrite', s => s.put(v)), del: k => tx('readwrite', s => s.delete(k)) };
+})();
+function b64FromBuf(buf) { const u = new Uint8Array(buf); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+function bufFromB64(b) { const s = atob(b), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; }
+async function registerCustomFont({ label, fmt, data }) {
+  const ex = FONT_DB.find(f => f.label === label); if (ex) return ex;
+  const css = 'Custom ' + label, file = 'custom:' + label;
+  const face = new FontFace(css, bufFromB64(data)); await face.load(); document.fonts.add(face);
+  FONT_DATA[file] = data;
+  const def = { label, css, wmin: 100, wmax: 900, italic: true, static: false, custom: true, faces: [{ file, style: 'normal', weight: '400', range: 'U+0-10FFFF', fmt }] };
+  FONT_DB.push(def); return def;
+}
+let fontTarget = null;
+async function addFontFile(file) {
+  const ext = (file.name.match(/\.(\w+)$/) || [])[1]?.toLowerCase(), fmt = { ttf: 'truetype', otf: 'opentype', woff: 'woff', woff2: 'woff2' }[ext];
+  if (!fmt) return toast('Нужен файл шрифта: TTF, OTF, WOFF или WOFF2');
+  let label = file.name.replace(/\.\w+$/, '').replace(/[_-]+/g, ' ').replace(/["'\\<>]/g, '').trim().slice(0, 60) || 'Мой шрифт';
+  if (FONT_DB.some(f => f.label === label && !f.custom)) label += ' (свой)';
+  try {
+    const data = b64FromBuf(await file.arrayBuffer());
+    await registerCustomFont({ label, fmt, data });
+    try { await fontStore.put({ label, fmt, data }); } catch { toast('Шрифт добавлен, но браузер не дал сохранить его на устройстве'); }
+    const t = fontTarget && byId(fontTarget);
+    if (t && t.type === 'text') mutate(null, () => { byId(t.id).font = label; });
+    propsSig = null; invalidate('props', 'layers'); toast('Шрифт «' + label + '» добавлен и сохранён на этом устройстве');
+  } catch { toast('Не удалось прочитать шрифт'); }
+}
+async function removeCustomFont(label) {
+  const i = FONT_DB.findIndex(f => f.label === label && f.custom); if (i < 0) return;
+  FONT_DB.splice(i, 1); try { await fontStore.del(label); } catch {}
+  relayoutTexts(); propsSig = null; invalidate('props', 'layers', 'scene'); toast('Шрифт удалён. Тексты с ним показаны шрифтом по умолчанию');
+}
+async function loadCustomFonts(list) {
+  for (const f of list || []) { try { if (f && f.label && f.data) await registerCustomFont(f); } catch {} }
+  relayoutTexts(); propsSig = null; invalidate('props', 'layers');
+}
+/* ---- grid ---- */
+function gridMarkup(o, exp) {
+  const b = base(); if (!b) return '';
+  const s = o.step; let d = '';
+  for (let x = s; x < b.w - 0.01; x += s) d += `M${r2(x)} 0V${b.h}`;
+  for (let y = s; y < b.h - 0.01; y += s) d += `M0 ${r2(y)}H${b.w}`;
+  return `<path d="${d}" fill="none" stroke="${o.color}" stroke-opacity="${o.lineOpacity}" stroke-width="${exp ? Math.max(0.4, Math.max(b.w, b.h) / 2500) : 1}"${exp ? '' : ' vector-effect="non-scaling-stroke"'}/>`;
+}
+const objMarkup = (o, exp) => o.type === 'pocket' ? pocketMarkup(o, exp) : o.type === 'holes' ? holesMarkup(o, exp) : o.type === 'shape' ? shapeMarkup(o, exp) : o.type === 'text' ? textMarkup(o, exp) : o.type === 'grid' ? gridMarkup(o, exp) : '';
+
+/* ================= export PNG ================= */
+function exportSVG(W, H, opts = {}) {
+  const b = base(), bl = opts.bleed || 0, off = bl + (opts.pad || 0), VW = b.w + 2 * off, VH = b.h + 2 * off;
+  const parts = doc.objects.filter(o => o.visible && (o.type !== 'grid' || o.export)).map(o => {
+    if (o.type === 'base') {
+      // с вылетами фон подложки продлевается за край на величину вылета
+      const i = o.image, href = i && assets[i.asset], c = 'c' + o.id;
+      const paint_ = bl ? `<g transform="translate(${-bl} ${-bl})">${basePaint({ ...o, w: o.w + 2 * bl, h: o.h + 2 * bl })}</g>` : basePaint(o);
+      return `<g opacity="${o.opacity}">${paint_}` + (href ? `<clipPath id="${c}"><rect x="${-bl}" y="${-bl}" width="${o.w + 2 * bl}" height="${o.h + 2 * bl}"/></clipPath><g clip-path="url(#${c})"><image href="${href}" xlink:href="${href}" x="${i.x}" y="${i.y}" width="${i.w}" height="${i.h}" preserveAspectRatio="none" opacity="${i.opacity}"/></g>` : '') + '</g>';
+    }
+    const t = objTransform(o), tr = t ? ` transform="${t}"` : '';
+    return `<g opacity="${o.opacity}"${tr}>${objMarkup(o, true)}</g>`;
+  }).join('');
+  const used = new Set(doc.objects.filter(o => o.type === 'text' && o.visible).map(o => o.font));
+  const css = used.size ? `<style>${fontFaceCSS(used)}</style>` : '';
+  let marks = '';
+  if (opts.marks) { // метки реза: от края вылета наружу, по 6 мм
+    const sw = Math.max(0.1, opts.markW || 0.1), g0 = bl + 2, g1 = bl + 8, L = [];
+    for (const [cx, sx] of [[0, -1], [b.w, 1]]) for (const [cy, sy] of [[0, -1], [b.h, 1]]) {
+      L.push(`M${cx + sx * g0} ${cy}H${cx + sx * g1}`, `M${cx} ${cy + sy * g0}V${cy + sy * g1}`);
+    }
+    marks = `<path d="${L.join('')}" stroke="#000" stroke-width="${sw}" fill="none"/>`;
+  }
+  const size = opts.mm ? `width="${r2(VW)}mm" height="${r2(VH)}mm"` : `width="${W}" height="${H}"`;
+  return `<svg xmlns="${NS}" xmlns:xlink="http://www.w3.org/1999/xlink" ${size} viewBox="${-off} ${-off} ${VW} ${VH}"><defs>${css}${GLARE}</defs><clipPath id="stand"><rect x="${-bl}" y="${-bl}" width="${b.w + 2 * bl}" height="${b.h + 2 * bl}"/></clipPath><g clip-path="url(#stand)">${parts}</g>${marks}</svg>`;
+}
+async function renderStand(maxPx) {
+  const b = base(), k = Math.min(maxPx / Math.max(b.w, b.h), 8), W = Math.round(b.w * k), H = Math.round(b.h * k);
+  const url = URL.createObjectURL(new Blob([exportSVG(W, H)], { type: 'image/svg+xml' }));
+  try {
+    const img = await loadImg(url);
+    try { await img.decode(); } catch {}
+    await new Promise(r => setTimeout(r, 150)); // даём встроенным шрифтам примениться
+    const c = el('canvas'); c.width = W; c.height = H;
+    c.getContext('2d').drawImage(img, 0, 0, W, H);
+    return c;
+  } finally { URL.revokeObjectURL(url); }
+}
+const canvasBlob = (c, type = 'image/png', q) => new Promise(r => c.toBlob(r, type, q));
+async function exportPNG() {
+  if (!base()) return;
+  try {
+    const c = await renderStand(4000);
+    if (await download(await canvasBlob(c), fileBase() + '.png')) toast(`PNG ${c.width}×${c.height} px сохранён`);
+  } catch { toast('Не удалось собрать PNG'); }
+}
+
+/* ================= rendering ================= */
+const stage = $('#stage'), world = $('#world'), scene = $('#scene'), overlay = $('#overlay'),
+  defs = $('#defs'), ghost = $('#ghost'), shadow = $('#sheetShadow'), hud = $('#hud'),
+  gridPat = $('#gridPat'), gridPath = $('#gridPath'), gridRect = $('#gridRect');
+defs.insertAdjacentHTML('beforeend', GLARE);
+const nodes = new Map();
+let raf = 0; const dirty = new Set();
+function invalidate(...parts) { parts.forEach(p => dirty.add(p)); if (!raf) raf = requestAnimationFrame(flush); }
+function changed() { invalidate('scene', 'overlay', 'layers', 'props'); scheduleSave(); }
+function flush() {
+  raf = 0; const d = new Set(dirty); dirty.clear(); const all = d.has('all');
+  if (all || d.has('scene')) renderScene();
+  if (all || d.has('view')) { world.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${view.z})`); renderGrid(); }
+  if (all || d.has('scene') || d.has('view')) renderShadow();
+  if (all || d.has('scene') || d.has('view') || d.has('overlay')) renderOverlay();
+  if (all || d.has('layers')) renderLayers();
+  if (all || d.has('props')) renderProps();
+  renderTop();
+  placeRot();
+}
+let gridStep = 10;
+function renderGrid() {
+  const z = view.z, W = stage.clientWidth, H = stage.clientHeight;
+  gridStep = GRID_STEPS.find(s => s * z >= 24) || GRID_STEPS[GRID_STEPS.length - 1];
+  const s = gridStep, c = s / 2, a = 3.5 / z;
+  setA(gridPat, { width: s, height: s, x: -c, y: -c });
+  setA(gridPath, { d: `M${c - a} ${c}H${c + a}M${c} ${c - a}V${c + a}`, 'stroke-width': 1 / z });
+  setA(gridRect, { x: -view.x / z, y: -view.y / z, width: W / z, height: H / z });
+}
+function createBaseNode(o) {
+  const g = sv('g', { 'data-id': o.id });
+  const clip = sv('clipPath', { id: 'clip-' + o.id }), clipRect = sv('rect'); clip.append(clipRect); defs.append(clip);
+  const paintG = sv('g'), ig = sv('g', { 'clip-path': `url(#clip-${o.id})` }), img = sv('image', { preserveAspectRatio: 'none' });
+  ig.append(img); g.append(paintG, ig);
+  return { type: 'base', g, clip, clipRect, paintG, img, href: null, sig: null };
+}
+function updateBaseNode(n, o) {
+  setA(n.clipRect, { x: 0, y: 0, width: o.w, height: o.h });
+  const sig = [o.w, o.h, o.fill, o.fill2, o.fillType, o.angle, o.fillOpacity].join('|');
+  if (sig !== n.sig) { n.sig = sig; n.paintG.innerHTML = basePaint(o); }
+  const i = o.image, href = i && assets[i.asset];
+  if (href) {
+    if (n.href !== href) { n.img.setAttribute('href', href); n.href = href; }
+    setA(n.img, { x: i.x, y: i.y, width: i.w, height: i.h, opacity: i.opacity, display: null });
+  } else n.img.setAttribute('display', 'none');
+  n.g.classList.toggle('mv', !!(href && !o.locked && sel === o.id));
+}
+function objSig(o) {
+  const { x, y, opacity, locked, visible, ...rest } = o;
+  if (o.type !== 'pocket') delete rest.name;
+  let s = JSON.stringify(rest) + unit;
+  if (o.type === 'grid') { const b = base(); s += b.w + 'x' + b.h; }
+  if (o.type === 'holes') { const b = base(); s += b.w + 'x' + b.h + doc.objects.filter(k => k.type === 'pocket' && k.visible).map(k => [k.x, k.y, k.w, k.h].join(',')).join(';'); }
+  return s;
+}
+function renderScene() {
+  const seen = new Set();
+  doc.objects.forEach((o, idx) => {
+    seen.add(o.id);
+    let n = nodes.get(o.id);
+    if (n && n.type !== o.type) { n.g.remove(); n.clip && n.clip.remove(); n = null; }
+    if (!n) { n = o.type === 'base' ? createBaseNode(o) : { type: o.type, g: sv('g', { 'data-id': o.id }), sig: null }; nodes.set(o.id, n); }
+    if (scene.children[idx] !== n.g) scene.insertBefore(n.g, scene.children[idx] || null);
+    setA(n.g, { opacity: o.opacity, display: o.visible ? null : 'none' });
+    if (o.type === 'base') { updateBaseNode(n, o); return; }
+    setA(n.g, { transform: objTransform(o) });
+    const sig = objSig(o); if (sig !== n.sig) { n.sig = sig; n.g.innerHTML = objMarkup(o, false); }
+    n.g.classList.toggle('mv', isBox(o) && !o.locked);
+    n.g.classList.toggle('pick', o.type === 'holes');
+    if (o.type === 'grid') n.g.setAttribute('pointer-events', 'none');
+  });
+  for (const [id, n] of nodes) if (!seen.has(id)) { n.g.remove(); n.clip && n.clip.remove(); nodes.delete(id); }
+}
+function renderShadow() {
+  const b = base();
+  if (!b || !b.visible) { shadow.style.display = 'none'; return; }
+  Object.assign(shadow.style, { display: '', opacity: b.opacity, transform: `translate(${view.x}px,${view.y}px)`, width: b.w * view.z + 'px', height: b.h * view.z + 'px' });
+}
+function svText(txt, x, y, size, cls, anchor = 'start') { const t = sv('text', { x, y, 'font-size': size, class: cls, 'text-anchor': anchor }); t.textContent = txt; return t; }
+const CURSORS = { nw: 'nwse', se: 'nwse', ne: 'nesw', sw: 'nesw', n: 'ns', s: 'ns', e: 'ew', w: 'ew' };
+function handles(kids, x, y, w, h, sides = ['n', 'e', 's', 'w']) {
+  const z = view.z, s = 10 / z;
+  const pos = c => [c.includes('w') ? x : c.includes('e') ? x + w : x + w / 2, c.includes('n') ? y : c.includes('s') ? y + h : y + h / 2];
+  // боковые ручки — только если элемент на экране достаточно крупный
+  const list = ['nw', 'ne', 'sw', 'se'].concat(sides.filter(c => (c === 'n' || c === 's' ? w : h) * z > 36));
+  for (const c of list) {
+    const [cx, cy] = pos(c), side = c.length === 1, hw = side && (c === 'n' || c === 's') ? s * 1.8 : s, hh = side && (c === 'e' || c === 'w') ? s * 1.8 : s;
+    kids.push(sv('rect', { class: 'handle' + (side ? ' side' : ''), 'data-handle': c, x: cx - hw / 2, y: cy - hh / 2, width: hw, height: hh, rx: 2 / z, style: `cursor:${CURSORS[c]}-resize` }));
+  }
+}
+function renderOverlay() {
+  const z = view.z, kids = [], b = base();
+  if (b && b.visible) {
+    kids.push(svText(b.name, 0, -8 / z, 12 / z, 'lbl'));
+    kids.push(svText(`${fmtLen(b.w)} × ${fmtLen(b.h)} ${unitLabel()}`, 0, b.h + 20 / z, 12 / z, 'dim'));
+  }
+  const o = selIds.length === 1 && sel && byId(sel);
+  if (selIds.length > 1) {
+    const list = selected().filter(x => x.visible && x.type !== 'holes' && x.type !== 'grid');
+    for (const x of list) kids.push(sv('rect', { class: 'sel-outline' + (x.locked ? ' locked' : ''), x: x.x, y: x.y, width: x.w, height: x.h }));
+    if (list.length) { const bb = bboxOf(list); kids.push(sv('rect', { class: 'group-box', x: bb.x, y: bb.y, width: bb.w, height: bb.h, 'stroke-dasharray': `${4 / z} ${3 / z}` }));
+      kids.push(svText(`${fmtLen(bb.w)} × ${fmtLen(bb.h)}`, bb.x + bb.w / 2, bb.y + bb.h + 16 / z, 11 / z, 'dim acc', 'middle')); }
+  }
+  if (drag && drag.type === 'marquee') { const r = normRect(drag.sw, drag.cur); kids.push(sv('rect', { class: 'marquee', x: r.x, y: r.y, width: r.w, height: r.h })); }
+  if (o && o.visible) {
+    const cls = 'sel-outline' + (o.locked ? ' locked' : '');
+    if (o.type === 'holes') {
+      const r = o.d / 2 + 4 / z;
+      for (const p of holePoints(o, b)) kids.push(sv('circle', { class: cls, cx: p.x, cy: p.y, r }));
+    } else {
+      kids.push(sv('rect', { class: cls, x: o.x, y: o.y, width: o.w, height: o.h }));
+      if (o.type === 'base') {
+        const i = o.image;
+        if (i && !o.locked && assets[i.asset]) {
+          kids.push(sv('rect', { class: 'img-box', x: i.x, y: i.y, width: i.w, height: i.h, 'stroke-dasharray': `${5 / z} ${4 / z}` }));
+          handles(kids, i.x, i.y, i.w, i.h);
+        }
+      } else {
+        kids.push(svText(`${fmtLen(o.w)} × ${fmtLen(o.h)}`, o.x + o.w / 2, o.y + o.h + 16 / z, 11 / z, 'dim acc', 'middle'));
+        if (!o.locked) handles(kids, o.x, o.y, o.w, o.h, o.type === 'text' ? (o.rot % 180 ? ['n', 's'] : ['e', 'w']) : undefined);
+      }
+    }
+  }
+  if (drag && drag.guides) for (const g of drag.guides) kids.push(sv('line', Object.assign({ class: 'guide' }, g)));
+  overlay.replaceChildren(...kids);
+  const showGhost = drag && drag.moved && (drag.type === 'move' || drag.type === 'resize');
+  const go = showGhost && byId(drag.id), gi = go && go.image, gh = gi && assets[gi.asset];
+  if (gh) {
+    if (ghost._href !== gh) { ghost.setAttribute('href', gh); ghost._href = gh; }
+    setA(ghost, { x: gi.x, y: gi.y, width: gi.w, height: gi.h, display: null });
+  } else ghost.setAttribute('display', 'none');
+}
+
+/* ================= top bar ================= */
+const topBar = $('#top');
+const unitBtns = {};
+topBar.append(
+  el('div', { class: 'brand' }, el('i'), el('span', { class: 'title', id: 'docTitle', title: 'Нажмите, чтобы переименовать проект. Так будет называться сохраняемый файл', onclick: renameTitle })),
+  B('file', 'Новый', newStand, { title: 'Новый стенд' }),
+  B('folder', 'Открыть', () => $('#projectInput').click(), { title: 'Открыть проект (Ctrl+O)' }),
+  B('download', 'Сохранить', saveFile, { title: 'Сохранить проект в файл (Ctrl+S)' }),
+  el('div', { class: 'sep' }),
+  B('undo', '', undo, { title: 'Отменить (Ctrl+Z)', id: 'undoBtn' }),
+  B('redo', '', redo, { title: 'Повторить (Ctrl+Shift+Z)', id: 'redoBtn' }),
+  el('div', { class: 'spacer' }),
+  el('div', { class: 'seg', title: 'Единицы измерения' },
+    unitBtns.mm = el('button', { type: 'button', onclick: () => setUnit('mm') }, 'мм'),
+    unitBtns.cm = el('button', { type: 'button', onclick: () => setUnit('cm') }, 'см')),
+  el('div', { class: 'sep' }),
+  B('minus', '', () => zoomBy(1 / 1.25), { title: 'Отдалить (−)' }),
+  el('button', { type: 'button', id: 'zoomPct', title: '100% — реальный размер. Клик — показать целиком (0)', onclick: fit }),
+  B('plus', '', () => zoomBy(1.25), { title: 'Приблизить (+)' }),
+  B('fit', '', fit, { title: 'Показать целиком (0)' }),
+  el('div', { class: 'sep' }),
+  B('moon', '', e => { e.stopPropagation(); themePop.hidden = !themePop.hidden; }, { title: 'Тема оформления', id: 'themeBtn' }),
+  B('list', 'Спецификация', () => openSpec(), { cls: 'btn', title: 'Материалы, размеры и расположение карманов' }),
+  B('download', 'Экспорт', () => openExport(), { cls: 'btn primary', title: 'Экспорт: PNG, JPEG, TIFF, PDF, SVG (Ctrl+Shift+E)' }),
+);
+let titleEditing = false;
+function renameTitle() {
+  if (titleEditing) return; titleEditing = true;
+  const span = $('#docTitle'), inp = el('input', { value: doc.title, maxlength: 120 });
+  span.replaceWith(inp); inp.focus(); inp.select();
+  let done = false;
+  const fin = ok => {
+    if (done) return; done = true; titleEditing = false;
+    const v = inp.value.trim(); inp.replaceWith(span);
+    if (ok && v && v !== doc.title) mutate(null, () => { doc.title = v; }); else renderTop();
+  };
+  inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') fin(true); if (e.key === 'Escape') fin(false); });
+  inp.addEventListener('blur', () => fin(true));
+}
+function renderTop() {
+  if (!titleEditing) { $('#docTitle').textContent = doc.title || DEFAULT_TITLE; document.title = doc.title || DEFAULT_TITLE; }
+  $('#undoBtn').disabled = !past.length; $('#redoBtn').disabled = !future.length;
+  unitBtns.mm.classList.toggle('on', unit === 'mm'); unitBtns.cm.classList.toggle('on', unit === 'cm');
+  const p = view.z / PX_PER_MM * 100;
+  $('#zoomPct').textContent = (p < 10 ? p.toFixed(1).replace('.', ',') : Math.round(p)) + '%';
+}
+function setUnit(u) { if (unit === u) return; unit = u; nodes.forEach(n => n.sig = null); invalidate('scene', 'overlay', 'props', 'layers'); scheduleSave(); }
+
+/* ================= layers panel ================= */
+const layerMenu = el('div', { class: 'menu', hidden: true },
+  el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('solid'); } }, el('span', { class: 'grad', style: 'background:#f59e0b' }), 'Заливка'),
+  el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('grad'); } }, el('span', { class: 'grad', style: 'background:linear-gradient(90deg,#2563eb,#a5f3fc)' }), 'Градиент'),
+  el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('empty'); } }, el('span', { class: 'grad', html: ic('empty'), style: 'color:#9ca3af' }), 'Пустой — для своей картинки'));
+$('#layersFoot').append(layerMenu,
+  el('div', { class: 'grid' },
+    B('layer', 'Слой', e => { e.stopPropagation(); layerMenu.hidden = !layerMenu.hidden; }, { cls: 'btn', title: 'Добавить слой с заливкой', after: ic('chev') }),
+    B('pocket', 'Карман', addPocket, { cls: 'btn', title: 'Добавить карман' }),
+    B('text', 'Текст', addText, { cls: 'btn', title: 'Добавить текст' }),
+    B('grid', 'Сетка', addGrid, { cls: 'btn', title: 'Сетка для разметки и привязки' }),
+    B('holes', 'Отверстия', addHoles, { cls: 'btn wide', title: 'Отверстия под крепёж' })));
+document.addEventListener('pointerdown', e => { if (!layerMenu.hidden && !layerMenu.contains(e.target)) layerMenu.hidden = true; });
+
+let renaming = false, dragLayer = null;
+function swatch(o) {
+  if (o.type === 'text') { const f = fontDef(o.font); return el('span', { class: 'sw txt', style: `font-family:"${f.css}";font-weight:700;color:${o.color}` }, 'Аа'); }
+  if (o.type === 'grid') return el('span', { class: 'sw ico', html: ic('grid') });
+  if (o.type === 'pocket' || o.type === 'holes') {
+    const sw = el('span', { class: 'sw ico', html: ic(o.type) });
+    if (o.type === 'pocket' && o.image && assets[o.image.asset]) { sw.className = 'sw'; sw.innerHTML = ''; sw.style.backgroundImage = `url("${assets[o.image.asset]}")`; }
+    return sw;
+  }
+  const sw = el('span', { class: 'sw' + (o.fillType === 'none' ? ' none' : '') });
+  if (o.fillType !== 'none') sw.style.background = cssFill(o);
+  if (o.type === 'shape' && o.image && assets[o.image.asset]) { sw.style.backgroundImage = `url("${assets[o.image.asset]}")`; sw.style.backgroundSize = 'cover'; }
+  if (o.type === 'base' && o.image && assets[o.image.asset]) { sw.style.backgroundImage = `url("${assets[o.image.asset]}")`; sw.style.backgroundSize = 'cover'; }
+  return sw;
+}
+function layerTag(o) {
+  if (o.type === 'base') return 'фон';
+  if (o.type === 'pocket') return formatName(o.iw, o.ih);
+  if (o.type === 'holes') return o.count + ' шт';
+  if (o.type === 'text') return fontDef(o.font).label;
+  if (o.type === 'grid') return fmtLen(o.step) + ' ' + unitLabel();
+  if (o.image && assets[o.image.asset]) return 'картинка';
+  return { solid: '', none: 'пустой', linear: 'градиент', radial: 'градиент' }[o.fillType];
+}
+function renderLayers() {
+  if (renaming) return;
+  const list = $('#layerList');
+  list.replaceChildren(...doc.objects.slice().reverse().map(o => {
+    const nm = el('span', { class: 'nm', title: 'Двойной клик — переименовать' }, o.name);
+    nm.addEventListener('dblclick', e => { e.stopPropagation(); startRename(o.id, nm); });
+    const eye = B(o.visible ? 'eye' : 'eyeOff', '', e => { e.stopPropagation(); mutate(null, () => { const x = byId(o.id); x.visible = !x.visible; }); },
+      { title: o.visible ? 'Скрыть' : 'Показать', cls: o.visible ? '' : 'off' });
+    const lk = B(o.locked ? 'lock' : 'unlock', '', e => { e.stopPropagation(); mutate(null, () => { const x = byId(o.id); x.locked = !x.locked; }); },
+      { title: o.locked ? 'Разблокировать' : 'Заблокировать', cls: o.locked ? 'on' : 'off' });
+    const row = el('div', { class: 'layer' + (selIds.includes(o.id) ? ' sel' : '') + (o.visible ? '' : ' hidden'), onclick: e => layerClick(e, o.id), draggable: o.type !== 'base' ? 'true' : null },
+      eye, swatch(o), nm, el('span', { class: 'tag' }, layerTag(o)), lk);
+    row.addEventListener('dragstart', e => { dragLayer = o.id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/x-layer', o.id); row.classList.add('dragging'); });
+    row.addEventListener('dragend', () => { dragLayer = null; row.classList.remove('dragging'); list.querySelectorAll('.drop-above,.drop-below').forEach(r => r.classList.remove('drop-above', 'drop-below')); });
+    row.addEventListener('dragover', e => {
+      if (!dragLayer) return; e.preventDefault();
+      const r = row.getBoundingClientRect(), above = o.type === 'base' || e.clientY < r.top + r.height / 2;
+      row.classList.toggle('drop-above', above); row.classList.toggle('drop-below', !above);
+    });
+    row.addEventListener('dragleave', () => row.classList.remove('drop-above', 'drop-below'));
+    row.addEventListener('drop', e => {
+      if (!dragLayer) return; e.preventDefault();
+      const above = row.classList.contains('drop-above'); row.classList.remove('drop-above', 'drop-below');
+      moveLayer(dragLayer, o.id, above);
+    });
+    return row;
+  }));
+  $('#layerHint').style.visibility = doc.objects.length > 2 ? '' : 'hidden';
+}
+function startRename(id, span) {
+  const o = byId(id); if (!o) return;
+  renaming = true;
+  const inp = el('input', { class: 'txt rn', value: o.name });
+  span.replaceWith(inp); inp.focus(); inp.select();
+  let done = false;
+  const fin = ok => {
+    if (done) return; done = true; renaming = false;
+    const v = inp.value.trim(), x = byId(id);
+    if (ok && v && x && v !== x.name) mutate(null, () => { byId(id).name = v; }); else invalidate('layers');
+  };
+  inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') fin(true); if (e.key === 'Escape') fin(false); });
+  inp.addEventListener('blur', () => fin(true));
+  inp.addEventListener('click', e => e.stopPropagation());
+}
+let layerAnchor = null;
+function select(id) { layerAnchor = id; setSel(id ? [id] : []); }
+function layerClick(e, id) {
+  if (e.ctrlKey || e.metaKey) return toggleSel(id);
+  if (e.shiftKey && layerAnchor && byId(layerAnchor)) {
+    const order = doc.objects.slice().reverse().map(x => x.id), a = order.indexOf(layerAnchor), b = order.indexOf(id);
+    const ids = order.slice(Math.min(a, b), Math.max(a, b) + 1).filter(i => isBox(byId(i)));
+    if (ids.length) return setSel(ids, id);
+  }
+  select(id);
+}
+function setSel(ids, primary) {
+  ids = [...new Set(ids)].filter(i => byId(i));
+  const p = primary && ids.includes(primary) ? primary : ids[ids.length - 1] || null;
+  if (p === sel && ids.join() === selIds.join()) return;
+  selIds = ids; sel = p; invalidate('scene', 'overlay', 'layers', 'props');
+}
+function toggleSel(id) {
+  const o = byId(id); if (!isBox(o)) return select(id);
+  const cur = selIds.filter(i => isBox(byId(i)));
+  setSel(cur.includes(id) ? cur.filter(i => i !== id) : [...cur, id], id);
+}
+const selected = () => selIds.map(byId).filter(Boolean);
+const bboxOf = list => {
+  const x = Math.min(...list.map(o => o.x)), y = Math.min(...list.map(o => o.y));
+  return { x, y, w: Math.max(...list.map(o => o.x + o.w)) - x, h: Math.max(...list.map(o => o.y + o.h)) - y };
+};
+
+/* ================= properties panel ================= */
+const propsEl = $('#propsPane');
+let propsSig = null, bindings = [];
+function bind(node, read, prop = 'value') { bindings.push({ node, read, prop }); node[prop] = read(); return node; }
+function bindFn(read, apply) { const b = { read, apply, last: read() }; bindings.push(b); apply(b.last); }
+function renderProps() {
+  const o = sel && byId(sel);
+  const multi = selIds.length > 1;
+  const sig = multi ? 'multi|' + selIds.join() + unit : o ? [o.id, o.type, o.locked, o.fillType, o.image ? o.image.asset : '-', unit, o.font, o.wrap].join('|') : 'none';
+  if (sig !== propsSig) {
+    propsSig = sig; bindings = [];
+    const build = { base: buildBase, shape: buildShape, pocket: buildPocket, holes: buildHoles, text: buildText, grid: buildGrid }[o && o.type];
+    propsEl.replaceChildren(...(multi ? buildMulti() : build ? build(o) : buildEmpty()));
+  } else {
+    for (const b of bindings) {
+      if (b.apply) { const v = b.read(); if (v !== b.last) { b.last = v; b.apply(v); } continue; }
+      if (b.prop === 'value' && b.node === document.activeElement) continue;
+      const v = b.read(); if (b.node[b.prop] !== v) b.node[b.prop] = v;
+    }
+  }
+}
+const sec = (title, ...kids) => el('section', { class: 'sec' }, el('h3', {}, title), ...kids);
+const row = (...kids) => el('div', { class: 'row' }, ...kids);
+const cap = t => el('div', { class: 'cap' }, t);
+
+function lenField(label, get, set, { min = 1, max = 100000, title } = {}) {
+  const inp = el('input', { type: 'text', inputmode: 'decimal' });
+  bind(inp, () => fmtLen(get()));
+  const put = (v, key) => set(clamp(v, typeof min === 'function' ? min() : min, typeof max === 'function' ? max() : max), key);
+  inp.addEventListener('change', () => { const v = parseLen(inp.value); if (v != null) put(v, null); inp.value = fmtLen(get()); });
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') inp.blur();
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const step = (e.shiftKey ? 10 : 1) * U(), cur = parseLen(inp.value) ?? get();
+      put(cur + (e.key === 'ArrowUp' ? step : -step), 'arrow:' + label); inp.value = fmtLen(get());
+    }
+  });
+  return el('label', { class: 'nf', title }, el('b', {}, label), inp, el('i', {}, unitLabel()));
+}
+function sliderField(get, set, { min = 0, max = 100, key, suffix = '%', def, inMax } = {}) {
+  const r = el('input', { type: 'range', min, max, step: 1, title: def != null ? 'Двойной клик — значение по умолчанию' : null });
+  if (def != null) r.addEventListener('dblclick', () => set(def, null));
+  const n = el('input', { type: 'text', inputmode: 'numeric' });
+  bind(r, () => String(Math.round(get()))); bind(n, () => String(Math.round(get())));
+  r.addEventListener('input', () => set(+r.value, key));
+  n.addEventListener('change', () => { const v = parseFloat(n.value.replace(',', '.')); if (isFinite(v)) set(clamp(v, min, inMax ?? max), null); n.value = String(Math.round(get())); });
+  n.addEventListener('keydown', e => { if (e.key === 'Enter') n.blur(); });
+  return el('div', { class: 'slider' }, r, el('label', { class: 'nf' }, n, el('i', {}, suffix)));
+}
+function colorField(get, set) {
+  const c = el('input', { type: 'color', title: 'Выбрать цвет' }), t = el('input', { type: 'text', class: 'txt', maxlength: 7 });
+  bind(c, get); bind(t, () => get().toUpperCase());
+  c.addEventListener('input', () => set(c.value, 'color'));
+  t.addEventListener('change', () => { const v = normHex(t.value); if (v) set(v, null); t.value = get().toUpperCase(); });
+  t.addEventListener('keydown', e => { if (e.key === 'Enter') t.blur(); });
+  const pip = B('pipette', '', async () => { const v = await pickColor(); if (v) set(v, null); },
+    { title: window.EyeDropper ? 'Пипетка: взять цвет с экрана' : 'Пипетка работает в Chrome и Edge', cls: 'btn' });
+  return el('div', { class: 'color' }, c, t, pip);
+}
+function checkField(label, get, set) {
+  const c = el('input', { type: 'checkbox' }); bind(c, get, 'checked');
+  c.addEventListener('change', () => set(c.checked));
+  return el('label', { class: 'check' }, c, label);
+}
+function textField(get, set, fallback) {
+  const t = el('input', { type: 'text', class: 'txt' }); bind(t, get);
+  t.addEventListener('change', () => set(t.value.trim() || fallback));
+  t.addEventListener('keydown', e => { if (e.key === 'Enter') t.blur(); });
+  return t;
+}
+const segField = (opts, cur, set) => el('div', { class: 'seg full' }, opts.map(([v, l]) => el('button', { type: 'button', class: cur === v ? 'on' : '', onclick: () => set(v) }, l)));
+const warnField = (read, bad) => { const w = el('div', { class: 'warn' + (bad ? ' bad' : '') }); bind(w, read, 'textContent'); return w; };
+
+function fillSection(o, O, upd) {
+  const parts = [
+    row(segField((o.type === 'shape' ? [['none', 'Нет']] : []).concat([['solid', 'Цвет'], ['linear', 'Линейный'], ['radial', 'Радиальный']]), o.fillType, v => upd(null, x => x.fillType = v))),
+  ];
+  if (o.fillType === 'none') return sec('Заливка', el('fieldset', { disabled: o.locked }, ...parts, el('p', { class: 'hint' }, 'Без заливки: виден только фон под слоем и картинка, если она загружена.')));
+  parts.push(cap(o.fillType === 'solid' ? 'Цвет' : 'Цвет 1'), row(colorField(() => O().fill, (v, k) => upd(k ? 'fill' : null, x => x.fill = v))));
+  if (o.fillType !== 'solid') {
+    parts.push(cap('Цвет 2'), row(colorField(() => O().fill2, (v, k) => upd(k ? 'fill2' : null, x => x.fill2 = v)),
+      B('swap', '', () => upd(null, x => { [x.fill, x.fill2] = [x.fill2, x.fill]; }), { cls: 'btn', title: 'Поменять цвета местами' })));
+    if (o.fillType === 'linear') parts.push(cap('Направление'), row(sliderField(() => O().angle, (v, k) => upd(k, x => x.angle = v), { min: 0, max: 360, key: 'angle', suffix: '°', def: 90 })));
+  }
+  parts.push(cap('Прозрачность заливки'), row(sliderField(() => O().fillOpacity * 100, (v, k) => upd(k, x => x.fillOpacity = v / 100), { key: 'fillOp', def: 100 })));
+  return sec('Заливка', el('fieldset', { disabled: o.locked }, ...parts));
+}
+function layerSection(o, O, upd) {
+  const btns = o.type === 'base' ? null : el('div', { class: 'btns', style: 'margin-top:10px' },
+    isBox(o) ? B('copy', 'Дублировать', duplicateSel, { cls: 'btn', title: 'Ctrl+D' }) : null,
+    B('trash', 'Удалить', deleteSel, { cls: 'btn danger', title: 'Delete', disabled: o.locked }));
+  return sec('Слой',
+    isBox(o) ? el('fieldset', { disabled: o.locked }, cap('Выровнять по стенду'),
+      el('div', { class: 'btns tools', style: 'margin-bottom:10px' }, ALIGN.map(([k, icon, t]) => B(icon, '', () => alignSel(k, true), { cls: 'btn', title: t })))) : null,
+    el('fieldset', { disabled: o.locked }, cap('Прозрачность слоя'), row(sliderField(() => O().opacity * 100, (v, k) => upd(k, x => x.opacity = v / 100), { key: 'layerOp', def: 100 }))),
+    row(checkField('Видимый', () => O().visible, v => upd(null, x => x.visible = v))),
+    row(checkField('Заблокирован', () => O().locked, v => upd(null, x => x.locked = v))),
+    btns);
+}
+const posGrid = (O, upd) => el('div', { class: 'grid2' },
+  lenField('X', () => O().x, (v, k) => upd(k, x => x.x = v), { min: -1e5, title: 'От левого края подложки' }),
+  lenField('Y', () => O().y, (v, k) => upd(k, x => x.y = v), { min: -1e5, title: 'От верхнего края подложки' }));
+function ctx(o) { const id = o.id; return [() => byId(id) || o, (key, fn) => mutate(key, () => { const x = byId(id); if (x) fn(x); })]; }
+
+function buildBase(o) {
+  const [O, upd] = ctx(o), L = o.locked;
+  const preset = el('select', { title: 'Готовые размеры' }, el('option', { value: '' }, 'Свой размер'),
+    PRESETS.map(([a, b]) => el('option', { value: a + 'x' + b }, `${a} × ${b} мм`)));
+  bind(preset, () => {
+    const x = O(), a = Math.min(x.w, x.h), b = Math.max(x.w, x.h), land = x.w > x.h;
+    for (const op of preset.options) if (op.value) { const [p, q] = op.value.split('x'); op.textContent = land ? `${q} × ${p} мм` : `${p} × ${q} мм`; }
+    return PRESETS.some(p => p[0] === a && p[1] === b) ? a + 'x' + b : '';
+  });
+  preset.addEventListener('change', () => {
+    if (!preset.value) return;
+    const [a, b] = preset.value.split('x').map(Number);
+    upd(null, x => { const land = x.w > x.h; x.w = land ? b : a; x.h = land ? a : b; });
+  });
+  const thick = el('select', { title: 'Толщина листа ПВХ' }, el('option', { value: '4' }, 'ПВХ 4 мм'), el('option', { value: '5' }, 'ПВХ 5 мм'));
+  bind(thick, () => String(O().thickness));
+  thick.addEventListener('change', () => upd(null, x => x.thickness = +thick.value));
+
+  let imgSec;
+  const i = o.image;
+  if (!i || !assets[i.asset]) {
+    imgSec = el('div', { class: 'drop' }, B('image', 'Загрузить изображение', () => chooseImage(o.id), { cls: 'btn' }), el('div', {}, 'или перетащите файл на холст, или вставьте Ctrl+V'));
+  } else {
+    const I = () => O().image;
+    const updI = (key, fn) => upd(key, x => x.image && fn(x.image, x));
+    const thumb = el('div', { class: 'thumb' }); thumb.style.backgroundImage = `url("${assets[i.asset]}")`;
+    imgSec = el('div', {},
+      thumb,
+      el('div', { class: 'btns', style: 'margin-bottom:12px' },
+        B('folder', 'Заменить', () => chooseImage(o.id), { cls: 'btn' }),
+        B('trash', 'Убрать', () => upd(null, x => x.image = null), { cls: 'btn' })),
+      cap('Прозрачность'),
+      row(sliderField(() => I().opacity * 100, (v, k) => updI(k, im => im.opacity = v / 100), { key: 'imgOp', def: 100 })),
+      cap('Масштаб (100% — заполняет подложку)'),
+      row(sliderField(() => I().w / coverW(O()) * 100, (v, k) => updI(k, (im, x) => {
+        const f = (coverW(x) * v / 100) / im.w, cx = im.x + im.w / 2, cy = im.y + im.h / 2;
+        im.w *= f; im.h *= f; im.x = cx - im.w / 2; im.y = cy - im.h / 2;
+      }), { min: 10, max: 400, key: 'imgScale', def: 100 })),
+      el('div', { class: 'grid2' },
+        lenField('Ш', () => I().w, (v, k) => updI(k, im => { const r = im.w / im.h; im.w = v; if (im.lockRatio) im.h = v / r; })),
+        lenField('В', () => I().h, (v, k) => updI(k, im => { const r = im.w / im.h; im.h = v; if (im.lockRatio) im.w = v * r; })),
+        lenField('X', () => I().x, (v, k) => updI(k, im => im.x = v), { min: -1e5 }),
+        lenField('Y', () => I().y, (v, k) => updI(k, im => im.y = v), { min: -1e5 })),
+      row(checkField('Сохранять пропорции', () => I().lockRatio, v => updI(null, im => im.lockRatio = v))),
+      el('div', { class: 'btns' },
+        el('button', { type: 'button', class: 'btn', title: 'Картинка целиком внутри подложки', onclick: () => updI(null, (im, x) => placeImage(x, 'fit')) }, 'Вписать'),
+        el('button', { type: 'button', class: 'btn', title: 'Картинка закрывает всю подложку', onclick: () => updI(null, (im, x) => placeImage(x, 'fill')) }, 'Заполнить'),
+        el('button', { type: 'button', class: 'btn', title: 'Поставить по центру', onclick: () => updI(null, (im, x) => placeImage(x, 'center')) }, 'По центру')),
+      el('p', { class: 'hint' }, 'На холсте (когда подложка выделена): тяните картинку, чтобы сдвинуть, за ручки — масштаб. ', el('kbd', {}, 'Shift'), ' — без пропорций, ', el('kbd', {}, 'Ctrl'), ' — без привязки.'));
+  }
+  return [
+    sec('Подложка',
+      el('fieldset', { disabled: L },
+        row(textField(() => O().name, v => upd(null, x => x.name = v), 'База')),
+        row(preset, B('swap', '', () => upd(null, x => { [x.w, x.h] = [x.h, x.w]; }), { title: 'Повернуть: книжная ↔ альбомная', cls: 'btn' })),
+        el('div', { class: 'grid2' },
+          lenField('Ш', () => O().w, (v, k) => upd(k, x => x.w = v), { min: 10, max: 20000 }),
+          lenField('В', () => O().h, (v, k) => upd(k, x => x.h = v), { min: 10, max: 20000 })),
+        row(thick),
+        warnField(() => { const x = O(); return Math.max(x.w, x.h) > SHEET[1] || Math.min(x.w, x.h) > SHEET[0] ? `Больше стандартного листа ПВХ ${SHEET[0]} × ${SHEET[1]} мм: стенд будет составным.` : ''; }))),
+    fillSection(o, O, upd),
+    sec('Фоновое изображение', el('fieldset', { disabled: L }, imgSec)),
+    layerSection(o, O, upd),
+  ];
+}
+function buildShape(o) {
+  const [O, upd] = ctx(o);
+  return [
+    sec('Слой',
+      el('fieldset', { disabled: o.locked },
+        row(textField(() => O().name, v => upd(null, x => x.name = v), 'Слой')),
+        el('div', { class: 'grid2' },
+          lenField('Ш', () => O().w, (v, k) => upd(k, x => x.w = v), { min: 1, max: 20000 }),
+          lenField('В', () => O().h, (v, k) => upd(k, x => x.h = v), { min: 1, max: 20000 })),
+        posGrid(O, upd),
+        row(lenField('Скругление', () => O().radius, (v, k) => upd(k, x => x.radius = v), { min: 0, max: 5000 })),
+        el('div', { class: 'btns' },
+          el('button', { type: 'button', class: 'btn', title: 'Растянуть на всю подложку', onclick: () => upd(null, x => { const b = base(); x.x = 0; x.y = 0; x.w = b.w; x.h = b.h; }) }, 'На всю подложку'),
+          el('button', { type: 'button', class: 'btn', onclick: () => upd(null, x => { const b = base(); x.x = (b.w - x.w) / 2; x.y = (b.h - x.h) / 2; }) }, 'По центру')),
+        el('div', { class: 'btns', style: 'margin-top:8px' }, rotButton(o.id, 'Повернуть'), flipButton(o.id, 'Отразить')))),
+    shapeImageSection(o, O, upd),
+    fillSection(o, O, upd),
+    layerSection(o, O, upd),
+  ];
+}
+function shapeImageSection(o, O, upd) {
+  const i = o.image;
+  if (!i || !assets[i.asset]) return sec('Изображение', el('fieldset', { disabled: o.locked },
+    el('div', { class: 'drop' }, B('image', 'Выбрать изображение', () => chooseImage(o.id), { cls: 'btn' }), el('div', {}, 'или перетащите файл прямо на слой'))));
+  const t = el('div', { class: 'thumb' }); t.style.backgroundImage = `url("${assets[i.asset]}")`;
+  const fitSeg = el('div', { class: 'seg full' }, [['cover', 'Заполнить'], ['contain', 'Вписать'], ['stretch', 'Растянуть']].map(([v, l]) => {
+    const b = el('button', { type: 'button' }, l); b.addEventListener('click', () => upd(null, x => x.image && (x.image.fit = v)));
+    bindFn(() => O().image?.fit === v, on => b.classList.toggle('on', on)); return b;
+  }));
+  return sec('Изображение', el('fieldset', { disabled: o.locked },
+    t,
+    el('div', { class: 'btns', style: 'margin-bottom:10px' },
+      B('folder', 'Заменить', () => chooseImage(o.id), { cls: 'btn' }),
+      B('trash', 'Убрать', () => upd(null, x => x.image = null), { cls: 'btn' })),
+    row(fitSeg),
+    el('div', { class: 'btns', style: 'margin-bottom:10px' }, el('button', { type: 'button', class: 'btn', title: 'Изменить высоту слоя так, чтобы пропорции совпали с картинкой',
+      onclick: () => upd(null, x => { const ar = x.image.ar || 1, q = x.rot % 180; if (q) x.w = Math.round(x.h * ar); else x.h = Math.round(x.w / ar); }) }, 'Пропорции как у картинки')),
+    cap('Прозрачность изображения'),
+    row(sliderField(() => O().image ? O().image.opacity * 100 : 100, (v, k) => upd(k, x => x.image && (x.image.opacity = v / 100)), { key: 'shImgOp', def: 100 }))));
+}
+function sidesField(O, upd) {
+  const x0 = 46, y0 = 14, x1 = 146, y1 = 96;
+  const s = sv('svg', { viewBox: '0 0 192 112', class: 'sides-svg' });
+  s.append(sv('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, class: 'sp-plate' }));
+  const edges = { t: [x0, y0, x1, y0], b: [x0, y1, x1, y1], l: [x0, y0, x0, y1], r: [x1, y0, x1, y1] }, lines = {};
+  for (const k in edges) {
+    const [a, b, c, d] = edges[k];
+    const vis = sv('line', { x1: a, y1: b, x2: c, y2: d, class: 'sp-edge' }), hit = sv('line', { x1: a, y1: b, x2: c, y2: d, class: 'sp-hit' });
+    const tt = sv('title'); tt.textContent = 'Скотч ' + SIDE_NAMES[k] + ': клик — переключить'; hit.append(tt);
+    hit.addEventListener('click', () => upd(null, x => { const l = toLocalSide(k, x.rot || 0, x.flip); x.sides[l] = !x.sides[l]; }));
+    s.append(vis, hit); lines[k] = vis;
+  }
+  const t = sv('text', { x: (x0 + x1) / 2, y: (y0 + y1) / 2 + 4, 'text-anchor': 'middle', class: 'sp-txt' }); t.textContent = 'клик по стороне'; s.append(t);
+  const info = el('div', { class: 'cap' });
+  bindFn(() => JSON.stringify(O().sides) + O().rot + O().flip, () => {
+    const o = O(), sd = {}; for (const v of CW) sd[v] = o.sides[toLocalSide(v, o.rot || 0, o.flip)];
+    const on = Object.keys(sd).filter(k => sd[k]), off = ['t', 'b', 'l', 'r'].filter(k => !sd[k]);
+    for (const k in lines) lines[k].classList.toggle('on', sd[k]);
+    info.textContent = `Проклеено сторон: ${on.length}. ` + (off.length ? 'Открыт ' + off.map(k => SIDE_NAMES[k]).join(', ') + '.' : 'Закрыт со всех сторон.');
+  });
+  return el('div', {}, s, info);
+}
+function buildPocket(o) {
+  const [O, upd] = ctx(o), L = o.locked;
+  const fmtSel = el('select', { title: 'Формат вкладыша' }, el('option', { value: '' }, 'Свой формат'),
+    POCKET_FORMATS.map(([n, a, b]) => el('option', { value: a + 'x' + b }, `${n} — ${a}×${b} мм`)));
+  bind(fmtSel, () => { const x = O(), a = Math.min(x.iw, x.ih), b = Math.max(x.iw, x.ih); return POCKET_FORMATS.some(f => f[1] === a && f[2] === b) ? a + 'x' + b : ''; });
+  fmtSel.addEventListener('change', () => {
+    if (!fmtSel.value) return;
+    const [a, b] = fmtSel.value.split('x').map(Number);
+    upd(null, x => { const land = x.iw > x.ih; x.iw = land ? b : a; x.ih = land ? a : b; });
+  });
+  const outer = el('div', { class: 'info' });
+  bind(outer, () => { const x = O(); return `Карман целиком: ${fmtLen(x.w)} × ${fmtLen(x.h)} ${unitLabel()}`; }, 'textContent');
+  const warn = warnField(() => {
+    const x = O(), b = base(), out = [];
+    if (x.x < -0.01 || x.y < -0.01 || x.x + x.w > b.w + 0.01 || x.y + x.h > b.h + 0.01) out.push('Карман выходит за край подложки.');
+    const hit = doc.objects.filter(k => k.type === 'pocket' && k.id !== x.id && k.visible && k.x < x.x + x.w && x.x < k.x + k.w && k.y < x.y + x.h && x.y < k.y + k.h);
+    if (hit.length) out.push('Пересекается: ' + hit.map(k => '«' + k.name + '»').join(', ') + '.');
+    const h = holesObj();
+    if (h && h.visible && holePoints(h, b).some(p => circleHitsRect(p, h.d / 2, x))) out.push('На карман попадает отверстие под крепёж.');
+    return out.join('\n');
+  }, true);
+  const i = o.image;
+  const ins = i && assets[i.asset]
+    ? el('div', {},
+        (() => { const t = el('div', { class: 'thumb' }); t.style.backgroundImage = `url("${assets[i.asset]}")`; return t; })(),
+        el('div', { class: 'btns', style: 'margin-bottom:12px' },
+          B('folder', 'Заменить', () => chooseImage(o.id), { cls: 'btn' }),
+          B('trash', 'Убрать', () => upd(null, x => x.image = null), { cls: 'btn' })),
+        cap('Прозрачность вкладыша'),
+        row(sliderField(() => O().image.opacity * 100, (v, k) => upd(k, x => x.image && (x.image.opacity = v / 100)), { key: 'insOp', def: 100 })))
+    : el('div', { class: 'drop' }, B('image', 'Вставить картинку', () => chooseImage(o.id), { cls: 'btn' }), el('div', {}, 'или перетащите файл прямо на карман'));
+  return [
+    sec('Карман',
+      el('fieldset', { disabled: L },
+        row(textField(() => O().name, v => upd(null, x => x.name = v), 'Карман')),
+        row(checkField('Отображать имя на кармане', () => O().showName, v => upd(null, x => x.showName = v))),
+        cap('Формат вкладыша'),
+        row(fmtSel, flipButton(o.id), rotButton(o.id)),
+        el('div', { class: 'grid2' },
+          lenField('Ш', () => O().iw, (v, k) => upd(k, x => x.iw = v), { min: 10, max: 5000, title: 'Ширина вкладыша' }),
+          lenField('В', () => O().ih, (v, k) => upd(k, x => x.ih = v), { min: 10, max: 5000, title: 'Высота вкладыша' })),
+        outer,
+        posGrid(O, upd),
+        el('div', { class: 'btns' },
+          el('button', { type: 'button', class: 'btn', onclick: () => upd(null, x => { x.x = (base().w - x.w) / 2; }) }, 'По центру ↔'),
+          el('button', { type: 'button', class: 'btn', onclick: () => upd(null, x => { x.y = (base().h - x.h) / 2; }) }, 'По центру ↕')),
+        warn)),
+    sec('Двусторонний скотч',
+      el('fieldset', { disabled: L },
+        sidesField(O, upd),
+        el('div', { class: 'grid2', style: 'margin-top:8px' },
+          lenField('Лента', () => O().tape, (v, k) => upd(k, x => x.tape = v), { min: 1, max: 60, title: 'Ширина ленты скотча' }),
+          lenField('Зазор', () => O().gap, (v, k) => upd(k, x => x.gap = v), { min: 0, max: 30, title: 'Запас между вкладышем и скотчем' })),
+        cap('Цвет рамки'),
+        row(colorField(() => O().tapeColor, (v, k) => upd(k ? 'tapeColor' : null, x => x.tapeColor = v))),
+        row(checkField('Вырез для пальца на открытой стороне', () => O().notch, v => upd(null, x => x.notch = v))))),
+    sec('Вкладыш', el('fieldset', { disabled: L }, ins)),
+    sec('Массив карманов',
+      el('fieldset', { disabled: L },
+        el('div', { class: 'grid2' },
+          intField('Колонок', () => arrayOpts.cols, v => arrayOpts.cols = v, 1, 30),
+          intField('Рядов', () => arrayOpts.rows, v => arrayOpts.rows = v, 1, 30),
+          lenField('Зазор ↔', () => arrayOpts.gx, v => { arrayOpts.gx = v; invalidate('props'); }, { min: 0, max: 5000 }),
+          lenField('Зазор ↕', () => arrayOpts.gy, v => { arrayOpts.gy = v; invalidate('props'); }, { min: 0, max: 5000 })),
+        row(checkField('Разместить по центру стенда', () => arrayOpts.center, v => arrayOpts.center = v)),
+        (() => { const i = el('div', { class: 'info' }); bind(i, () => { const x = O(), W = arrayOpts.cols * x.w + (arrayOpts.cols - 1) * arrayOpts.gx, H = arrayOpts.rows * x.h + (arrayOpts.rows - 1) * arrayOpts.gy; return `${arrayOpts.cols * arrayOpts.rows} карманов займут ${fmtLen(W)} × ${fmtLen(H)} ${unitLabel()}`; }, 'textContent'); return i; })(),
+        el('div', { class: 'btns' }, B('copy', 'Создать массив', () => makeArray(o.id), { cls: 'btn primary', title: 'Этот карман станет первым, остальные — копиями' })))),
+    layerSection(o, O, upd),
+  ];
+}
+function rotButton(id, label = '') {
+  return B('rotate', label, e => rotateObj(id, e.ctrlKey || e.metaKey ? -1 : 1), { cls: 'btn', title: 'Повернуть на 90° по часовой (R). Ctrl + клик — против часовой' });
+}
+function flipButton(id, label = '') { return B('flip', label, () => flipObj(id), { cls: 'btn', title: 'Отразить по горизонтали (Shift+H)' }); }
+function toggleBtn(html, title, get, set) {
+  const b = el('button', { type: 'button', title, html }); b.addEventListener('click', () => set(!get()));
+  bindFn(() => !!get(), v => b.classList.toggle('on', v)); return b;
+}
+function buildText(o) {
+  const [O, upd] = ctx(o), L = o.locked, f = fontDef(o.font);
+  const ta = el('textarea', { class: 'txt', id: 'textArea', rows: 3, spellcheck: 'true', placeholder: 'Введите текст' });
+  bind(ta, () => O().text);
+  ta.addEventListener('input', () => upd('text:' + o.id, x => x.text = ta.value));
+  const fsel = el('select', { title: 'Шрифт' },
+    el('optgroup', { label: 'Встроенные' }, FONT_DB.filter(d => !d.custom).map(d => el('option', { value: d.label, style: `font-family:"${d.css}"` }, d.label))),
+    FONT_DB.some(d => d.custom) ? el('optgroup', { label: 'Свои' }, FONT_DB.filter(d => d.custom).map(d => el('option', { value: d.label, style: `font-family:"${d.css}"` }, d.label))) : null,
+    el('option', { value: '__add' }, '＋ Добавить свой шрифт…'));
+  bind(fsel, () => FONT_DB.some(d => d.label === O().font) ? O().font : FONT_DB[0].label); fsel.style.fontFamily = `"${f.css}"`;
+  fsel.addEventListener('change', () => {
+    if (fsel.value === '__add') { fsel.value = O().font; fontTarget = o.id; $('#fontInput').click(); return; }
+    upd(null, x => { x.font = fsel.value; });
+  });
+  const weights = f.static ? [...new Set(f.faces.map(x => +x.weight))] : [100, 200, 300, 400, 500, 600, 700, 800, 900].filter(w => w >= f.wmin && w <= f.wmax);
+  const WN = { 100: 'Тонкий', 200: 'Сверхсветлый', 300: 'Светлый', 400: 'Обычный', 500: 'Средний', 600: 'Полужирный', 700: 'Жирный', 800: 'Сверхжирный', 900: 'Чёрный' };
+  const wsel = el('select', { title: 'Насыщенность' }, weights.map(w => el('option', { value: String(w) }, `${WN[w]} ${w}`)));
+  bind(wsel, () => String(fontWeight(O()))); wsel.addEventListener('change', () => upd(null, x => x.weight = +wsel.value));
+  const pt = el('div', { class: 'cap' }); bind(pt, () => `Размер шрифта, мм · ≈ ${Math.round(O().size / 0.3528)} pt`, 'textContent');
+  const alignSeg = el('div', { class: 'seg full' }, [['left', 'alignL', 'По левому краю'], ['center', 'alignC', 'По центру'], ['right', 'alignR', 'По правому краю']].map(([v, icn, t]) => {
+    const b = el('button', { type: 'button', title: t, html: ic(icn) }); b.addEventListener('click', () => upd(null, x => x.align = v));
+    bindFn(() => O().align === v, on => b.classList.toggle('on', on)); return b;
+  }));
+  return [
+    sec('Текст',
+      el('fieldset', { disabled: L },
+        row(ta),
+        row(fsel, wsel),
+        f.custom ? el('div', { class: 'btns', style: 'margin-bottom:8px' }, B('trash', 'Удалить этот шрифт с устройства', () => removeCustomFont(f.label), { cls: 'btn danger' })) : null,
+        pt,
+        row(sliderField(() => O().size, (v, k) => upd(k, x => { const r = v / x.size; x.size = v; if (x.wrap) x.boxW *= r; }), { min: 5, max: 300, inMax: 5000, key: 'size', suffix: 'мм', def: 60 })),
+        row(el('div', { class: 'seg full tog' },
+          toggleBtn('<b>Ж</b>', 'Жирный', () => fontWeight(O()) >= 600, v => upd(null, x => x.weight = v ? 700 : 400)),
+          toggleBtn('<i>К</i>', 'Курсив', () => O().italic, v => upd(null, x => x.italic = v)),
+          toggleBtn('<u>Ч</u>', 'Подчёркнутый', () => O().underline, v => upd(null, x => x.underline = v)),
+          toggleBtn('<s>З</s>', 'Зачёркнутый', () => O().strike, v => upd(null, x => x.strike = v)),
+          toggleBtn('АА', 'Все прописные', () => O().caps, v => upd(null, x => x.caps = v)))),
+        row(alignSeg),
+        cap('Наклон'), row(sliderField(() => O().skew, (v, k) => upd(k, x => x.skew = v), { min: -30, max: 30, key: 'skew', suffix: '°', def: 0 })),
+        cap('Межстрочный интервал'), row(sliderField(() => O().lh * 100, (v, k) => upd(k, x => x.lh = v / 100), { min: 70, max: 300, key: 'lh', def: 120 })),
+        cap('Межбуквенный интервал'), row(sliderField(() => O().ls * 100, (v, k) => upd(k, x => x.ls = v / 100), { min: -10, max: 100, key: 'ls', def: 0 })),
+        row(checkField('Переносить строки по ширине', () => O().wrap, v => upd(null, x => { if (v) x.boxW = Math.round(textLayout({ ...x, wrap: false, skew: 0 }).tw); x.wrap = v; }))),
+        o.wrap ? row(lenField('Ширина', () => O().boxW, (v, k) => upd(k, x => x.boxW = v), { min: 10, max: 20000 })) : null)),
+    sec('Цвет и обводка',
+      el('fieldset', { disabled: L },
+        row(colorField(() => O().color, (v, k) => upd(k ? 'tcolor' : null, x => x.color = v))),
+        cap('Прозрачность текста'), row(sliderField(() => O().colorOpacity * 100, (v, k) => upd(k, x => x.colorOpacity = v / 100), { key: 'tOp', def: 100 })),
+        cap('Обводка'),
+        row(colorField(() => O().strokeColor, (v, k) => upd(k ? 'scolor' : null, x => x.strokeColor = v))),
+        row(lenField('Толщина', () => O().strokeW, (v, k) => upd(k, x => x.strokeW = v), { min: 0, max: 100, title: '0 — без обводки' })))),
+    sec('Положение',
+      el('fieldset', { disabled: L },
+        posGrid(O, upd),
+        el('div', { class: 'btns' },
+          el('button', { type: 'button', class: 'btn', onclick: () => upd(null, x => { x.x = (base().w - x.w) / 2; }) }, 'По центру ↔'),
+          rotButton(o.id, 'Повернуть')))),
+    layerSection(o, O, upd),
+  ];
+}
+function buildGrid(o) {
+  const [O, upd] = ctx(o);
+  return [
+    sec('Сетка',
+      el('fieldset', { disabled: o.locked },
+        row(lenField('Клетка', () => O().step, (v, k) => upd(k, x => x.step = v), { min: 2, max: 5000, title: 'Размер квадрата сетки' })),
+        el('div', { class: 'btns', style: 'margin-bottom:10px' }, [10, 25, 50, 100].map(v => el('button', { type: 'button', class: 'btn', onclick: () => upd(null, x => x.step = v) }, fmtLen(v)))),
+        cap('Цвет линий'),
+        row(colorField(() => O().color, (v, k) => upd(k ? 'gcolor' : null, x => x.color = v))),
+        cap('Прозрачность линий'),
+        row(sliderField(() => O().lineOpacity * 100, (v, k) => upd(k, x => x.lineOpacity = v / 100), { key: 'gOp', def: 35 })),
+        row(checkField('Привязка к сетке', () => O().snap, v => upd(null, x => x.snap = v))),
+        row(checkField('Показывать в PNG', () => O().export, v => upd(null, x => x.export = v))),
+        el('p', { class: 'hint' }, 'С привязкой элементы при перетаскивании прилипают к линиям сетки краями. ', el('kbd', {}, 'Ctrl'), ' — временно без привязки. Сетка не мешает кликам: выбрать её можно только в панели слоёв.'))),
+    layerSection(o, O, upd),
+  ];
+}
+function insetSelect(O, upd) {
+  const sel_ = el('select', { title: 'Отступ от края подложки до центра отверстия' });
+  const fill = () => {
+    const cur = O().inset, vals = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+    sel_.replaceChildren(...(vals.includes(cur) ? [] : [el('option', { value: String(cur) }, `Отступ ${fmtLen(cur)} ${unitLabel()}`)]),
+      ...vals.map(v => el('option', { value: String(v) }, `Отступ ${fmtLen(v)} ${unitLabel()}`)));
+    sel_.value = String(cur);
+  };
+  bindFn(() => O().inset, fill);
+  sel_.addEventListener('change', () => upd(null, x => x.inset = +sel_.value));
+  return sel_;
+}
+function buildHoles(o) {
+  const [O, upd] = ctx(o), L = o.locked;
+  const out = el('output'); bind(out, () => String(O().count), 'textContent');
+  const b = base();
+  return [
+    sec('Отверстия под крепёж',
+      el('fieldset', { disabled: L },
+        cap('Количество (чётное)'),
+        row(el('div', { class: 'stepper' },
+          B('minus', '', () => upd(null, x => x.count = Math.max(4, x.count - 2)), { cls: 'btn', title: '−2' }),
+          out,
+          B('plus', '', () => upd(null, x => x.count = Math.min(60, x.count + 2)), { cls: 'btn', title: '+2' }))),
+        el('div', { class: 'grid2' },
+          lenField('Ø', () => O().d, (v, k) => upd(k, x => x.d = v), { min: 1, max: 50, title: 'Диаметр отверстия' }),
+          insetSelect(O, upd)),
+        cap('Цвет'),
+        row(colorField(() => O().color, (v, k) => upd(k ? 'holeColor' : null, x => x.color = v))),
+        warnField(() => { const x = O(), n = badHoles(x, holePoints(x, base())).size; return n ? `${n} из ${x.count} попадают на карманы (обведены красным).` : ''; }, true),
+        el('p', { class: 'hint' }, 'Четыре отверстия стоят по углам. Каждая следующая пара встаёт по очереди: на длинные стороны, затем на короткие, и так далее, с равным шагом.'))),
+    layerSection(o, O, upd),
+  ];
+}
+const ALIGN = [['l', 'aL', 'По левому краю'], ['ch', 'aCH', 'По центру по горизонтали'], ['r', 'aR', 'По правому краю'], ['t', 'aT', 'По верхнему краю'], ['cv', 'aCV', 'По центру по вертикали'], ['b', 'aB', 'По нижнему краю']];
+function buildMulti() {
+  const list = selected(); arrangeOpts.cols = null; arrangeOpts.rows = null;
+  return [
+    sec('Выбрано элементов: ' + list.length,
+      el('p', { class: 'hint', style: 'margin:0 0 10px' }, 'Рамка мышью — выделить область, с ', el('kbd', {}, 'Shift'), ' — добавить. ', el('kbd', {}, 'Shift'), ' + клик — добавить или убрать элемент. В списке слоёв ', el('kbd', {}, 'Shift'), ' — диапазон, ', el('kbd', {}, 'Ctrl'), ' — по одному.'),
+      row(checkField('Относительно стенда', () => alignToStand, v => { alignToStand = v; })),
+      cap('Выравнивание'),
+      el('div', { class: 'btns tools', style: 'margin-bottom:10px' }, ALIGN.map(([k, icon, t]) => B(icon, '', () => alignSel(k), { cls: 'btn', title: t }))),
+      cap('Расставить сеткой по стенду'),
+      el('div', { class: 'grid2' },
+        intField('Колонок', () => gridDims(arrangeList().length).C, v => { arrangeOpts.cols = v; arrangeOpts.rows = null; }, 1, 50, ''),
+        intField('Рядов', () => gridDims(arrangeList().length).R, v => { arrangeOpts.rows = v; arrangeOpts.cols = null; }, 1, 50, '')),
+      (() => { const sg = el('div', { class: 'seg full' }, [['gap', 'Зазор между'], ['offset', 'Отступ от краёв']].map(([v, l]) => {
+        const b = el('button', { type: 'button' }, l); b.addEventListener('click', () => { arrangeOpts.mode = v; invalidate('props'); });
+        bindFn(() => arrangeOpts.mode === v, on => b.classList.toggle('on', on)); return b; })); return row(sg); })(),
+      el('div', { class: 'grid2' },
+        lenField('↔', () => arrangeOpts.gx, v => { arrangeOpts.gx = v; }, { min: 0, max: 10000, title: 'По горизонтали' }),
+        lenField('↕', () => arrangeOpts.gy, v => { arrangeOpts.gy = v; }, { min: 0, max: 10000, title: 'По вертикали' })),
+      (() => { const h = el('p', { class: 'hint', style: 'margin:-2px 0 8px' }); bind(h, () => arrangeOpts.mode === 'gap' ? 'Сетка встаёт по центру стенда, между элементами — заданный зазор.' : 'Крайние элементы встают на заданный отступ от краёв стенда, промежутки между ними одинаковые.', 'textContent'); return h; })(),
+      el('div', { class: 'btns' }, B('', 'Расставить', arrangeGrid, { cls: 'btn primary', title: 'Порядок — как читаются элементы сейчас: слева направо, сверху вниз' })),
+      el('div', { class: 'btns', style: 'margin-top:10px' }, B('copy', 'Дублировать', duplicateSel, { cls: 'btn', title: 'Ctrl+D' }), B('trash', 'Удалить', deleteSel, { cls: 'btn danger', title: 'Delete' }))),
+  ];
+}
+function intField(label, get, set, min, max, suffix = 'шт') {
+  const inp = el('input', { type: 'text', inputmode: 'numeric' }); bind(inp, () => String(get()));
+  inp.addEventListener('change', () => { const v = parseInt(inp.value, 10); if (isFinite(v)) set(clamp(v, min, max)); inp.value = String(get()); invalidate('props'); });
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
+  return el('label', { class: 'nf' }, el('b', {}, label), inp, el('i', {}, suffix));
+}
+function buildEmpty() {
+  const k = (...a) => a.map((s, i) => [i ? ' + ' : '', el('kbd', {}, s)]);
+  return [sec('Ничего не выбрано', el('div', { class: 'empty' },
+    el('p', {}, 'Выберите слой на холсте или в панели слоёв. Новые элементы — кнопками под списком слоёв.'),
+    el('dl', { class: 'keys' },
+      el('dt', {}, 'Колесо'), el('dd', {}, 'масштаб'),
+      el('dt', {}, k('Пробел'), ' + мышь'), el('dd', {}, 'двигать холст (также средняя или правая кнопка мыши)'),
+      el('dt', {}, 'Рамка мышью'), el('dd', {}, 'выделить несколько элементов'),
+      el('dt', {}, k('R'), ' / ', k('Shift', 'R')), el('dd', {}, 'повернуть на 90° по / против часовой'),
+      el('dt', {}, k('Shift', 'H')), el('dd', {}, 'отразить по горизонтали'),
+      el('dt', {}, 'Двойной клик по тексту'), el('dd', {}, 'редактировать'),
+      el('dt', {}, k('0'), ' / ', k('1')), el('dd', {}, 'целиком / реальный размер'),
+      el('dt', {}, k('Ctrl', 'Z')), el('dd', {}, 'отменить'),
+      el('dt', {}, k('Ctrl', 'Shift', 'Z')), el('dd', {}, 'повторить'),
+      el('dt', {}, k('Ctrl', 'D')), el('dd', {}, 'дублировать'),
+      el('dt', {}, k('Shift'), ' + клик'), el('dd', {}, 'добавить / убрать из выделения'),
+      el('dt', {}, k('Ctrl', 'A')), el('dd', {}, 'выделить все элементы'),
+      el('dt', {}, k('Delete')), el('dd', {}, 'удалить слой'),
+      el('dt', {}, 'Стрелки'), el('dd', {}, 'сдвиг на 1 мм, с Shift на 10'),
+      el('dt', {}, k('Ctrl'), ' при перетаскивании'), el('dd', {}, 'без привязки'),
+      el('dt', {}, k('Esc')), el('dd', {}, 'снять выделение')))),
+  ];
+}
+
+/* ================= rotation ================= */
+function rotateObj(id, dir) {
+  const o = byId(id); if (!isBox(o)) return;
+  if (o.locked) return toast('Слой заблокирован');
+  mutate(null, () => {
+    const x = byId(id), cx = x.x + x.w / 2, cy = x.y + x.h / 2;
+    x.rot = ((x.rot || 0) + dir * 90 + 360) % 360;
+    if (x.type === 'shape') [x.w, x.h] = [x.h, x.w];
+    syncDerived(x);
+    x.x = r2(cx - x.w / 2); x.y = r2(cy - x.h / 2);
+  });
+  select(id);
+}
+function flipObj(id) {
+  const o = byId(id); if (!canFlip(o)) return;
+  if (o.locked) return toast('Слой заблокирован');
+  mutate(null, () => { const x = byId(id); x.flip = !x.flip; });
+  select(id);
+}
+const rotBtn = el('button', { type: 'button', 'aria-label': 'Повернуть на 90°', html: ic('rotate') });
+const flipBtn = el('button', { type: 'button', 'aria-label': 'Отразить по горизонтали', html: ic('flip') });
+const elTools = el('div', { id: 'elTools', hidden: true }, rotBtn, flipBtn);
+const rotTip = el('div', { id: 'rotTip', hidden: true });
+const TIPS = {
+  rot: '<b>Клик</b> — повернуть на 90° по часовой<br><b>Ctrl + клик</b> — на 90° против часовой<br><span class="mut">С клавиатуры: R и Shift + R</span>',
+  flip: '<b>Клик</b> — отразить по горизонтали<br><span class="mut">С клавиатуры: Shift + H</span>',
+};
+stage.append(elTools, rotTip);
+let hoverId = null, tipT = 0;
+function setHover(id) { if (hoverId !== id) { hoverId = id; placeRot(); } }
+function placeRot() {
+  const o = hoverId && byId(hoverId);
+  const busy = pinch || (drag && (drag.moved || drag.type === 'pan'));
+  if (!isBox(o) || o.locked || !o.visible || busy) { elTools.hidden = true; hideTip(); return; }
+  elTools.hidden = false; flipBtn.hidden = !canFlip(o);
+  elTools.style.setProperty('--px', view.x + (o.x + o.w / 2) * view.z + 'px');
+  elTools.style.setProperty('--py', view.y + (o.y + o.h / 2) * view.z + 'px');
+}
+function hideTip() { clearTimeout(tipT); rotTip.hidden = true; }
+elTools.addEventListener('pointerdown', e => e.stopPropagation());
+elTools.addEventListener('dblclick', e => e.stopPropagation());
+rotBtn.addEventListener('click', e => { hideTip(); rotateObj(hoverId, e.ctrlKey || e.metaKey ? -1 : 1); });
+rotBtn.addEventListener('contextmenu', e => { e.preventDefault(); hideTip(); rotateObj(hoverId, -1); }); // Ctrl+клик на Mac и правая кнопка
+flipBtn.addEventListener('click', () => { hideTip(); flipObj(hoverId); });
+for (const [btn, key] of [[rotBtn, 'rot'], [flipBtn, 'flip']]) {
+  btn.addEventListener('pointerenter', () => {
+    clearTimeout(tipT);
+    tipT = setTimeout(() => {
+      rotTip.innerHTML = TIPS[key]; rotTip.hidden = false;
+      rotTip.style.left = elTools.style.getPropertyValue('--px'); rotTip.style.top = elTools.style.getPropertyValue('--py');
+    }, 350);
+  });
+  btn.addEventListener('pointerleave', hideTip);
+}
+
+/* ================= view ================= */
+function zoomAt(z, cx, cy) {
+  const r = stage.getBoundingClientRect();
+  z = clamp(z, 0.01, 60);
+  const wx = (cx - r.left - view.x) / view.z, wy = (cy - r.top - view.y) / view.z;
+  view.z = z; view.x = cx - r.left - wx * z; view.y = cy - r.top - wy * z;
+  invalidate('view');
+}
+function zoomBy(f) { const r = stage.getBoundingClientRect(); zoomAt(view.z * f, r.left + r.width / 2, r.top + r.height / 2); }
+function fit() {
+  const r = stage.getBoundingClientRect(), b = base(); if (!b || !r.width) return;
+  const pad = 64;
+  view.z = clamp(Math.min((r.width - pad * 2) / b.w, (r.height - pad * 2 - 24) / b.h), 0.01, 60);
+  view.x = (r.width - b.w * view.z) / 2; view.y = (r.height - b.h * view.z) / 2;
+  invalidate('view');
+}
+function realSize() { const r = stage.getBoundingClientRect(); zoomAt(PX_PER_MM, r.left + r.width / 2, r.top + r.height / 2); }
+function toWorld(e) { const r = stage.getBoundingClientRect(); return { x: (e.clientX - r.left - view.x) / view.z, y: (e.clientY - r.top - view.y) / view.z }; }
+
+/* ================= snapping ================= */
+const normRect = (a, c) => ({ x: Math.min(a.x, c.x), y: Math.min(a.y, c.y), w: Math.abs(a.x - c.x), h: Math.abs(a.y - c.y) });
+function snapTargets(except) {
+  const ex = new Set([].concat(except)), b = base(), xs = [0, b.w / 2, b.w], ys = [0, b.h / 2, b.h];
+  for (const o of doc.objects) if (isBox(o) && o.visible && !ex.has(o.id)) { xs.push(o.x, o.x + o.w / 2, o.x + o.w); ys.push(o.y, o.y + o.h / 2, o.y + o.h); }
+  return { xs, ys };
+}
+function snapAxis(pos, size, list, thr, offs = [0, size / 2, size]) {
+  let best = null;
+  for (const off of offs) for (const t of list) { const d = Math.abs(pos + off - t); if (d < thr && (!best || d < best.d)) best = { d, delta: t - (pos + off), line: t }; }
+  const gr = gridObj();
+  if (gr && gr.visible && gr.snap) for (const off of offs) { // линии элемента «Сетка»
+    const g = Math.round((pos + off) / gr.step) * gr.step, d = Math.abs(pos + off - g);
+    if (d < thr && (!best || d < best.d - 0.01)) best = { d, delta: g - (pos + off), line: null };
+  }
+  return best || { delta: 0, line: null };
+}
+function guideLines(sx, sy, box) {
+  const b = base(), g = [];
+  if (sx != null) g.push({ x1: sx, x2: sx, y1: Math.min(0, box.y), y2: Math.max(b.h, box.y + box.h) });
+  if (sy != null) g.push({ y1: sy, y2: sy, x1: Math.min(0, box.x), x2: Math.max(b.w, box.x + box.w) });
+  return g;
+}
+
+/* ================= pointer interaction ================= */
+let drag = null, pinch = null, spaceDown = false;
+const pointers = new Map();
+function startPan(e) { drag = { type: 'pan', sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y }; stage.classList.add('panning'); }
+
+stage.addEventListener('pointerdown', e => {
+  if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  stage.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, z: view.z, vx: view.x, vy: view.y };
+    if (drag && drag.moved) changed();
+    drag = null; return;
+  }
+  if (e.button === 1 || e.button === 2 || (e.button === 0 && spaceDown)) { e.preventDefault(); startPan(e); return; }
+  if (e.button !== 0) return;
+  const w = toWorld(e), cur = selIds.length === 1 && sel && byId(sel), base0 = { sx: e.clientX, sy: e.clientY, sw: w, moved: false };
+  const h = e.target.closest && e.target.closest('[data-handle]');
+  const startMarquee = clickId => {
+    if (e.pointerType === 'touch') { if (clickId !== undefined) select(clickId); startPan(e); return; } // на сенсоре палец двигает холст
+    drag = { ...base0, type: 'marquee', cur: w, clickId, keep: e.shiftKey ? selIds.filter(i => isBox(byId(i))) : [] };
+  };
+  if (h && cur && !cur.locked) {
+    if (cur.type === 'base' && cur.image) { drag = { ...base0, type: 'resize', corner: h.dataset.handle, id: cur.id, start: { ...cur.image } }; return; }
+    if (isBox(cur)) { drag = { ...base0, type: 'boxresize', corner: h.dataset.handle, id: cur.id, start: { x: cur.x, y: cur.y, w: cur.w, h: cur.h, size: cur.size, boxW: cur.boxW }, ...snapTargets(cur.id) }; return; }
+  }
+  const hit = e.target.closest && e.target.closest('[data-id]');
+  if (hit) {
+    const id = hit.dataset.id, ob = byId(id);
+    if (e.shiftKey && isBox(ob)) { toggleSel(id); return; }
+    if (ob && ob.type === 'base') {
+      // картинку фона двигаем, только когда подложка уже выделена; иначе — рамка выделения
+      if (!e.shiftKey && sel === id && selIds.length === 1 && ob.image && !ob.locked && ob.visible && assets[ob.image.asset]) { drag = { ...base0, type: 'move', id, start: { ...ob.image } }; return; }
+      startMarquee(id); return;
+    }
+    if (e.shiftKey) { startMarquee(undefined); return; }
+    const inGroup = selIds.length > 1 && selIds.includes(id);
+    if (!inGroup) select(id);
+    if (ob && !ob.locked && ob.visible) {
+      if (isBox(ob)) {
+        const group = inGroup ? selected().filter(x => isBox(x) && !x.locked && x.visible) : [ob];
+        drag = { ...base0, type: 'boxmove', id, group: group.map(g => ({ id: g.id, x: g.x, y: g.y })), start: bboxOf(group), ...snapTargets(group.map(g => g.id)) };
+        return;
+      }
+    }
+  } else { startMarquee(null); return; }
+  startPan(e);
+});
+stage.addEventListener('pointermove', e => {
+  const w = toWorld(e);
+  hud.textContent = `X ${fmtLen(w.x)}  Y ${fmtLen(w.y)} ${unitLabel()}`;
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (!drag && !pinch && !elTools.contains(e.target)) { const hit = e.target.closest && e.target.closest('[data-id]'); setHover(hit ? hit.dataset.id : null); }
+  if (pinch && pointers.size >= 2) {
+    const [a, b] = [...pointers.values()], r = stage.getBoundingClientRect();
+    const d = Math.hypot(a.x - b.x, a.y - b.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+    const z = clamp(pinch.z * d / pinch.d, 0.01, 60);
+    const wx = (pinch.cx - r.left - pinch.vx) / pinch.z, wy = (pinch.cy - r.top - pinch.vy) / pinch.z;
+    view.z = z; view.x = cx - r.left - wx * z; view.y = cy - r.top - wy * z;
+    invalidate('view'); return;
+  }
+  if (!drag) return;
+  if (drag.type === 'pan') { view.x = drag.vx + e.clientX - drag.sx; view.y = drag.vy + e.clientY - drag.sy; invalidate('view'); return; }
+  if (drag.type === 'marquee') {
+    if (!drag.moved) { if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return; drag.moved = true; }
+    drag.cur = w; const r = normRect(drag.sw, w);
+    const hits = doc.objects.filter(o => isBox(o) && o.visible && o.x < r.x + r.w && r.x < o.x + o.w && o.y < r.y + r.h && r.y < o.y + o.h).map(o => o.id);
+    setSel([...drag.keep, ...hits]); invalidate('overlay'); return;
+  }
+  const o = byId(drag.id); if (!o) { drag = null; return; }
+  if (!drag.moved) { if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 3) return; commit(); drag.moved = true; }
+  const s = drag.start, free = e.ctrlKey || e.metaKey, thr = 8 / view.z, b = base();
+  drag.guides = null;
+  if (drag.type === 'move' && o.image) {
+    const i = o.image; let x = s.x + (w.x - drag.sw.x), y = s.y + (w.y - drag.sw.y);
+    if (!free) {
+      const ax = snapAxis(x, i.w, [0, b.w / 2, b.w], thr), ay = snapAxis(y, i.h, [0, b.h / 2, b.h], thr);
+      x += ax.delta; y += ay.delta; drag.guides = guideLines(ax.line, ay.line, { x, y, w: i.w, h: i.h });
+    }
+    i.x = x; i.y = y;
+  } else if (drag.type === 'resize' && o.image) {
+    const i = o.image, c = drag.corner, hW = c.includes('w'), hE = c.includes('e'), hN = c.includes('n'), hS = c.includes('s');
+    const ax = hW ? s.x + s.w : s.x, ay = hN ? s.y + s.h : s.y;
+    let nw = hW || hE ? Math.max(5, hW ? ax - w.x : w.x - ax) : s.w, nh = hN || hS ? Math.max(5, hN ? ay - w.y : w.y - ay) : s.h;
+    if ((hW || hE) && (hN || hS) && i.lockRatio !== e.shiftKey) { const r = s.w / s.h; if (nw / nh > r) nh = nw / r; else nw = nh * r; }
+    i.w = nw; i.h = nh; i.x = hW ? ax - nw : s.x; i.y = hN ? ay - nh : s.y;
+  } else if (drag.type === 'boxmove') {
+    let x = s.x + (w.x - drag.sw.x), y = s.y + (w.y - drag.sw.y);
+    if (!free) {
+      const ax = snapAxis(x, s.w, drag.xs, thr), ay = snapAxis(y, s.h, drag.ys, thr);
+      x += ax.delta; y += ay.delta; drag.guides = guideLines(ax.line, ay.line, { x, y, w: s.w, h: s.h });
+    }
+    const dx = x - s.x, dy = y - s.y;
+    for (const g of drag.group) { const k = byId(g.id); if (k) { k.x = r2(g.x + dx); k.y = r2(g.y + dy); } }
+  } else if (drag.type === 'boxresize') {
+    const c = drag.corner, hW = c.includes('w'), hE = c.includes('e'), hN = c.includes('n'), hS = c.includes('s');
+    const ax = hW ? s.x + s.w : s.x, ay = hN ? s.y + s.h : s.y, mx = hW || hE, my = hN || hS, corner = mx && my;
+    let ex = w.x, ey = w.y, gx = null, gy = null;
+    if (!free) {
+      if (mx) { const sx = snapAxis(ex, 0, drag.xs, thr, [0]); ex += sx.delta; gx = sx.line; }
+      if (my) { const sy = snapAxis(ey, 0, drag.ys, thr, [0]); ey += sy.delta; gy = sy.line; }
+    }
+    let nw = mx ? Math.max(10, hW ? ax - ex : ex - ax) : s.w, nh = my ? Math.max(10, hN ? ay - ey : ey - ay) : s.h;
+    if (corner && e.shiftKey) { const r = s.w / s.h; if (nw / nh > r) nh = nw / r; else nw = nh * r; gx = gy = null; }
+    if (o.type === 'text' && !corner) {
+      const L = textLayout(o), pad = L.w - L.tw, q = o.rot % 180;
+      o.wrap = true; o.boxW = Math.max(10, Math.round((q ? nh : nw) - pad));
+      syncDerived(o); nw = o.w; nh = o.h;
+    } else if (o.type === 'text') {
+      const f = Math.max(nw / s.w, nh / s.h);
+      o.size = r2(clamp(s.size * f, 1, 5000)); if (o.wrap) o.boxW = r2(s.boxW * f);
+      syncDerived(o); nw = o.w; nh = o.h;
+    } else if (o.type === 'pocket') {
+      const g = pocketGeom({ ...o, iw: 0, ih: 0 }), q = o.rot % 180, lw = q ? nh : nw, lh = q ? nw : nh;
+      o.iw = Math.max(10, Math.round(lw - g.w)); o.ih = Math.max(10, Math.round(lh - g.h)); syncDerived(o); nw = o.w; nh = o.h;
+    } else { o.w = Math.max(1, Math.round(nw)); o.h = Math.max(1, Math.round(nh)); nw = o.w; nh = o.h; }
+    o.x = r2(hW ? ax - nw : s.x); o.y = r2(hN ? ay - nh : s.y);
+    drag.guides = guideLines(gx, gy, o);
+  }
+  invalidate('scene', 'overlay', 'props');
+});
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  if (pinch) { if (pointers.size < 2) pinch = null; return; }
+  if (drag) {
+    if (drag.type === 'marquee') { if (!drag.moved && drag.clickId !== undefined) select(drag.clickId); }
+    else if (drag.moved) changed();
+    drag = null; stage.classList.remove('panning'); invalidate('overlay');
+  }
+}
+stage.addEventListener('pointerup', endPointer);
+stage.addEventListener('pointercancel', endPointer);
+stage.addEventListener('pointerleave', () => { hud.textContent = ''; setHover(null); });
+stage.addEventListener('wheel', e => {
+  e.preventDefault();
+  const k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+  // колесо — масштаб вокруг курсора; горизонтальная прокрутка тачпада двигает холст
+  if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && !e.ctrlKey) { view.x -= e.deltaX * k; invalidate('view'); return; }
+  zoomAt(view.z * Math.exp(-e.deltaY * k * (e.ctrlKey ? 0.01 : 0.0018)), e.clientX, e.clientY);
+}, { passive: false });
+stage.addEventListener('auxclick', e => e.preventDefault());
+stage.addEventListener('contextmenu', e => { if (!elTools.contains(e.target)) e.preventDefault(); });
+stage.addEventListener('dblclick', e => {
+  const hit = e.target.closest && e.target.closest('[data-id]'), o = hit && byId(hit.dataset.id);
+  if (o && o.type === 'text' && !o.locked) { select(o.id); focusText(); }
+});
+
+/* drag & drop and paste of files */
+stage.addEventListener('dragover', e => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); stage.classList.add('dragover'); } });
+stage.addEventListener('dragleave', e => { if (e.target === stage || !stage.contains(e.relatedTarget)) stage.classList.remove('dragover'); });
+stage.addEventListener('drop', e => {
+  e.preventDefault(); stage.classList.remove('dragover');
+  const f = e.dataTransfer.files[0]; if (!f) return;
+  if (/\.json$/i.test(f.name)) return openFile(f);
+  const hit = document.elementsFromPoint(e.clientX, e.clientY).map(n => n.closest && n.closest('[data-id]')).find(n => n && ['pocket', 'shape'].includes(byId(n.dataset.id)?.type));
+  importImage(f, hit ? hit.dataset.id : null);
+});
+document.addEventListener('paste', e => {
+  if (/INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return;
+  const item = [...(e.clipboardData?.items || [])].find(x => x.type.startsWith('image/'));
+  if (!item) return;
+  e.preventDefault();
+  const o = sel && byId(sel);
+  importImage(item.getAsFile(), o && (o.type === 'pocket' || o.type === 'shape') ? o.id : null);
+});
+$('#imageInput').addEventListener('change', e => { const f = e.target.files[0]; if (f) importImage(f, imageTarget); e.target.value = ''; });
+$('#fontInput').addEventListener('change', e => { const f = e.target.files[0]; if (f) addFontFile(f); e.target.value = ''; });
+$('#projectInput').addEventListener('change', e => { const f = e.target.files[0]; if (f) openFile(f); e.target.value = ''; });
+
+/* ================= keyboard ================= */
+window.addEventListener('keydown', e => {
+  const t = e.target, typing = /INPUT|TEXTAREA|SELECT/.test(t.tagName) || t.isContentEditable;
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && e.code === 'KeyS') { e.preventDefault(); saveFile(); return; }
+  if (mod && e.code === 'KeyO') { e.preventDefault(); $('#projectInput').click(); return; }
+  if (mod && e.shiftKey && e.code === 'KeyE') { e.preventDefault(); openExport(); return; }
+  if (typing) return;
+  if (mod && e.code === 'KeyZ') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if (mod && e.code === 'KeyY') { e.preventDefault(); redo(); return; }
+  if (mod && e.code === 'KeyD') { e.preventDefault(); duplicateSel(); return; }
+  if (mod && e.code === 'KeyA') { e.preventDefault(); setSel(doc.objects.filter(o => isBox(o) && o.visible && !o.locked).map(o => o.id)); return; }
+  if (mod && (e.code === 'Equal' || e.code === 'NumpadAdd')) { e.preventDefault(); zoomBy(1.25); return; }
+  if (mod && (e.code === 'Minus' || e.code === 'NumpadSubtract')) { e.preventDefault(); zoomBy(1 / 1.25); return; }
+  if (mod) return;
+  switch (e.code) {
+    case 'Space': e.preventDefault(); if (!spaceDown) { spaceDown = true; stage.classList.add('space'); } return;
+    case 'Equal': case 'NumpadAdd': zoomBy(1.25); return;
+    case 'Minus': case 'NumpadSubtract': zoomBy(1 / 1.25); return;
+    case 'Digit0': case 'Numpad0': fit(); return;
+    case 'Digit1': case 'Numpad1': realSize(); return;
+    case 'Escape': select(null); return;
+    case 'Delete': case 'Backspace': e.preventDefault(); deleteSel(); return;
+    case 'KeyR': if (sel) { e.preventDefault(); rotateObj(sel, e.shiftKey ? -1 : 1); } return;
+    case 'KeyH': if (sel && e.shiftKey) { e.preventDefault(); flipObj(sel); } return;
+  }
+  const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.code];
+  const o = sel && byId(sel), boxes = selected().filter(x => isBox(x) && !x.locked);
+  if (arrows && boxes.length > 1) { e.preventDefault(); const s = e.shiftKey ? 10 : 1; mutate('nudge', () => { for (const b of boxes) { const x = byId(b.id); x.x += arrows[0] * s; x.y += arrows[1] * s; } }); return; }
+  if (arrows && o && !o.locked) {
+    const s = e.shiftKey ? 10 : 1;
+    if (isBox(o)) { e.preventDefault(); mutate('nudge', () => { const x = byId(o.id); x.x += arrows[0] * s; x.y += arrows[1] * s; }); }
+    else if (o.type === 'base' && o.image) { e.preventDefault(); mutate('nudge', () => { const im = byId(o.id).image; im.x += arrows[0] * s; im.y += arrows[1] * s; }); }
+  }
+});
+window.addEventListener('keyup', e => { if (e.code === 'Space') { spaceDown = false; stage.classList.remove('space'); } });
+window.addEventListener('blur', () => { spaceDown = false; stage.classList.remove('space'); });
+window.addEventListener('beforeunload', saveNow);
+
+/* ================= specification ================= */
+const nf = (v, d = 0) => (+v).toLocaleString('ru-RU', { minimumFractionDigits: d, maximumFractionDigits: d });
+const mmTxt = v => nf(Math.round(v * 10) / 10, Number.isInteger(Math.round(v * 10) / 10) ? 0 : 1);
+const visualSides = o => { const sd = {}; for (const v of CW) sd[v] = o.sides[toLocalSide(v, o.rot || 0, o.flip)]; return sd; };
+function sidesTxt(o) {
+  const sd = visualSides(o), on = CW.filter(k => sd[k]).length, off = ['t', 'b', 'l', 'r'].filter(k => !sd[k]);
+  return `${on} стор.` + (off.length ? `, открыт ${off.map(k => SIDE_NAMES[k]).join(', ')}` : ', закрыт');
+}
+function specSections() {
+  const b = base(), P = doc.objects.filter(o => o.type === 'pocket' && o.visible), T = doc.objects.filter(o => o.type === 'text' && o.visible && o.text.trim());
+  const S = doc.objects.filter(o => o.type === 'shape' && o.visible), H = holesObj(), holes = H && H.visible ? holePoints(H, b) : [];
+  const fits = (b.w <= SHEET[0] && b.h <= SHEET[1]) || (b.w <= SHEET[1] && b.h <= SHEET[0]);
+  const sheets = fits ? 1 : Math.min(Math.ceil(b.w / SHEET[0]) * Math.ceil(b.h / SHEET[1]), Math.ceil(b.w / SHEET[1]) * Math.ceil(b.h / SHEET[0]));
+  const area = b.w * b.h / 1e6;
+  const decor = [b.image && 'фоновое изображение', (b.fillType !== 'solid' || b.fill !== '#ffffff') && 'цветной фон', S.length && `слоёв: ${S.length}`, T.length && `надписей: ${T.length}`].filter(Boolean);
+  const secs = [];
+  secs.push({ title: 'Стенд', head: ['Параметр', 'Значение'], rows: [
+    ['Название', doc.title || DEFAULT_TITLE],
+    ['Размер, мм', `${mmTxt(b.w)} × ${mmTxt(b.h)}`],
+    ['Площадь, м²', nf(area, 2)],
+    ['Основа', `ПВХ белый ${b.thickness} мм`],
+    [`Листов ПВХ ${SHEET[0]} × ${SHEET[1]}`, fits ? '1' : `${sheets} (стенд составной)`],
+    ['Печать на основу', decor.length ? `${nf(area, 2)} м² (${decor.join(', ')})` : 'нет'],
+  ] });
+  if (P.length) {
+    const groups = new Map();
+    for (const o of P) {
+      const g = pocketGeom(o), key = [o.iw, o.ih, g.w, g.h, sidesTxt(o), o.tape].join('|');
+      if (!groups.has(key)) groups.set(key, { o, g, n: 0 }); groups.get(key).n++;
+    }
+    const rows = [...groups.values()].map(({ o, g, n }) => [formatName(o.iw, o.ih), `${mmTxt(o.iw)} × ${mmTxt(o.ih)}`, `${mmTxt(g.w)} × ${mmTxt(g.h)}`, sidesTxt(o), String(n)]);
+    rows.push({ total: true, cells: ['Итого', '', '', '', String(P.length)] });
+    secs.push({ title: 'Карманы', head: ['Формат', 'Вкладыш, мм', 'Карман, мм', 'Проклейка', 'Кол-во'], rows });
+  }
+  const mat = [];
+  if (P.length) {
+    const plastic = P.reduce((t, o) => { const g = pocketGeom(o); return t + g.w * g.h; }, 0) / 1e6;
+    mat.push(['Прозрачный пластик для карманов', `${nf(plastic, 2)} м²`]);
+    const tape = new Map();
+    for (const o of P) { const g = pocketGeom(o), s_ = o.sides, len = (s_.t ? g.w : 0) + (s_.b ? g.w : 0) + (s_.l ? g.h : 0) + (s_.r ? g.h : 0); tape.set(o.tape, (tape.get(o.tape) || 0) + len); }
+    for (const [wd, len] of tape) mat.push([`Двусторонний скотч ${mmTxt(wd)} мм`, `${nf(len / 1000, 2)} м`]);
+  }
+  if (holes.length) mat.push([`Отверстия Ø ${mmTxt(H.d)} мм`, `${holes.length} шт`]);
+  if (mat.length) {
+    const wst = doc.pricing.waste;
+    if (wst > 0) {
+      const wm = estimateItems().filter(i => i.active && i.waste);
+      for (const r of mat) { const it = wm.find(i => i.matName === r[0]); r.push(it ? fmtQty(it.qty * (1 + wst / 100), it.baseUnit) + ' ' + it.baseUnit : r[1]); }
+      secs.push({ title: 'Материалы', head: ['Материал', 'Количество', `С запасом ${nf(wst, wst % 1 ? 1 : 0)}%`], rows: mat });
+    } else secs.push({ title: 'Материалы', head: ['Материал', 'Количество'], rows: mat });
+  }
+  if (P.length) secs.push({ title: 'Расположение карманов (от левого верхнего угла стенда)', head: ['№', 'Название', 'X, мм', 'Y, мм', 'Ш × В, мм', 'Поворот'],
+    rows: [...P].sort((a, c) => a.y - c.y || a.x - c.x).map((o, i) => [String(i + 1), o.name, mmTxt(o.x), mmTxt(o.y), `${mmTxt(o.w)} × ${mmTxt(o.h)}`, (o.rot ? o.rot + '°' : '—') + (o.flip ? ', отраж.' : '')]) });
+  if (holes.length) secs.push({ title: 'Отверстия под крепёж (центры)', head: ['№', 'X, мм', 'Y, мм'],
+    rows: [...holes].sort((a, c) => a.y - c.y || a.x - c.x).map((p, i) => [String(i + 1), mmTxt(p.x), mmTxt(p.y)]) });
+  if (T.length) secs.push({ title: 'Надписи', head: ['Текст', 'Шрифт', 'Размер, мм', 'Цвет'],
+    rows: T.map(o => [o.text.replace(/\s+/g, ' ').trim().slice(0, 70), `${fontDef(o.font).label} ${fontWeight(o)}${o.italic ? ' курсив' : ''}`, mmTxt(o.size), o.color.toUpperCase()]) });
+  const est = estimateLines();
+  if (est.lines.some(l => l.price != null) || doc.pricing.custom.length) {
+    const cur = doc.pricing.currency;
+    const rows = est.lines.filter(l => !l.inactive).map(l => [l.name, l.qty == null ? '—' : fmtQty(l.qty, l.unit), l.unit, l.price == null ? '—' : nf(l.price, 2), l.sum == null ? '—' : nf(l.sum, 2)]);
+    rows.push({ total: true, cells: ['Итого', '', '', '', nf(est.total, 2) + ' ' + cur] });
+    secs.push({ title: `Смета, ${cur}` + (doc.pricing.waste ? ` (запас на отходы ${nf(doc.pricing.waste, doc.pricing.waste % 1 ? 1 : 0)}%)` : ''), head: ['Позиция', 'Кол-во', 'Ед.', 'Цена', 'Сумма'], rows, num: [1, 3, 4] });
+  }
+  return secs;
+}
+/* ---- смета ---- */
+const PRICE_BOOK_KEY = STORE + ':prices';
+const priceBook = (() => { try { return JSON.parse(localStorage.getItem(PRICE_BOOK_KEY)) || {}; } catch { return {}; } })();
+function savePriceBook() { try { localStorage.setItem(PRICE_BOOK_KEY, JSON.stringify(priceBook)); } catch {} }
+const fmtQty = (q, unit) => { const dim = (UNITS[unit] || ['count'])[0]; return nf(q, ['count', 'sheet'].includes(dim) || unit === 'мм' || unit === 'см²' ? 0 : 2); };
+/* материалы проекта: количество в базовой единице (м², м.пог., шт) плюс особые единицы вроде «лист» */
+function estimateItems() {
+  const b = base(), P = doc.objects.filter(o => o.type === 'pocket' && o.visible), H = holesObj(), holes = H && H.visible ? holePoints(H, b).length : 0;
+  const S = doc.objects.filter(o => o.type === 'shape' && o.visible), T = doc.objects.filter(o => o.type === 'text' && o.visible && o.text.trim());
+  const area = b.w * b.h / 1e6, fits = (b.w <= SHEET[0] && b.h <= SHEET[1]) || (b.w <= SHEET[1] && b.h <= SHEET[0]);
+  const sheets = fits ? 1 : Math.min(Math.ceil(b.w / SHEET[0]) * Math.ceil(b.h / SHEET[1]), Math.ceil(b.w / SHEET[1]) * Math.ceil(b.h / SHEET[0]));
+  const decor = !!(b.image || b.fillType !== 'solid' || b.fill !== '#ffffff' || S.length || T.length);
+  const plastic = P.reduce((t, o) => { const g = pocketGeom(o); return t + g.w * g.h; }, 0) / 1e6;
+  const tape = new Map();
+  for (const o of P) { const g = pocketGeom(o), s_ = o.sides, len = (s_.t ? g.w : 0) + (s_.b ? g.w : 0) + (s_.l ? g.h : 0) + (s_.r ? g.h : 0); tape.set(o.tape, (tape.get(o.tape) || 0) + len / 1000); }
+  const items = [
+    { key: 'pvc' + b.thickness, name: `ПВХ белый ${b.thickness} мм`, dim: 'area', qty: area, extra: { 'лист': sheets }, waste: true, active: true, baseUnit: 'м²', matName: null },
+    { key: 'print', name: 'Печать на основу', dim: 'area', qty: area, waste: true, active: decor, baseUnit: 'м²' },
+    { key: 'plastic', name: 'Прозрачный пластик для карманов', dim: 'area', qty: plastic, waste: true, active: P.length > 0, baseUnit: 'м²', matName: 'Прозрачный пластик для карманов' },
+  ];
+  if (tape.size) for (const [wd, len] of tape) items.push({ key: 'tape' + wd, name: `Двусторонний скотч ${mmTxt(wd)} мм`, dim: 'len', qty: len, waste: true, active: true, baseUnit: 'м.пог.', matName: `Двусторонний скотч ${mmTxt(wd)} мм` });
+  else items.push({ key: 'tape10', name: 'Двусторонний скотч', dim: 'len', qty: 0, waste: true, active: false, baseUnit: 'м.пог.' });
+  items.push({ key: 'holes', name: 'Отверстия под крепёж', dim: 'count', qty: holes, waste: false, active: holes > 0, baseUnit: 'шт' });
+  items.push({ key: 'pocketWork', name: 'Изготовление и монтаж карманов', dim: 'count', qty: P.length, waste: false, active: P.length > 0, baseUnit: 'шт' });
+  return items;
+}
+const unitsFor = it => Object.keys(UNITS).filter(u => UNITS[u][0] === it.dim).concat(Object.keys(it.extra || {}));
+function qtyIn(it, unit) { if (it.extra && unit in it.extra) return it.extra[unit]; const u = UNITS[unit]; return u && u[0] === it.dim ? it.qty / u[1] : 0; }
+function entryFor(it) {
+  const e = doc.pricing.items[it.key] || priceBook[it.key] || {};
+  return { unit: e.unit && unitsFor(it).includes(e.unit) ? e.unit : it.baseUnit, price: e.price ?? null };
+}
+function estimateLines() {
+  const p = doc.pricing, lines = []; let total = 0;
+  for (const it of estimateItems()) {
+    if (!it.active) { lines.push({ key: it.key, name: it.name, inactive: true, unit: entryFor(it).unit, it }); continue; }
+    const e = entryFor(it), wf = it.waste && UNITS[e.unit][0] !== 'sheet' ? 1 + p.waste / 100 : 1, qty = qtyIn(it, e.unit) * wf;
+    const sum = e.price != null ? qty * e.price : null; if (sum != null) total += sum;
+    lines.push({ key: it.key, name: it.name, qty, unit: e.unit, price: e.price, sum, it });
+  }
+  for (const c of p.custom) {
+    const sum = c.price != null && c.qty != null ? c.qty * c.price : null; if (sum != null) total += sum;
+    lines.push({ key: 'custom:' + c.id, custom: c, name: c.name || 'Позиция без названия', qty: c.qty, unit: c.unit, price: c.price, sum });
+  }
+  return { lines, total };
+}
+const cellsOf = r => Array.isArray(r) ? r : r.cells;
+function specCSV(secs) {
+  const q = v => /[;"\n]/.test(v) ? '"' + String(v).replace(/"/g, '""') + '"' : v;
+  const lines = [`Спецификация;${q(doc.title || DEFAULT_TITLE)}`, `Дата;${new Date().toLocaleDateString('ru-RU')}`, ''];
+  for (const s_ of secs) { lines.push(q(s_.title), s_.head.map(q).join(';')); for (const r of s_.rows) lines.push(cellsOf(r).map(q).join(';')); lines.push(''); }
+  return '﻿' + lines.join('\r\n');
+}
+async function specPages(secs) {
+  const PW = 1240, PH = 1754, M = 86, F = '"Inter Variable", system-ui, sans-serif';
+  try { await Promise.all([document.fonts.load(`400 20px ${F}`, 'Аа'), document.fonts.load(`700 20px ${F}`, 'Аа')]); } catch {}
+  const pages = []; let c, g, y;
+  const page = () => { c = el('canvas'); c.width = PW; c.height = PH; g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH); g.textBaseline = 'middle'; pages.push(c); y = M; };
+  const fit = (t, w) => { t = String(t); if (g.measureText(t).width <= w) return t; while (t.length > 1 && g.measureText(t + '…').width > w) t = t.slice(0, -1); return t + '…'; };
+  page();
+  g.fillStyle = '#111827'; g.font = `700 38px ${F}`; g.fillText(fit(doc.title || DEFAULT_TITLE, PW - 2 * M), M, y + 18); y += 52;
+  g.fillStyle = '#6b7280'; g.font = `400 20px ${F}`; g.fillText(`Спецификация стенда · ${new Date().toLocaleDateString('ru-RU')}`, M, y + 10); y += 44;
+  try {
+    const st = await renderStand(1600), maxW = PW - 2 * M, maxH = 620, k = Math.min(maxW / st.width, maxH / st.height), w = st.width * k, h = st.height * k;
+    g.fillStyle = '#e5e7eb'; g.fillRect(M - 1, y - 1, w + 2, h + 2); g.drawImage(st, M, y, w, h); y += h + 40;
+  } catch {}
+  const RH = 36;
+  for (const s_ of secs) {
+    g.font = `400 17px ${F}`;
+    const ncol = s_.head.length, all = [s_.head, ...s_.rows.map(cellsOf)];
+    const want = Array.from({ length: ncol }, (_, i) => Math.min(520, Math.max(...all.map(r => g.measureText(String(r[i] ?? '')).width)) + 24));
+    const tot = want.reduce((a, b2) => a + b2, 0), scale = (PW - 2 * M) / tot, cw = want.map(w => w * scale);
+    if (y + 46 + RH * 2 > PH - M) page();
+    g.fillStyle = '#111827'; g.font = `700 22px ${F}`; g.fillText(s_.title, M, y + 14); y += 38;
+    const drawRow = (cells, head, total) => {
+      if (y + RH > PH - M) { page(); }
+      g.fillStyle = head ? '#f3f4f6' : total ? '#fafafa' : '#ffffff'; g.fillRect(M, y, PW - 2 * M, RH);
+      g.strokeStyle = '#e5e7eb'; g.lineWidth = 1; g.strokeRect(M + .5, y + .5, PW - 2 * M - 1, RH - 1);
+      let x = M;
+      cells.forEach((t, i) => { if (i) { g.beginPath(); g.moveTo(x + .5, y); g.lineTo(x + .5, y + RH); g.stroke(); }
+        g.fillStyle = head ? '#374151' : '#111827'; g.font = `${head || total ? 600 : 400} 17px ${F}`;
+        const right = (s_.num || []).includes(i); g.textAlign = right ? 'right' : 'left';
+        g.fillText(fit(t ?? '', cw[i] - 20), right ? x + cw[i] - 10 : x + 10, y + RH / 2); g.textAlign = 'left'; x += cw[i]; });
+      y += RH;
+    };
+    drawRow(s_.head, true);
+    for (const r of s_.rows) drawRow(cellsOf(r), false, !!r.total);
+    y += 30;
+  }
+  pages.forEach((p_, i) => { const x = p_.getContext('2d'); x.fillStyle = '#9ca3af'; x.font = `400 16px ${F}`; x.textBaseline = 'middle'; x.textAlign = 'right'; x.fillText(`${i + 1} / ${pages.length}`, PW - M, PH - M / 2); });
+  return pages;
+}
+async function makePDF(pages) {
+  const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
+  const push = x => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); len += b.length; };
+  const obj = (id, ...body) => { offs[id] = len; push(`${id} 0 obj\n`); body.forEach(push); push('\nendobj\n'); };
+  const PW = 595.28, PH = 841.89, n = pages.length;
+  push('%PDF-1.4\n');
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, `<< /Type /Pages /Kids [${pages.map((_, i) => `${3 + i * 3} 0 R`).join(' ')}] /Count ${n} >>`);
+  for (let i = 0; i < n; i++) {
+    const p_ = 3 + i * 3, jpg = new Uint8Array(await (await canvasBlob(pages[i], 'image/jpeg', 0.92)).arrayBuffer());
+    const cs = `q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`;
+    obj(p_, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${p_ + 2} 0 R >> >> /Contents ${p_ + 1} 0 R >>`);
+    obj(p_ + 1, `<< /Length ${cs.length} >>\nstream\n`, cs, '\nendstream');
+    obj(p_ + 2, `<< /Type /XObject /Subtype /Image /Width ${pages[i].width} /Height ${pages[i].height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>\nstream\n`, jpg, '\nendstream');
+  }
+  const total = 3 + n * 3, xref = len;
+  let x = `xref\n0 ${total}\n0000000000 65535 f \n`;
+  for (let i = 1; i < total; i++) x += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
+  push(x); push(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(parts, { type: 'application/pdf' });
+}
+async function specExport(kind) {
+  const secs = specSections(), name = fileBase() + ' — спецификация';
+  try {
+    if (kind === 'csv') { if (await download(new Blob([specCSV(secs)], { type: 'text/csv' }), name + '.csv')) toast('Таблица сохранена. Открывается в Excel и Google Таблицах'); return; }
+    toast('Собираю ' + kind.toUpperCase() + '…', 8000);
+    const pages = await specPages(secs);
+    if (kind === 'pdf') { if (await download(await makePDF(pages), name + '.pdf')) toast('PDF сохранён: страниц ' + pages.length); return; }
+    let out = pages[0];
+    if (pages.length > 1) { out = el('canvas'); out.width = pages[0].width; out.height = pages[0].height * pages.length; const g = out.getContext('2d'); pages.forEach((p_, i) => g.drawImage(p_, 0, i * p_.height)); }
+    if (await download(await canvasBlob(out), name + '.png')) toast('PNG со спецификацией сохранён');
+  } catch { toast('Не удалось собрать файл'); }
+}
+function parseNum(v) { v = String(v).replace(/\s/g, '').replace(',', '.'); return v === '' || !isFinite(+v) ? null : +v; }
+function estimateEditor() {
+  const p = () => doc.pricing, cur = p().currency;
+  const setP = (key, fn) => mutate(key, () => fn(doc.pricing));
+  const reopen = () => openSpec();
+  const sums = new Map(), totalEl = el('b');
+  const refresh = () => { const est = estimateLines(); for (const l of est.lines) { const c = sums.get(l.key); if (c) c.textContent = l.sum == null ? '—' : nf(l.sum, 2); } totalEl.textContent = nf(est.total, 2) + ' ' + p().currency; };
+  const numIn = (val, on, title) => { const i = el('input', { class: 'cell-in num', type: 'text', inputmode: 'decimal', value: val == null ? '' : String(val).replace('.', ','), placeholder: '—', title }); i.addEventListener('input', () => { on(parseNum(i.value)); refresh(); }); return i; };
+  const unitSel = (opts, val, on) => { const s_ = el('select', { class: 'cell-in' }, opts.map(u => el('option', { value: u }, u))); s_.value = val; s_.addEventListener('change', () => { on(s_.value); reopen(); }); return s_; };
+  const rows = estimateLines().lines.map(l => {
+    const sumTd = el('td', { class: 'num' }, l.sum == null ? '—' : nf(l.sum, 2)); sums.set(l.key, sumTd);
+    if (l.custom) {
+      const c = l.custom, upd = (k, fn) => setP(k, x => { const t = x.custom.find(y => y.id === c.id); if (t) fn(t); });
+      const name = el('input', { class: 'cell-in', type: 'text', value: c.name, placeholder: 'Например: монтаж, доставка' });
+      name.addEventListener('change', () => upd(null, t => t.name = name.value.trim()));
+      return el('tr', {}, el('td', { class: 'in' }, name), el('td', { class: 'in' }, numIn(c.qty, v => upd('cq' + c.id, t => t.qty = v), 'Количество')),
+        el('td', { class: 'in' }, unitSel(Object.keys(UNITS), c.unit, v => upd(null, t => t.unit = v))),
+        el('td', { class: 'in' }, numIn(c.price, v => upd('cp' + c.id, t => t.price = v), 'Цена за единицу')), sumTd,
+        el('td', { class: 'in' }, B('trash', '', () => { setP(null, x => { x.custom = x.custom.filter(y => y.id !== c.id); }); reopen(); }, { cls: 'icon', title: 'Убрать позицию' })));
+    }
+    const it = l.it, put = (k, fn) => { setP(k, x => { const e = { ...entryFor(it) }; fn(e); x.items[it.key] = e; priceBook[it.key] = e; }); savePriceBook(); };
+    const qtyTxt = l.inactive ? 'нет в проекте' : fmtQty(l.qty, l.unit);
+    return el('tr', { class: l.inactive ? 'off' : null, title: l.inactive ? 'Этого материала нет в проекте — позиция не считается' : null },
+      el('td', {}, l.name), el('td', { class: 'num' }, qtyTxt),
+      el('td', { class: 'in' }, unitSel(unitsFor(it), l.unit, v => put(null, e => e.unit = v))),
+      el('td', { class: 'in' }, numIn(entryFor(it).price, v => put('ip' + it.key, e => e.price = v), 'Цена за единицу')), sumTd, el('td'));
+  });
+  const waste = el('input', { type: 'text', inputmode: 'decimal', value: String(p().waste).replace('.', ',') });
+  waste.addEventListener('change', () => { const v = parseNum(waste.value); setP(null, x => x.waste = v == null ? 0 : clamp(v, 0, 500)); reopen(); });
+  const curIn = el('input', { type: 'text', value: cur, maxlength: 10 });
+  curIn.addEventListener('change', () => { setP(null, x => x.currency = curIn.value.trim() || 'руб.'); reopen(); });
+  refresh();
+  return [
+    el('h4', {}, 'Стоимость'),
+    el('div', { class: 'est-top' },
+      el('label', { class: 'nf', title: 'Добавляется к площади и длине материалов (кроме штук и листов)' }, el('b', {}, 'Запас на отходы'), waste, el('i', {}, '%')),
+      el('label', { class: 'nf' }, el('b', {}, 'Валюта'), curIn)),
+    el('table', {}, el('thead', {}, el('tr', {}, ['Позиция', 'Кол-во', 'Ед.', 'Цена за ед.', 'Сумма', ''].map((h, i) => el('th', { class: [1, 3, 4].includes(i) ? 'num' : null, style: i === 2 ? 'width:96px' : i === 3 ? 'width:110px' : i === 5 ? 'width:36px' : null }, h)))),
+      el('tbody', {}, rows)),
+    el('div', { class: 'btns', style: 'margin-top:8px' }, B('plus', 'Добавить свою позицию', () => {
+      setP(null, x => x.custom.push({ id: uid(), name: '', qty: 1, unit: 'шт', price: null })); reopen();
+      setTimeout(() => { const ins = $('#modal').querySelectorAll('tbody tr:last-child input'); ins[0] && ins[0].focus(); }, 30);
+    }, { cls: 'btn' })),
+    el('div', { class: 'total-line' }, el('span', {}, 'Итого'), totalEl),
+    el('p', { class: 'hint' }, 'Цены запоминаются на этом устройстве и подставляются в следующие проекты. Пустая цена не мешает сохранить спецификацию: такая позиция просто не входит в итог.'),
+  ];
+}
+function openSpec() {
+  const secs = specSections().filter(s_ => !s_.title.startsWith('Смета')), m = $('#modal');
+  const keepScroll = m.querySelector('.dlg-b')?.scrollTop || 0;
+  const nc = (s_, i) => (s_.num || []).includes(i) ? 'num' : null;
+  const table = s_ => el('table', {}, el('thead', {}, el('tr', {}, s_.head.map((h, i) => el('th', { class: nc(s_, i) }, h)))),
+    el('tbody', {}, s_.rows.map(r => el('tr', { class: r.total ? 'total' : null }, cellsOf(r).map((c, i) => el('td', { class: nc(s_, i) }, c))))));
+  const close = () => { m.hidden = true; m.replaceChildren(); };
+  m.replaceChildren(el('div', { class: 'dlg', role: 'dialog' },
+    el('div', { class: 'dlg-h' }, el('span', {}, 'Спецификация: ' + (doc.title || DEFAULT_TITLE)), B('', '✕', close, { cls: 'icon', title: 'Закрыть (Esc)' })),
+    el('div', { class: 'dlg-b' }, secs.map(s_ => [el('h4', {}, s_.title), table(s_)]),
+      el('p', { class: 'hint' }, 'Размеры — в миллиметрах. Скотч считается по проклеенным сторонам каждого кармана, пластик — по внешнему размеру карманов. Скрытые слои в расчёт не входят.'),
+      estimateEditor()),
+    el('div', { class: 'dlg-f' },
+      B('download', 'Таблица CSV', () => specExport('csv'), { cls: 'btn', title: 'Для Excel и Google Таблиц' }),
+      B('file', 'PDF', () => specExport('pdf'), { cls: 'btn', title: 'Лист A4 с картинкой стенда и таблицами' }),
+      B('image', 'PNG', () => specExport('png'), { cls: 'btn primary', title: 'Картинка со спецификацией' }))));
+  m.hidden = false;
+  m.querySelector('.dlg-b').scrollTop = keepScroll;
+  m.onclick = e => { if (e.target === m) close(); };
+}
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').hidden) { $('#modal').hidden = true; e.stopImmediatePropagation(); } }, true);
+
+/* ================= advanced export ================= */
+const EXPORT_KEY = STORE + ':export';
+const expOpts = (() => { const d = { fmt: 'png', dpi: 150, color: 'srgb', icc: true, alpha: false, jpgQ: 92, tiffComp: 'none', bleed: 0, marks: false };
+  try { return Object.assign(d, JSON.parse(localStorage.getItem(EXPORT_KEY))); } catch { return d; } })();
+const saveExpOpts = () => { try { localStorage.setItem(EXPORT_KEY, JSON.stringify(expOpts)); } catch {} };
+const EXP_FORMATS = {
+  png: { label: 'PNG', ext: 'png', colors: ['srgb', 'adobe', 'gray'], alpha: true, raster: true, note: 'Без потерь, сжатие Deflate.' },
+  jpg: { label: 'JPEG', ext: 'jpg', colors: ['srgb', 'adobe'], raster: true, note: 'С потерями, маленький файл — для показа заказчику.' },
+  tif: { label: 'TIFF', ext: 'tif', colors: ['srgb', 'adobe', 'gray', 'cmyk'], alpha: true, raster: true, note: 'Для типографии. По умолчанию без сжатия.' },
+  pdf: { label: 'PDF', ext: 'pdf', colors: ['srgb', 'adobe', 'gray', 'cmyk'], raster: true, note: 'Одна страница в размер стенда с TrimBox/BleedBox, изображение без потерь.' },
+  svg: { label: 'SVG', ext: 'svg', colors: [], raster: false, note: 'Вектор в миллиметрах, шрифты и картинки встроены. Цветовой профиль не применяется.' },
+};
+const EXP_COLORS = { srgb: 'sRGB IEC61966-2.1', adobe: 'Adobe RGB (1998)', gray: 'Оттенки серого, гамма 2.2', cmyk: 'CMYK — упрощённо, без профиля' };
+const MAX_PX = 150e6;
+/* ---- двоичные помощники ---- */
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8, crc = 0xFFFFFFFF) { for (let i = 0; i < u8.length; i++) crc = CRC_T[(crc ^ u8[i]) & 255] ^ (crc >>> 8); return crc; }
+async function zlibDeflate(u8) { const st = new Blob([u8]).stream().pipeThrough(new CompressionStream('deflate')); return new Uint8Array(await new Response(st).arrayBuffer()); }
+const be32 = v => [v >>> 24 & 255, v >>> 16 & 255, v >>> 8 & 255, v & 255];
+const ascii = t => [...t].map(c => c.charCodeAt(0) & 255);
+/* ---- ICC v2 профили, собранные на месте ---- */
+function iccProfile(kind) {
+  const s15 = v => be32(Math.round(v * 65536) >>> 0);
+  const xyz = (x, y, z) => [...ascii('XYZ '), 0, 0, 0, 0, ...s15(x), ...s15(y), ...s15(z)];
+  const desc = t => { const a = ascii(t); return [...ascii('desc'), 0, 0, 0, 0, ...be32(a.length + 1), ...a, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...new Array(67).fill(0)]; };
+  const text = t => [...ascii('text'), 0, 0, 0, 0, ...ascii(t), 0];
+  const gamma = g => { const v = Math.round(g * 256); return [...ascii('curv'), 0, 0, 0, 0, 0, 0, 0, 1, v >> 8 & 255, v & 255]; };
+  const srgbCurve = () => { const n = 1024, o = [...ascii('curv'), 0, 0, 0, 0, ...be32(n)];
+    for (let i = 0; i < n; i++) { const v = i / (n - 1), l = v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4), q = Math.round(l * 65535); o.push(q >> 8, q & 255); } return o; };
+  const D65 = [0.9505, 1, 1.089];
+  let cs = 'RGB ', tags;
+  if (kind === 'srgb') { const t = srgbCurve(); tags = [['desc', desc('sRGB IEC61966-2.1')], ['cprt', text('Public domain')], ['wtpt', xyz(...D65)],
+    ['rXYZ', xyz(0.4360747, 0.2225045, 0.0139322)], ['gXYZ', xyz(0.3850649, 0.7168786, 0.0971045)], ['bXYZ', xyz(0.1430804, 0.0606169, 0.7141733)], ['rTRC', t], ['gTRC', t], ['bTRC', t]]; }
+  else if (kind === 'adobe') { const t = gamma(563 / 256); tags = [['desc', desc('Adobe RGB (1998) compatible')], ['cprt', text('Public domain')], ['wtpt', xyz(...D65)],
+    ['rXYZ', xyz(0.6097559, 0.3111242, 0.0194811)], ['gXYZ', xyz(0.2052401, 0.6256560, 0.0608902)], ['bXYZ', xyz(0.1492240, 0.0632197, 0.7448387)], ['rTRC', t], ['gTRC', t], ['bTRC', t]]; }
+  else { cs = 'GRAY'; tags = [['desc', desc('Gray Gamma 2.2')], ['cprt', text('Public domain')], ['wtpt', xyz(...D65)], ['kTRC', gamma(2.2)]]; }
+  let off = 128 + 4 + 12 * tags.length; const table = [...be32(tags.length)], blocks = [], seen = new Map();
+  for (const [sig, data] of tags) {
+    if (!seen.has(data)) { seen.set(data, off); const padded = data.concat(new Array((4 - data.length % 4) % 4).fill(0)); blocks.push(...padded); off += padded.length; }
+    table.push(...ascii(sig), ...be32(seen.get(data)), ...be32(data.length));
+  }
+  const d = new Date(), h = new Array(128).fill(0), put = (o, arr) => arr.forEach((v, i) => h[o + i] = v), u16 = v => [v >> 8 & 255, v & 255];
+  put(0, be32(off)); put(8, [2, 0x10, 0, 0]); put(12, ascii('mntr')); put(16, ascii(cs)); put(20, ascii('XYZ '));
+  put(24, [...u16(d.getFullYear()), ...u16(d.getMonth() + 1), ...u16(d.getDate()), ...u16(d.getHours()), ...u16(d.getMinutes()), ...u16(d.getSeconds())]);
+  put(36, ascii('acsp')); put(68, [...s15(0.9642), ...s15(1), ...s15(0.8249)]);
+  return new Uint8Array([...h, ...table, ...blocks]);
+}
+/* ---- преобразование пикселей из sRGB ---- */
+const LIN = Float32Array.from({ length: 256 }, (_, i) => { const v = i / 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+const encLUT = g => Uint8Array.from({ length: 4097 }, (_, i) => Math.round(Math.pow(i / 4096, 1 / g) * 255));
+function convertPixels(rgba, n, mode, alpha) {
+  if (mode === 'cmyk') {
+    const out = new Uint8Array(n * 4);
+    for (let i = 0, j = 0; i < n; i++, j += 4) {
+      const c = 255 - rgba[j], m = 255 - rgba[j + 1], y = 255 - rgba[j + 2], k = Math.min(c, m, y), d = 255 - k;
+      out[j] = d ? Math.round((c - k) * 255 / d) : 0; out[j + 1] = d ? Math.round((m - k) * 255 / d) : 0; out[j + 2] = d ? Math.round((y - k) * 255 / d) : 0; out[j + 3] = k;
+    }
+    return { pix: out, spp: 4 };
+  }
+  if (mode === 'gray') {
+    const spp = alpha ? 2 : 1, out = new Uint8Array(n * spp), E = encLUT(2.2);
+    for (let i = 0, j = 0, o = 0; i < n; i++, j += 4, o += spp) { const Y = 0.2126 * LIN[rgba[j]] + 0.7152 * LIN[rgba[j + 1]] + 0.0722 * LIN[rgba[j + 2]]; out[o] = E[Math.min(4096, Math.round(Y * 4096))]; if (alpha) out[o + 1] = rgba[j + 3]; }
+    return { pix: out, spp };
+  }
+  const spp = alpha ? 4 : 3, out = new Uint8Array(n * spp), E = mode === 'adobe' ? encLUT(563 / 256) : null;
+  for (let i = 0, j = 0, o = 0; i < n; i++, j += 4, o += spp) {
+    if (E) {
+      const r = LIN[rgba[j]], g = LIN[rgba[j + 1]], b = LIN[rgba[j + 2]];
+      out[o] = E[Math.min(4096, Math.round((0.7151627 * r + 0.2848373 * g) * 4096))];
+      out[o + 1] = E[Math.min(4096, Math.round(g * 4096))];
+      out[o + 2] = E[Math.min(4096, Math.round((0.0411705 * g + 0.9588295 * b) * 4096))];
+    } else { out[o] = rgba[j]; out[o + 1] = rgba[j + 1]; out[o + 2] = rgba[j + 2]; }
+    if (alpha) out[o + 3] = rgba[j + 3];
+  }
+  return { pix: out, spp };
+}
+/* ---- кодировщики ---- */
+function pngChunk(type, data) {
+  const t = new Uint8Array(ascii(type)), out = new Uint8Array(12 + data.length), dv = new DataView(out.buffer);
+  dv.setUint32(0, data.length); out.set(t, 4); out.set(data, 8); dv.setUint32(8 + data.length, (crc32(data, crc32(t)) ^ 0xFFFFFFFF) >>> 0); return out;
+}
+async function encodePNG(pix, W, H, spp, { icc, iccName, dpi }) {
+  const stride = W * spp, raw = new Uint8Array((stride + 1) * H);
+  for (let y = 0; y < H; y++) { const r = y * (stride + 1), p = y * stride; raw[r] = 1; // фильтр Sub
+    for (let x = 0; x < stride; x++) raw[r + 1 + x] = (pix[p + x] - (x >= spp ? pix[p + x - spp] : 0)) & 255; }
+  const ihdr = new Uint8Array(13), dv = new DataView(ihdr.buffer); dv.setUint32(0, W); dv.setUint32(4, H);
+  ihdr[8] = 8; ihdr[9] = { 1: 0, 2: 4, 3: 2, 4: 6 }[spp];
+  const parts = [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), pngChunk('IHDR', ihdr)];
+  if (icc) parts.push(pngChunk('iCCP', new Uint8Array([...ascii(iccName.slice(0, 79)), 0, 0, ...await zlibDeflate(icc)])));
+  const ppm = Math.round(dpi / 0.0254), phys = new Uint8Array(9), pv = new DataView(phys.buffer); pv.setUint32(0, ppm); pv.setUint32(4, ppm); phys[8] = 1;
+  parts.push(pngChunk('pHYs', phys), pngChunk('IDAT', await zlibDeflate(raw)), pngChunk('IEND', new Uint8Array(0)));
+  return new Blob(parts, { type: 'image/png' });
+}
+async function encodeJPEG(canvas, q, { icc, dpi }) {
+  const u8 = new Uint8Array(await (await canvasBlob(canvas, 'image/jpeg', q)).arrayBuffer());
+  if (u8[2] === 0xFF && u8[3] === 0xE0 && String.fromCharCode(...u8.slice(6, 10)) === 'JFIF') { u8[13] = 1; u8[14] = dpi >> 8; u8[15] = dpi & 255; u8[16] = dpi >> 8; u8[17] = dpi & 255; }
+  // убираем ICC-профиль, который мог вставить сам браузер, и ставим свой сразу после JFIF
+  const segs = []; let p = 2;
+  while (p + 4 <= u8.length && u8[p] === 0xFF && u8[p + 1] !== 0xDA) { const L = (u8[p + 2] << 8) | u8[p + 3]; segs.push([p, p + 2 + L]); p += 2 + L; }
+  const isIcc = ([a]) => u8[a + 1] === 0xE2 && String.fromCharCode(...u8.subarray(a + 4, a + 15)) === 'ICC_PROFILE';
+  const keep = segs.filter(sg => !isIcc(sg)).map(([a, b]) => u8.subarray(a, b));
+  const len = 2 + 12 + 2 + (icc ? icc.length : 0);
+  const app2 = icc ? [new Uint8Array([0xFF, 0xE2, len >> 8, len & 255, ...ascii('ICC_PROFILE'), 0, 1, 1, ...icc])] : [];
+  const first = keep.length && u8[keep[0].byteOffset - u8.byteOffset + 1] === 0xE0 ? [keep.shift()] : [];
+  return new Blob([u8.subarray(0, 2), ...first, ...app2, ...keep, u8.subarray(p)], { type: 'image/jpeg' });
+}
+async function encodeTIFF(pix, W, H, spp, { photometric, alpha, dpi, icc, deflate }) {
+  const data = deflate ? await zlibDeflate(pix) : pix;
+  const soft = [...ascii('Stand designer'), 0];
+  const E = []; // [tag, type, count, values|bytes]
+  E.push([256, 4, 1, [W]], [257, 4, 1, [H]], [258, 3, spp, new Array(spp).fill(8)], [259, 3, 1, [deflate ? 8 : 1]], [262, 3, 1, [photometric]],
+    [273, 4, 1, [0]], [277, 3, 1, [spp]], [278, 4, 1, [H]], [279, 4, 1, [data.length]], [282, 5, 1, [dpi, 1]], [283, 5, 1, [dpi, 1]],
+    [284, 3, 1, [1]], [296, 3, 1, [2]], [305, 2, soft.length, soft]);
+  if (alpha) E.push([338, 3, 1, [2]]);
+  if (icc) E.push([34675, 7, icc.length, icc]);
+  const SZ = { 2: 1, 3: 2, 4: 4, 5: 8, 7: 1 }, ifdLen = 2 + E.length * 12 + 4;
+  let extra = 8 + ifdLen; const extraParts = [];
+  const head = new Uint8Array(8 + ifdLen), dv = new DataView(head.buffer);
+  head.set([0x49, 0x49, 42, 0]); dv.setUint32(4, 8, true); dv.setUint16(8, E.length, true);
+  const pos = {}; // где лежит значение StripOffsets
+  E.forEach(([tag, type, count, vals], i) => {
+    const o = 10 + i * 12, bytes = SZ[type] * count; dv.setUint16(o, tag, true); dv.setUint16(o + 2, type, true); dv.setUint32(o + 4, count, true);
+    const write = (view, at) => { if (type === 2 || type === 7) vals.forEach((v, k) => view.setUint8(at + k, v)); else if (type === 3) vals.forEach((v, k) => view.setUint16(at + 2 * k, v, true)); else vals.forEach((v, k) => view.setUint32(at + 4 * k, v, true)); };
+    if (bytes <= 4) { write(dv, o + 8); if (tag === 273) pos.strip = o + 8; }
+    else { const buf = new Uint8Array(bytes + (bytes & 1)); write(new DataView(buf.buffer), 0); dv.setUint32(o + 8, extra, true); extraParts.push(buf); extra += buf.length; }
+  });
+  dv.setUint32(8 + ifdLen - 4, 0, true);
+  dv.setUint32(pos.strip, extra, true); // данные изображения — в конце файла
+  return new Blob([head, ...extraParts, data], { type: 'image/tiff' });
+}
+async function encodePDF(pix, W, H, spp, { color, icc, g }) {
+  const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
+  const push = x => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); len += b.length; };
+  const obj = (id, ...body) => { offs[id] = len; push(`${id} 0 obj\n`); body.forEach(push); push('\nendobj\n'); };
+  const pt = mm => r2(mm * 72 / 25.4), PW = pt(g.mmW), PH = pt(g.mmH), off = g.bl + g.pad;
+  const data = await zlibDeflate(pix);
+  let cs = color === 'cmyk' ? '/DeviceCMYK' : color === 'gray' ? '/DeviceGray' : '/DeviceRGB';
+  const useIcc = icc && (color === 'srgb' || color === 'adobe' || color === 'gray');
+  push('%PDF-1.6\n%\xE2\xE3\xCF\xD3\n');
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+  const trim = `[${pt(off)} ${pt(off)} ${pt(off + g.b.w)} ${pt(off + g.b.h)}]`, bleedBox = `[${pt(off - g.bl)} ${pt(off - g.bl)} ${pt(off + g.b.w + g.bl)} ${pt(off + g.b.h + g.bl)}]`;
+  obj(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /TrimBox ${trim} /BleedBox ${bleedBox} /Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>`);
+  const c = `q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`; obj(4, `<< /Length ${c.length} >>\nstream\n`, c, '\nendstream');
+  if (useIcc) cs = '[/ICCBased 6 0 R]';
+  obj(5, `<< /Type /XObject /Subtype /Image /Width ${W} /Height ${H} /ColorSpace ${cs} /BitsPerComponent 8 /Filter /FlateDecode /Length ${data.length} >>\nstream\n`, data, '\nendstream');
+  let n = 6;
+  if (useIcc) { obj(6, `<< /N ${color === 'gray' ? 1 : 3} /Length ${icc.length} >>\nstream\n`, icc, '\nendstream'); n = 7; }
+  const xref = len; let x = `xref\n0 ${n}\n0000000000 65535 f \n`; for (let i = 1; i < n; i++) x += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
+  push(x); push(`trailer\n<< /Size ${n} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(parts, { type: 'application/pdf' });
+}
+function zipStore(name, blobBytes) {
+  const nm = new TextEncoder().encode(name), crc = (crc32(blobBytes) ^ 0xFFFFFFFF) >>> 0, n = blobBytes.length, d = new Date();
+  const dosT = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dosD = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  const lh = new DataView(new ArrayBuffer(30)); [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, dosT, 2], [12, dosD, 2], [14, crc, 4], [18, n, 4], [22, n, 4], [26, nm.length, 2], [28, 0, 2]].forEach(([o, v, s_]) => s_ === 4 ? lh.setUint32(o, v, true) : lh.setUint16(o, v, true));
+  const ch = new DataView(new ArrayBuffer(46)); [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, dosT, 2], [14, dosD, 2], [16, crc, 4], [20, n, 4], [24, n, 4], [28, nm.length, 2], [42, 0, 4]].forEach(([o, v, s_]) => s_ === 4 ? ch.setUint32(o, v, true) : ch.setUint16(o, v, true));
+  const cdOff = 30 + nm.length + n, cdLen = 46 + nm.length;
+  const end = new DataView(new ArrayBuffer(22)); [[0, 0x06054b50, 4], [8, 1, 2], [10, 1, 2], [12, cdLen, 4], [16, cdOff, 4]].forEach(([o, v, s_]) => s_ === 4 ? end.setUint32(o, v, true) : end.setUint16(o, v, true));
+  return new Blob([lh, nm, blobBytes, ch, nm, end], { type: 'application/zip' });
+}
+/* ---- геометрия и рендер ---- */
+function exportGeom() {
+  const b = base(), bl = Math.max(0, +expOpts.bleed || 0), pad = expOpts.marks ? 10 : 0, mmW = b.w + 2 * (bl + pad), mmH = b.h + 2 * (bl + pad), k = expOpts.dpi / 25.4;
+  return { b, bl, pad, mmW, mmH, k, W: Math.max(1, Math.round(mmW * k)), H: Math.max(1, Math.round(mmH * k)) };
+}
+async function renderExportCanvas(g, transparent) {
+  const svg = exportSVG(g.W, g.H, { bleed: g.bl, pad: g.pad, marks: expOpts.marks, markW: 25.4 / expOpts.dpi * 1.2 });
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  try {
+    const img = await loadImg(url); try { await img.decode(); } catch {}
+    await new Promise(r => setTimeout(r, 150));
+    const c = el('canvas'); c.width = g.W; c.height = g.H;
+    const x = c.getContext('2d'); if (!transparent) { x.fillStyle = '#fff'; x.fillRect(0, 0, g.W, g.H); }
+    x.drawImage(img, 0, 0, g.W, g.H);
+    return c;
+  } finally { URL.revokeObjectURL(url); }
+}
+async function runExport() {
+  const f = EXP_FORMATS[expOpts.fmt], g = exportGeom(), name = fileBase() + '.' + f.ext;
+  if (f.raster && g.W * g.H > MAX_PX) return toast('Слишком большое изображение для браузера: уменьшите разрешение');
+  const btn = $('#expGo'); if (btn) { btn.disabled = true; btn.querySelector('span').textContent = 'Готовлю файл…'; }
+  try {
+    let blob;
+    if (expOpts.fmt === 'svg') blob = new Blob([exportSVG(0, 0, { bleed: g.bl, pad: g.pad, marks: expOpts.marks, markW: 0.1, mm: true })], { type: 'image/svg+xml' });
+    else {
+      const color = f.colors.includes(expOpts.color) ? expOpts.color : 'srgb', alpha = !!(f.alpha && expOpts.alpha && color !== 'cmyk');
+      const icc = expOpts.icc && color !== 'cmyk' ? iccProfile(color) : null, iccName = { srgb: 'sRGB IEC61966-2.1', adobe: 'Adobe RGB (1998)', gray: 'Gray Gamma 2.2' }[color];
+      const c = await renderExportCanvas(g, alpha);
+      if (expOpts.fmt === 'jpg') {
+        if (color === 'adobe') { const x = c.getContext('2d'), id = x.getImageData(0, 0, g.W, g.H), { pix } = convertPixels(id.data, g.W * g.H, 'adobe', false);
+          for (let i = 0, j = 0; i < g.W * g.H; i++, j += 4) { id.data[j] = pix[i * 3]; id.data[j + 1] = pix[i * 3 + 1]; id.data[j + 2] = pix[i * 3 + 2]; } x.putImageData(id, 0, 0); }
+        blob = await encodeJPEG(c, expOpts.jpgQ / 100, { icc, dpi: expOpts.dpi });
+      } else {
+        const rgba = c.getContext('2d').getImageData(0, 0, g.W, g.H).data, { pix, spp } = convertPixels(rgba, g.W * g.H, color, alpha);
+        if (expOpts.fmt === 'png') blob = await encodePNG(pix, g.W, g.H, spp, { icc, iccName, dpi: expOpts.dpi });
+        else if (expOpts.fmt === 'tif') blob = await encodeTIFF(pix, g.W, g.H, spp, { photometric: color === 'cmyk' ? 5 : color === 'gray' ? 1 : 2, alpha, dpi: expOpts.dpi, icc, deflate: expOpts.tiffComp === 'deflate' });
+        else blob = await encodePDF(pix, g.W, g.H, spp, { color, icc, g });
+      }
+    }
+    let r = await download(blob, name);
+    if (r === 'rejected') { // .tif нельзя сохранить из страницы напрямую — отдаём тот же файл внутри ZIP без сжатия
+      r = await download(zipStore(name, new Uint8Array(await blob.arrayBuffer())), name + '.zip');
+      if (r) toast('Готово: ' + name + ' внутри ZIP — эта страница не разрешает сохранять .tif напрямую', 6000);
+    } else if (r) toast(`Сохранено: ${name}` + (f.raster ? ` · ${g.W}×${g.H} px` : ''));
+  } catch (e) { console.error(e); toast('Не удалось собрать файл: возможно, не хватило памяти. Попробуйте меньшее разрешение'); }
+  finally { if (btn) { btn.disabled = false; btn.querySelector('span').textContent = 'Экспортировать'; } }
+}
+const fmtBytes = n => n > 1e9 ? nf(n / 1e9, 1) + ' ГБ' : n > 1e6 ? nf(n / 1e6, 0) + ' МБ' : nf(n / 1e3, 0) + ' КБ';
+function openExport() {
+  const m = $('#modal'), f = EXP_FORMATS[expOpts.fmt];
+  if (f.colors.length && !f.colors.includes(expOpts.color)) expOpts.color = 'srgb';
+  const set = (k, v) => { expOpts[k] = v; saveExpOpts(); openExport(); };
+  const seg = (items, cur, on) => el('div', { class: 'seg full' }, items.map(([v, l, t]) => el('button', { type: 'button', class: cur === v ? 'on' : '', title: t || null, onclick: () => on(v) }, l)));
+  const g = exportGeom(), px = g.W * g.H, color = expOpts.color, spp = color === 'cmyk' ? 4 : color === 'gray' ? (expOpts.alpha && f.alpha ? 2 : 1) : (expOpts.alpha && f.alpha ? 4 : 3);
+  const tooBig = f.raster && px > MAX_PX;
+  const dpiIn = el('input', { type: 'text', inputmode: 'numeric', value: String(expOpts.dpi) });
+  dpiIn.addEventListener('change', () => { const v = parseInt(dpiIn.value, 10); set('dpi', isFinite(v) ? clamp(v, 25, 1200) : expOpts.dpi); });
+  const bleedIn = el('input', { type: 'text', inputmode: 'decimal', value: String(expOpts.bleed).replace('.', ',') });
+  bleedIn.addEventListener('change', () => { const v = parseNum(bleedIn.value); set('bleed', v == null ? 0 : clamp(v, 0, 50)); });
+  const maxDpi = Math.floor(Math.sqrt(MAX_PX / (g.mmW * g.mmH)) * 25.4);
+  const body = [
+    cap('Формат'), row(seg(Object.entries(EXP_FORMATS).map(([k, v]) => [k, v.label]), expOpts.fmt, v => set('fmt', v))),
+    el('p', { class: 'hint', style: 'margin:-2px 0 12px' }, f.note),
+  ];
+  if (f.raster) body.push(
+    cap('Разрешение'),
+    row(seg([[72, '72'], [150, '150'], [200, '200'], [300, '300']].map(([v, l]) => [v, l + ' dpi']), expOpts.dpi, v => set('dpi', v))),
+    row(el('label', { class: 'nf', style: 'flex:none;width:200px' }, el('b', {}, 'Своё разрешение'), dpiIn, el('i', {}, 'dpi'))),
+    cap('Цветовой профиль'),
+    row((() => { const s_ = el('select', {}, f.colors.map(c => el('option', { value: c }, EXP_COLORS[c]))); s_.value = color; s_.addEventListener('change', () => set('color', s_.value)); return s_; })()),
+    row(checkField('Встроить ICC-профиль', () => expOpts.icc && color !== 'cmyk', v => set('icc', v))),
+    color === 'cmyk' ? el('p', { class: 'warn' }, 'CMYK переводится простой формулой, без профиля типографии. Для точного цвета отдайте в печать RGB (Adobe RGB или sRGB) — типография переведёт его под свою машину и материал.') : null,
+    color === 'adobe' ? el('p', { class: 'hint', style: 'margin-top:0' }, 'Цвета переводятся из sRGB в Adobe RGB, профиль встраивается — программы покажут цвет правильно.') : null,
+    f.alpha && color !== 'cmyk' ? row(checkField('Прозрачный фон (если подложка скрыта или прозрачна)', () => expOpts.alpha, v => set('alpha', v))) : null,
+    expOpts.fmt === 'jpg' ? [cap('Качество JPEG'), row(sliderField(() => expOpts.jpgQ, v => { expOpts.jpgQ = v; saveExpOpts(); }, { min: 50, max: 100, def: 92 }))] : null,
+    expOpts.fmt === 'tif' ? [cap('Сжатие TIFF'), row(seg([['none', 'Без сжатия'], ['deflate', 'Deflate (ZIP), без потерь']], expOpts.tiffComp, v => set('tiffComp', v)))] : null);
+  body.push(
+    cap('Для печати'),
+    el('div', { class: 'grid2' }, el('label', { class: 'nf', title: 'Фон подложки продлевается за край на эту величину' }, el('b', {}, 'Вылеты'), bleedIn, el('i', {}, 'мм')),
+      checkField('Метки реза', () => expOpts.marks, v => set('marks', v))),
+    el('div', { class: 'info', style: 'margin-top:10px' },
+      `Размер: ${mmTxt(g.mmW)} × ${mmTxt(g.mmH)} мм` + (f.raster ? ` · ${nf(g.W)} × ${nf(g.H)} px · ${nf(px / 1e6, 1)} Мп` : '') +
+      (expOpts.fmt === 'tif' && expOpts.tiffComp === 'none' ? ` · файл ≈ ${fmtBytes(px * spp)}` : '')),
+    tooBig ? el('p', { class: 'warn bad' }, `Слишком много пикселей для браузера. Для этого стенда максимум около ${maxDpi} dpi.`) : null,
+    !tooBig && f.raster && px > 60e6 ? el('p', { class: 'warn' }, 'Большой файл: сборка может занять до минуты.') : null,
+    expOpts.fmt === 'tif' && window.claude ? el('p', { class: 'hint' }, 'Страница в Claude не разрешает сохранять .tif напрямую, поэтому TIFF придёт внутри ZIP без сжатия. Если открыть этот конструктор как HTML-файл, TIFF сохранится как есть.') : null);
+  m.replaceChildren(el('div', { class: 'dlg', role: 'dialog', style: 'width:min(560px,100%)' },
+    el('div', { class: 'dlg-h' }, el('span', {}, 'Экспорт: ' + fileBase()), B('', '✕', () => { m.hidden = true; m.replaceChildren(); }, { cls: 'icon', title: 'Закрыть (Esc)' })),
+    el('div', { class: 'dlg-b', style: 'padding-top:14px' }, body),
+    el('div', { class: 'dlg-f' }, B('download', 'Экспортировать', runExport, { cls: 'btn primary', id: 'expGo', disabled: tooBig }))));
+  m.hidden = false;
+  m.onclick = e => { if (e.target === m) { m.hidden = true; m.replaceChildren(); } };
+}
+
+/* ================= theme ================= */
+const THEME_KEY = STORE + ':theme';
+const theme = (() => { try { return Object.assign({ dark: false, level: 50 }, JSON.parse(localStorage.getItem(THEME_KEY))); } catch { return { dark: false, level: 50 }; } })();
+const THEME_VARS = ['--bg', '--panel', '--panel2', '--hover', '--input', '--stage', '--line', '--line2', '--cross', '--text', '--muted', '--acc', '--acc-soft'];
+function applyTheme() {
+  const r = document.documentElement.style;
+  if (!theme.dark) { THEME_VARS.forEach(v => r.removeProperty(v)); r.colorScheme = 'light'; return; }
+  const L = 27 - theme.level / 100 * 17, c = (l, sat = 9) => `hsl(220 ${sat}% ${clamp(l, 2, 60)}%)`; // от графитового (27%) до почти чёрного (10%)
+  const vals = { '--bg': c(L - 5), '--panel': c(L), '--panel2': c(L + 4), '--hover': c(L + 7), '--input': c(L - 3), '--stage': c(L - 6), '--line': c(L + 9), '--line2': c(L + 17),
+    '--cross': c(L + 18), '--text': '#e7e9ee', '--muted': '#9ba3ae', '--acc': '#5b93f5', '--acc-soft': 'rgba(91,147,245,.22)' };
+  for (const [k, v] of Object.entries(vals)) r.setProperty(k, v);
+  r.colorScheme = 'dark';
+}
+function saveTheme() { try { localStorage.setItem(THEME_KEY, JSON.stringify(theme)); } catch {} applyTheme(); }
+const themeLevel = el('input', { type: 'range', min: 0, max: 100, value: theme.level, style: 'width:100%;accent-color:var(--acc)', title: 'Двойной клик — по умолчанию' });
+const themeSeg = el('div', { class: 'seg full' });
+function renderThemeSeg() {
+  themeSeg.replaceChildren(...[[false, 'Светлая'], [true, 'Тёмная']].map(([d, l]) => el('button', { type: 'button', class: theme.dark === d ? 'on' : '', onclick: () => { theme.dark = d; saveTheme(); renderThemeSeg(); } }, l)));
+  themeLevel.disabled = !theme.dark;
+}
+themeLevel.addEventListener('input', () => { theme.level = +themeLevel.value; saveTheme(); });
+themeLevel.addEventListener('dblclick', () => { theme.level = 50; themeLevel.value = 50; saveTheme(); });
+const themePop = el('div', { class: 'pop', hidden: true }, el('h5', {}, 'Тема'), row(themeSeg), el('h5', { style: 'margin-top:12px' }, 'Насыщенность тёмной темы'), themeLevel,
+  el('div', { class: 'cap', style: 'display:flex;justify-content:space-between;margin-top:2px' }, el('span', {}, 'графит'), el('span', {}, 'почти чёрный')));
+document.body.append(themePop);
+document.addEventListener('pointerdown', e => { if (!themePop.hidden && !themePop.contains(e.target) && !$('#themeBtn').contains(e.target)) themePop.hidden = true; });
+renderThemeSeg(); applyTheme();
+
+/* ================= collapsible side panels ================= */
+const PANES_KEY = STORE + ':panes';
+const panes = (() => { try { return Object.assign({ L: true, R: true }, JSON.parse(localStorage.getItem(PANES_KEY))); } catch { return { L: true, R: true }; } })();
+const CHEV = { left: '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>', right: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>' };
+function renderPanes() {
+  const m = $('main'); m.classList.toggle('noL', !panes.L); m.classList.toggle('noR', !panes.R);
+  $('#railL').innerHTML = `<span>${panes.L ? CHEV.left : CHEV.right}<i>${panes.L ? 'скрыть слои' : 'слои'}</i></span>`;
+  $('#railL').title = panes.L ? 'Скрыть панель слоёв' : 'Показать панель слоёв';
+  $('#railR').innerHTML = `<span>${panes.R ? CHEV.right : CHEV.left}<i>${panes.R ? 'скрыть свойства' : 'свойства'}</i></span>`;
+  $('#railR').title = panes.R ? 'Скрыть панель свойств' : 'Показать панель свойств';
+}
+for (const k of ['L', 'R']) $('#rail' + k).addEventListener('click', () => { panes[k] = !panes[k]; try { localStorage.setItem(PANES_KEY, JSON.stringify(panes)); } catch {} renderPanes(); });
+renderPanes();
+
+/* ================= resizable layers panel ================= */
+const layersRz = el('div', { id: 'layersResizer', title: 'Тяните, чтобы изменить ширину панели слоёв. Двойной клик — по умолчанию' });
+function setLayersW(w, save = true) {
+  w = clamp(Math.round(w), 180, Math.min(460, window.innerWidth - 600));
+  $('main').style.setProperty('--layersW', w + 'px');
+  if (save) try { localStorage.setItem(STORE + ':layersW', String(w)); } catch {}
+}
+try { setLayersW(+localStorage.getItem(STORE + ':layersW') || 240, false); } catch { setLayersW(240, false); }
+layersRz.addEventListener('pointerdown', e => {
+  e.preventDefault(); layersRz.setPointerCapture(e.pointerId); layersRz.classList.add('on');
+  const mv = ev => setLayersW(ev.clientX - $('main').getBoundingClientRect().left - 16);
+  const up = () => { layersRz.removeEventListener('pointermove', mv); layersRz.classList.remove('on'); };
+  layersRz.addEventListener('pointermove', mv); layersRz.addEventListener('pointerup', up, { once: true }); layersRz.addEventListener('pointercancel', up, { once: true });
+});
+layersRz.addEventListener('dblclick', () => setLayersW(240));
+$('main').append(layersRz);
+
+/* ================= resizable properties panel ================= */
+const mainEl = $('main'), propsRz = el('div', { id: 'propsResizer', title: 'Тяните, чтобы изменить ширину панели. Двойной клик — по умолчанию' });
+mainEl.append(propsRz);
+function setPropsW(w, save = true) {
+  w = clamp(Math.round(w), 240, Math.min(680, window.innerWidth - 480));
+  mainEl.style.setProperty('--propsW', w + 'px');
+  if (save) try { localStorage.setItem(STORE + ':propsW', String(w)); } catch {}
+}
+try { setPropsW(+localStorage.getItem(STORE + ':propsW') || 296, false); } catch { setPropsW(296, false); }
+propsRz.addEventListener('pointerdown', e => {
+  e.preventDefault(); propsRz.setPointerCapture(e.pointerId); propsRz.classList.add('on');
+  const mv = ev => setPropsW(mainEl.getBoundingClientRect().right - 16 - ev.clientX);
+  const up = () => { propsRz.removeEventListener('pointermove', mv); propsRz.classList.remove('on'); };
+  propsRz.addEventListener('pointermove', mv); propsRz.addEventListener('pointerup', up, { once: true }); propsRz.addEventListener('pointercancel', up, { once: true });
+});
+propsRz.addEventListener('dblclick', () => setPropsW(296));
+
+/* ================= start ================= */
+loadStored();
+sel = base().id; selIds = [sel];
+if (document.fonts) document.fonts.ready.then(relayoutTexts);
+try { fontStore.all().then(loadCustomFonts, () => {}); } catch {}
+invalidate('all');
+requestAnimationFrame(() => { fit(); flush(); });
+let fitted = false;
+new ResizeObserver(() => { if (!fitted && stage.clientWidth) { fitted = true; fit(); } else invalidate('view'); }).observe(stage);
+</script>
+</body>
+</html>
