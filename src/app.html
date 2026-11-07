@@ -248,7 +248,7 @@ kbd{font:11px/1 ui-monospace,monospace;border:1px solid var(--line);border-botto
 <div id="toast"></div>
 <input type="file" id="imageInput" accept="image/*" hidden>
 <input type="file" id="projectInput" hidden>
-<input type="file" id="fontInput" accept=".ttf,.otf,.woff,.woff2" hidden>
+<input type="file" id="fontInput" accept=".ttf,.otf,.woff,.woff2" multiple hidden>
 <div id="modal" hidden></div>
 
 <script>/*FONTS*/</script>
@@ -522,7 +522,7 @@ function redo() { if (!future.length) return; past.push(JSON.stringify(doc)); re
 function usedAssets() { const a = {}; for (const o of doc.objects) if (o.image && assets[o.image.asset]) a[o.image.asset] = assets[o.image.asset]; return a; }
 function usedCustomFonts() {
   const used = new Set(doc.objects.filter(o => o.type === 'text').map(o => o.font));
-  return FONT_DB.filter(f => f.custom && used.has(f.label)).map(f => ({ label: f.label, fmt: f.faces[0].fmt, data: FONT_DATA[f.faces[0].file] }));
+  return FONT_DB.filter(f => f.custom && used.has(f.label)).flatMap(f => f.faces.map(x => ({ label: f.label, fmt: x.fmt, data: FONT_DATA[x.file], weight: x.weight, style: x.style })));
 }
 const serialize = (withAssets = true) => ({ app: 'stand-designer', version: 3, unit, doc, assets: withAssets ? usedAssets() : {}, fonts: withAssets ? usedCustomFonts() : [] });
 let saveT = 0, quotaWarned = false;
@@ -912,44 +912,119 @@ function fontFaceCSS(labels) {
 const FONT_MIME = { woff2: 'font/woff2', woff: 'font/woff', truetype: 'font/ttf', opentype: 'font/otf' };
 document.head.append(el('style', {}, fontFaceCSS()));
 /* ---- свои шрифты: хранятся в IndexedDB на устройстве и в файле проекта ---- */
+/* Свои шрифты. Каждый файл — одно начертание (или variable-файл со всеми насыщенностями).
+   Из файла читаются семейство, насыщенность и курсив (таблицы name, OS/2, fvar), файлы
+   одного семейства объединяются, поэтому переключатель насыщенности выбирает настоящие начертания.
+   Хранятся в IndexedDB на устройстве и в файле проекта. */
 const fontStore = (() => {
   let p = null;
   const open = () => p || (p = new Promise((ok, err) => {
-    const r = indexedDB.open('stand-designer', 1);
-    r.onupgradeneeded = () => r.result.createObjectStore('fonts', { keyPath: 'label' });
+    const r = indexedDB.open('stand-designer', 2);
+    r.onupgradeneeded = () => { const db = r.result; if (!db.objectStoreNames.contains('fonts')) db.createObjectStore('fonts', { keyPath: 'label' }); if (!db.objectStoreNames.contains('faces')) db.createObjectStore('faces', { keyPath: 'key' }); };
     r.onsuccess = () => ok(r.result); r.onerror = () => err(r.error);
   }));
-  const tx = (mode, fn) => open().then(db => new Promise((ok, err) => { const t = db.transaction('fonts', mode), q = fn(t.objectStore('fonts')); t.oncomplete = () => ok(q && q.result); t.onerror = () => err(t.error); }));
-  return { all: () => tx('readonly', s => s.getAll()), put: v => tx('readwrite', s => s.put(v)), del: k => tx('readwrite', s => s.delete(k)) };
+  const tx = (store, mode, fn) => open().then(db => new Promise((ok, err) => { const t = db.transaction(store, mode), q = fn(t.objectStore(store)); t.oncomplete = () => ok(q && q.result); t.onerror = () => err(t.error); }));
+  return {
+    all: async () => [...(await tx('fonts', 'readonly', s_ => s_.getAll()) || []), ...(await tx('faces', 'readonly', s_ => s_.getAll()) || [])],
+    put: v => tx('faces', 'readwrite', s_ => s_.put({ ...v, key: faceKey(v) })),
+    delFamily: async label => {
+      const all = await tx('faces', 'readonly', s_ => s_.getAll()) || [];
+      for (const f of all) if (f.label === label) await tx('faces', 'readwrite', s_ => s_.delete(f.key));
+      await tx('fonts', 'readwrite', s_ => s_.delete(label));
+    },
+  };
 })();
+const faceKey = f => `${f.label}|${f.weight || '400'}|${f.style || 'normal'}`;
 function b64FromBuf(buf) { const u = new Uint8Array(buf); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
 function bufFromB64(b) { const s = atob(b), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; }
-async function registerCustomFont({ label, fmt, data }) {
-  const ex = FONT_DB.find(f => f.label === label); if (ex) return ex;
-  const css = 'Custom ' + label, file = 'custom:' + label;
-  const face = new FontFace(css, bufFromB64(data)); await face.load(); document.fonts.add(face);
+const WEIGHT_WORDS = [[/hairline|thin/, 100], [/extra ?light|ultra ?light/, 200], [/semi ?bold|demi ?bold/, 600], [/extra ?bold|ultra ?bold/, 800], [/black|heavy/, 900], [/light/, 300], [/medium/, 500], [/bold/, 700], [/regular|normal|book|roman/, 400]];
+function guessFromName(name) {
+  const n = name.replace(/\.\w+$/, '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase();
+  const w = (WEIGHT_WORDS.find(([re]) => re.test(n)) || [0, null])[1], italic = /italic|oblique|курсив/.test(n);
+  const fam = name.replace(/\.\w+$/, '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ')
+    .replace(/\b(hairline|thin|extra ?light|ultra ?light|light|regular|normal|book|roman|medium|semi ?bold|demi ?bold|extra ?bold|ultra ?bold|bold|black|heavy|italic|oblique|variable|var|vf|wght)\b/gi, '').replace(/\s+/g, ' ').trim();
+  return { family: fam || null, weight: w, italic };
+}
+async function inflate(u8) { const st = new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate')); return new Uint8Array(await new Response(st).arrayBuffer()); }
+/* читает name / OS/2 / fvar из TTF, OTF и WOFF; для WOFF2 (сжат Brotli) — только имя файла */
+async function readFontMeta(buf, fmt) {
+  const dv = new DataView(buf), tag = o => String.fromCharCode(dv.getUint8(o), dv.getUint8(o + 1), dv.getUint8(o + 2), dv.getUint8(o + 3)), dir = {};
+  if (fmt === 'woff') { const n = dv.getUint16(12); for (let i = 0; i < n; i++) { const o = 44 + i * 20; dir[tag(o)] = { off: dv.getUint32(o + 4), comp: dv.getUint32(o + 8), orig: dv.getUint32(o + 12) }; } }
+  else if (fmt === 'truetype' || fmt === 'opentype') { const n = dv.getUint16(4); for (let i = 0; i < n; i++) { const o = 12 + i * 16, len = dv.getUint32(o + 12); dir[tag(o)] = { off: dv.getUint32(o + 8), comp: len, orig: len }; } }
+  else return {};
+  const table = async t => { const e = dir[t]; if (!e) return null; let u = new Uint8Array(buf, e.off, e.comp); if (e.comp < e.orig) u = await inflate(u); return new DataView(u.buffer, u.byteOffset, u.byteLength); };
+  const meta = {};
+  const nm = await table('name');
+  if (nm) {
+    const count = nm.getUint16(2), strOff = nm.getUint16(4), names = {};
+    for (let i = 0; i < count; i++) {
+      const o = 6 + i * 12, plat = nm.getUint16(o), lang = nm.getUint16(o + 4), id = nm.getUint16(o + 6), len = nm.getUint16(o + 8), off = strOff + nm.getUint16(o + 10);
+      if (![1, 2, 4, 16, 17].includes(id)) continue;
+      let str = '';
+      if (plat === 3 || plat === 0) for (let k = 0; k + 1 < len; k += 2) str += String.fromCharCode(nm.getUint16(off + k));
+      else if (plat === 1) for (let k = 0; k < len; k++) str += String.fromCharCode(nm.getUint8(off + k));
+      else continue;
+      const score = (plat === 3 ? 2 : 1) + (lang === 0x409 || lang === 0 ? 1 : 0);
+      if (str && (!names[id] || score > names[id].score)) names[id] = { str, score };
+    }
+    meta.family = (names[16] || names[1])?.str?.trim();
+    meta.sub = (names[17] || names[2])?.str?.trim();
+  }
+  const os2 = await table('OS/2');
+  if (os2 && os2.byteLength >= 64) { meta.weight = os2.getUint16(4); meta.italic = !!(os2.getUint16(62) & 1); }
+  const fv = await table('fvar');
+  if (fv) {
+    const axOff = fv.getUint16(4), n = fv.getUint16(8), size = fv.getUint16(10);
+    for (let i = 0; i < n; i++) { const o = axOff + i * size; if (String.fromCharCode(fv.getUint8(o), fv.getUint8(o + 1), fv.getUint8(o + 2), fv.getUint8(o + 3)) === 'wght') { meta.varMin = Math.round(fv.getInt32(o + 4) / 65536); meta.varMax = Math.round(fv.getInt32(o + 12) / 65536); } }
+  }
+  if (meta.sub && /italic|oblique/i.test(meta.sub)) meta.italic = true;
+  return meta;
+}
+async function registerCustomFont({ label, fmt, data, weight = '400', style = 'normal' }) {
+  weight = String(weight); style = style === 'italic' ? 'italic' : 'normal';
+  let def = FONT_DB.find(f => f.label === label && f.custom);
+  if (FONT_DB.some(f => f.label === label && !f.custom)) return null;
+  if (def && def.faces.some(x => x.weight === weight && x.style === style)) return def;
+  if (!def) { def = { label, css: 'Custom ' + label, custom: true, faces: [] }; FONT_DB.push(def); }
+  const file = 'custom:' + faceKey({ label, weight, style });
+  const face = new FontFace(def.css, bufFromB64(data), { weight, style });
+  await face.load(); document.fonts.add(face);
   FONT_DATA[file] = data;
-  const def = { label, css, wmin: 100, wmax: 900, italic: true, static: false, custom: true, faces: [{ file, style: 'normal', weight: '400', range: 'U+0-10FFFF', fmt }] };
-  FONT_DB.push(def); return def;
+  def.faces.push({ file, style, weight, range: 'U+0-10FFFF', fmt });
+  const ws = def.faces.flatMap(x => x.weight.split(' ').map(Number));
+  def.wmin = Math.min(...ws); def.wmax = Math.max(...ws);
+  def.static = !def.faces.some(x => x.weight.includes(' '));
+  def.italic = def.faces.some(x => x.style === 'italic');
+  return def;
 }
 let fontTarget = null;
-async function addFontFile(file) {
-  const ext = (file.name.match(/\.(\w+)$/) || [])[1]?.toLowerCase(), fmt = { ttf: 'truetype', otf: 'opentype', woff: 'woff', woff2: 'woff2' }[ext];
-  if (!fmt) return toast('Нужен файл шрифта: TTF, OTF, WOFF или WOFF2');
-  let label = file.name.replace(/\.\w+$/, '').replace(/[_-]+/g, ' ').replace(/["'\\<>]/g, '').trim().slice(0, 60) || 'Мой шрифт';
-  if (FONT_DB.some(f => f.label === label && !f.custom)) label += ' (свой)';
-  try {
-    const data = b64FromBuf(await file.arrayBuffer());
-    await registerCustomFont({ label, fmt, data });
-    try { await fontStore.put({ label, fmt, data }); } catch { toast('Шрифт добавлен, но браузер не дал сохранить его на устройстве'); }
-    const t = fontTarget && byId(fontTarget);
-    if (t && t.type === 'text') mutate(null, () => { byId(t.id).font = label; });
-    propsSig = null; invalidate('props', 'layers'); toast('Шрифт «' + label + '» добавлен и сохранён на этом устройстве');
-  } catch { toast('Не удалось прочитать шрифт'); }
+async function addFontFiles(files) {
+  const added = new Map(); let bad = 0;
+  for (const file of files) {
+    const ext = (file.name.match(/\.(\w+)$/) || [])[1]?.toLowerCase(), fmt = { ttf: 'truetype', otf: 'opentype', woff: 'woff', woff2: 'woff2' }[ext];
+    if (!fmt) { bad++; continue; }
+    try {
+      const buf = await file.arrayBuffer(), g = guessFromName(file.name);
+      let m = {}; try { m = await readFontMeta(buf, fmt); } catch {}
+      let label = (m.family || g.family || 'Мой шрифт').replace(/["'\\<>]/g, '').trim().slice(0, 60);
+      if (FONT_DB.some(f => f.label === label && !f.custom)) label += ' (свой)';
+      const weight = m.varMin != null ? `${m.varMin} ${m.varMax}` : String(m.weight || g.weight || 400), style = (m.italic ?? g.italic) ? 'italic' : 'normal';
+      const data = b64FromBuf(buf);
+      await registerCustomFont({ label, fmt, data, weight, style });
+      try { await fontStore.put({ label, fmt, data, weight, style }); } catch {}
+      if (!added.has(label)) added.set(label, []);
+      added.get(label).push(weight.includes(' ') ? `variable ${weight.replace(' ', '–')}` : weight + (style === 'italic' ? ' курсив' : ''));
+    } catch { bad++; }
+  }
+  if (!added.size) return toast('Не удалось прочитать шрифт: нужен TTF, OTF, WOFF или WOFF2');
+  const first = [...added.keys()][0], t = fontTarget && byId(fontTarget);
+  if (t && t.type === 'text') mutate(null, () => { byId(t.id).font = first; });
+  relayoutTexts(); propsSig = null; invalidate('props', 'layers');
+  toast([...added].map(([l, w]) => `«${l}»: ${w.join(', ')}`).join('; ') + (bad ? ` · не прочитано: ${bad}` : '') + ' — сохранено на этом устройстве', 6000);
 }
 async function removeCustomFont(label) {
   const i = FONT_DB.findIndex(f => f.label === label && f.custom); if (i < 0) return;
-  FONT_DB.splice(i, 1); try { await fontStore.del(label); } catch {}
+  FONT_DB.splice(i, 1); try { await fontStore.delFamily(label); } catch {}
   relayoutTexts(); propsSig = null; invalidate('props', 'layers', 'scene'); toast('Шрифт удалён. Тексты с ним показаны шрифтом по умолчанию');
 }
 async function loadCustomFonts(list) {
@@ -1622,13 +1697,13 @@ function buildText(o) {
   const fsel = el('select', { title: 'Шрифт' },
     el('optgroup', { label: 'Встроенные' }, FONT_DB.filter(d => !d.custom).map(d => el('option', { value: d.label, style: `font-family:"${d.css}"` }, d.label))),
     FONT_DB.some(d => d.custom) ? el('optgroup', { label: 'Свои' }, FONT_DB.filter(d => d.custom).map(d => el('option', { value: d.label, style: `font-family:"${d.css}"` }, d.label))) : null,
-    el('option', { value: '__add' }, '＋ Добавить свой шрифт…'));
+    el('option', { value: '__add' }, '＋ Добавить свой шрифт (можно несколько файлов)…'));
   bind(fsel, () => FONT_DB.some(d => d.label === O().font) ? O().font : FONT_DB[0].label); fsel.style.fontFamily = `"${f.css}"`;
   fsel.addEventListener('change', () => {
     if (fsel.value === '__add') { fsel.value = O().font; fontTarget = o.id; $('#fontInput').click(); return; }
     upd(null, x => { x.font = fsel.value; });
   });
-  const weights = f.static ? [...new Set(f.faces.map(x => +x.weight))] : [100, 200, 300, 400, 500, 600, 700, 800, 900].filter(w => w >= f.wmin && w <= f.wmax);
+  const weights = f.static ? [...new Set(f.faces.map(x => +x.weight))].sort((a, b) => a - b) : [100, 200, 300, 400, 500, 600, 700, 800, 900].filter(w => w >= f.wmin && w <= f.wmax);
   const WN = { 100: 'Тонкий', 200: 'Сверхсветлый', 300: 'Светлый', 400: 'Обычный', 500: 'Средний', 600: 'Полужирный', 700: 'Жирный', 800: 'Сверхжирный', 900: 'Чёрный' };
   const wsel = el('select', { title: 'Насыщенность' }, weights.map(w => el('option', { value: String(w) }, `${WN[w]} ${w}`)));
   bind(wsel, () => String(fontWeight(O()))); wsel.addEventListener('change', () => upd(null, x => x.weight = +wsel.value));
@@ -1642,7 +1717,10 @@ function buildText(o) {
       el('fieldset', { disabled: L },
         row(ta),
         row(fsel, wsel),
-        f.custom ? el('div', { class: 'btns', style: 'margin-bottom:8px' }, B('trash', 'Удалить этот шрифт с устройства', () => removeCustomFont(f.label), { cls: 'btn danger' })) : null,
+        f.custom ? el('p', { class: 'hint', style: 'margin:-2px 0 8px' }, f.static
+          ? `Начертания в этом шрифте: ${weights.map(w => WN[w] ? WN[w].toLowerCase() + ' ' + w : w).join(', ')}${f.italic ? ', есть курсив' : ''}. Чтобы добавить другие, загрузите их файлы через «＋ Добавить свой шрифт» — они встанут в это же семейство.`
+          : `Variable-шрифт: насыщенность от ${f.wmin} до ${f.wmax}.`) : null,
+        f.custom ? el('div', { class: 'btns', style: 'margin-bottom:8px' }, B('trash', 'Удалить семейство', () => removeCustomFont(f.label), { cls: 'btn danger', title: 'Удалить этот шрифт со всеми начертаниями с устройства' })) : null,
         pt,
         row(sliderField(() => O().size, (v, k) => upd(k, x => { const r = v / x.size; x.size = v; if (x.wrap) x.boxW *= r; }), { min: 5, max: 300, inMax: 5000, key: 'size', suffix: 'мм', def: 60 })),
         row(el('div', { class: 'seg full tog' },
@@ -2119,7 +2197,7 @@ document.addEventListener('paste', e => {
   importImage(item.getAsFile(), o && (o.type === 'pocket' || o.type === 'shape') ? o.id : null);
 });
 $('#imageInput').addEventListener('change', e => { const f = e.target.files[0]; if (f) importImage(f, imageTarget); e.target.value = ''; });
-$('#fontInput').addEventListener('change', e => { const f = e.target.files[0]; if (f) addFontFile(f); e.target.value = ''; });
+$('#fontInput').addEventListener('change', e => { const fs = [...e.target.files]; if (fs.length) addFontFiles(fs); e.target.value = ''; });
 $('#projectInput').addEventListener('change', e => { const f = e.target.files[0]; if (f) openFile(f); e.target.value = ''; });
 
 /* ================= keyboard ================= */
