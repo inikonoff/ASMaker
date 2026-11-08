@@ -59,6 +59,40 @@ textarea.txt{width:100%;height:auto;min-height:64px;padding:6px 8px;resize:verti
 .row > select{flex:1 1 0}
 #modal{position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:20;display:grid;place-items:center;padding:20px}
 #modal[hidden]{display:none}
+@media (max-width:1520px){header .tb span{display:none}}
+.acct,.acct-in{flex:none}
+.acct{border:0;background:none;padding:2px;border-radius:99px;position:relative;cursor:pointer;margin-left:4px;display:flex}
+.acct .dot,.acct-st .dot{position:absolute;right:0;bottom:0;width:9px;height:9px;border-radius:50%;border:2px solid var(--panel);background:#9ca3af}
+.acct-in svg{width:16px;height:16px}
+.st-ok .dot,.st-idle .dot{background:#16a34a}.st-sync .dot{background:#2563eb}.st-offline .dot,.st-auth .dot{background:#d97706}.st-error .dot{background:#dc2626}
+.ava{border-radius:50%;object-fit:cover;flex:none;display:inline-grid;place-items:center;background:var(--acc);color:#fff;font-weight:650}
+.acct-head{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.acct-st{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:var(--panel2);font-size:12px}
+.acct-st .dot{position:static;border:0}
+.acct-links{display:flex;flex-direction:column;margin-top:10px;border-top:1px solid var(--line);padding-top:6px}
+.acct-links button,.linkbtn{background:none;border:0;text-align:left;padding:7px 4px;border-radius:6px;color:var(--text);font:inherit;cursor:pointer}
+.acct-links button:hover,.linkbtn:hover{background:var(--hover)}
+.ask-wrap{position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:40;display:grid;place-items:center;padding:20px}
+.ask-wrap .dlg{background:var(--panel);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:min(460px,100%)}
+.ask-wrap .dlg-h{padding:14px 18px;border-bottom:1px solid var(--line);font-weight:650;font-size:15px}
+.ask-wrap .dlg-b{padding:0 18px 14px}.ask-wrap .dlg-f{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--line)}
+#sharedBar{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:6;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:6px 8px 6px 10px;white-space:nowrap;max-width:calc(100% - 20px);overflow:auto}
+#sharedBar[hidden]{display:none}
+#sharedBar .btn{height:28px;font-size:12px}
+.sb-tag{background:#7c3aed;color:#fff;font-size:11px;font-weight:650;padding:2px 8px;border-radius:99px}
+.sb-own{color:var(--muted);font-size:12px}.sb-st{font-weight:600;font-size:12px}.sb-st.on{color:#16a34a}
+body.ro #propsPane,body.ro #layersFoot,body.ro #layerList{pointer-events:none;opacity:.55}
+body.ro #undoBtn,body.ro #redoBtn{opacity:.4;pointer-events:none}
+.lib-tabs{flex:none}.lib-tabs button{padding:0 14px}
+.lib-sync{position:absolute;top:8px;right:8px;background:var(--panel);border:1px solid var(--line);border-radius:99px;font-size:11px;padding:1px 7px;color:var(--muted)}
+.lib-sync.s-ok{color:#16a34a}.lib-sync.s-conflict{color:#fff;background:#d97706;border-color:#d97706}.lib-sync.s-pending{color:#2563eb}
+.lib-owner{position:absolute;bottom:8px;right:8px}
+.lib-meta .busy{color:#d97706}
+.lib-card.gone{opacity:.6}
+.members{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}
+.member{display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid var(--line)}
+.member select{width:auto}
+ul.news{margin:4px 0 14px;padding-left:20px;line-height:1.5}
 .lib-tools{display:flex;gap:10px;align-items:center;margin-bottom:14px}
 .lib-tools input{flex:1;height:34px;border:1px solid var(--line);border-radius:8px;background:var(--input);color:var(--text);padding:0 10px;font:inherit}
 .lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
@@ -320,6 +354,7 @@ const ICON = {
   swap: '<path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
   library: '<rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/>',
+  share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
   download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
   folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/>',
@@ -577,10 +612,11 @@ function keepTextAnchors(before) {
     o.y = r2(ay === 'c' ? cy - o.h / 2 : p.y);
   }
 }
-function mutate(key, fn) { commit(key); const before = textBoxes(); fn(); doc.objects.forEach(syncDerived); keepTextAnchors(before); changed(); }
+function mutate(key, fn) { if (readOnly) return roToast(); commit(key); const before = textBoxes(); fn(); doc.objects.forEach(syncDerived); keepTextAnchors(before); changed(); }
 function restore(json) { doc = JSON.parse(json); selIds = selIds.filter(i => byId(i)); if (sel && !byId(sel)) sel = selIds[selIds.length - 1] || null; lastKey = null; changed(); }
-function undo() { if (!past.length) return; future.push(JSON.stringify(doc)); restore(past.pop()); }
-function redo() { if (!future.length) return; past.push(JSON.stringify(doc)); restore(future.pop()); }
+const roToast = () => toast(cur.canEdit ? 'Сейчас просмотр: нажмите «Взять в работу»' : 'У вас доступ только для просмотра');
+function undo() { if (readOnly || !past.length) return; future.push(JSON.stringify(doc)); restore(past.pop()); }
+function redo() { if (readOnly || !future.length) return; past.push(JSON.stringify(doc)); restore(future.pop()); }
 
 /* ================= persistence ================= */
 function usedAssets() { const a = {}; for (const o of doc.objects) if (o.image && assets[o.image.asset]) a[o.image.asset] = assets[o.image.asset]; return a; }
@@ -632,7 +668,8 @@ async function openFile(file, handle) {
   const ex = id && await projects.get(id).catch(() => null);
   if (ex && ex.updated > (d.saved || 0) + 2000) { id = null; msg = 'В «Моих проектах» есть более новая версия этого проекта — файл открыт отдельной копией'; }
   else if (ex) msg = 'Проект обновлён из файла';
-  if (!id) id = uid();
+  if (!id || (ex && ex.kind === 'shared')) id = uid();
+  await leaveShared();
   if (Array.isArray(d.fonts)) await loadCustomFonts(d.fonts);
   if (!applyData(d)) return toast('Это не похоже на файл проекта');
   setPid(id); pristine = null; libSave();
@@ -640,7 +677,7 @@ async function openFile(file, handle) {
   toast(msg, 4000);
 }
 async function newStand() {
-  await flushLib();
+  await flushLib(); await leaveShared();
   doc = newDoc(); assets = {}; setPid(uid()); sel = base().id; selIds = [sel]; resetHistory(); changed(); fit();
   pristine = docKey(); toast('Новый проект. Прежний — в «Мои проекты»');
 }
@@ -688,8 +725,15 @@ function libSave() {
   const thumbP = renderStand(360).then(c => c.toDataURL('image/jpeg', 0.82), () => null);
   return libQ = libQ.then(async () => {
     const thumb = await thumbP, old = await projects.get(id).catch(() => null), now = Date.now();
-    await projects.put({ id, ...meta, created: (old && old.created) || now, updated: now, thumb: thumb || (old && old.thumb) || null, data });
+    const rec = { ...(old || {}), id, ...meta, created: (old && old.created) || now, updated: now, thumb: thumb || (old && old.thumb) || null, data };
+    delete rec.stub; if (account && !rec.acct && !rec.localOnly && rec.kind !== 'shared') rec.acct = account.email;
+    await projects.put(rec);
+    afterLocalSave(id, rec);
   }).catch(e => console.warn('library save', e));
+}
+function afterLocalSave(id, rec) {
+  if (rec.kind === 'shared') { if (cur.shared && cur.id === id && cur.mode === 'edit') scheduleSharedSave(); }
+  else if (account) cloudKick();
 }
 async function flushLib() { clearTimeout(saveT); saveNow(false); await libSave(); }
 function applyData(d) {
@@ -700,22 +744,30 @@ function applyData(d) {
   return true;
 }
 async function openProject(id) {
-  if (id === pid) return;
-  await flushLib();
-  const r = await projects.get(id).catch(() => null);
+  if (id === pid && !(cur.shared && cur.mode === 'view' && !pollT)) return;
+  await flushLib(); await leaveShared();
+  let r = await projects.get(id).catch(() => null);
+  if (r && r.kind === 'shared') return openShared(id);
+  if (r && r.stub) {
+    if (!account || (!tokenOk() && !(await reconnect()))) return toast('Проект хранится на Google Диске: войдите, чтобы открыть его');
+    try { toast('Загружаю проект с Диска…', 8000); r = await fetchPersonal(id); } catch (e) { return toast('Не удалось загрузить с Диска: ' + e.message, 5000); }
+  } else if (r && r.pullRev && account && tokenOk() && r.drive.synced === r.updated) { try { r = await fetchPersonal(id); } catch {} }
   if (!r || !applyData(r.data)) return toast('Не удалось открыть проект');
   setPid(id); pristine = docKey(); toast('Открыт: ' + (doc.title || DEFAULT_TITLE));
 }
 async function duplicateProject(r) {
+  if (!r.data && r.kind !== 'shared') r = await fetchPersonal(r.id);
+  else if (!r.data) r = await fetchShared(r.id);
   const id = uid(), now = Date.now(), data = structuredClone(r.data), title = (r.title || DEFAULT_TITLE) + ' — копия';
   if (data.doc) data.doc.title = title; data.id = id;
-  const c = { ...r, id, title, data, created: now, updated: now };
-  await projects.put(c); return c;
+  const c = { id, title, w: r.w, h: r.h, parts: r.parts, thumb: r.thumb, data, created: now, updated: now, acct: account ? account.email : undefined };
+  await projects.put(c); if (account) cloudKick(); return c;
 }
 async function libInit() {
   try {
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     const r = pid && await projects.get(pid);
+    if (r && (!r.data || r.kind === 'shared')) { if (r.data && r.kind === 'shared') { applyData(r.data); pristine = docKey(); } return; } // общий и не скачанный — откроет cloudInit
     if (r) {
       const rk = (r.data.unit === 'cm' ? 'cm' : 'mm') + JSON.stringify(normalize(r.data.doc));
       if (rk === docKey()) { pristine = rk; if (Object.keys(r.data.assets || {}).some(k => !assets[k])) { Object.assign(assets, r.data.assets); nodes.forEach(n => n.sig = null); invalidate('all'); } }
@@ -729,44 +781,82 @@ async function libInit() {
 }
 const fmtWhen = t => { const d = new Date(t), now = new Date(), same = d.toDateString() === now.toDateString();
   return same ? 'сегодня, ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric', hour: '2-digit', minute: '2-digit' }); };
+let libTab = 'mine';
+const SYNC_BADGE = { ok: ['☁', 'Сохранён на Google Диске'], pending: ['⟳', 'Ждёт отправки на Диск'], remote: ['☁↓', 'На Диске, скачается при открытии'], newer: ['☁↓', 'На Диске есть версия новее — скачается при открытии'], conflict: ['⚠', 'Изменён и здесь, и на другом устройстве'] };
 async function openLibrary() {
   const m = $('#modal'), close = () => { m.hidden = true; m.replaceChildren(); };
   await flushLib();
-  const list = (await projects.all().catch(() => [])).sort((a, b) => b.updated - a.updated);
-  const q = el('input', { type: 'search', placeholder: 'Поиск по названию' }), grid = el('div', { class: 'lib-grid' });
+  let all = [];
+  const load = async () => { all = (await projects.all().catch(() => [])).sort((a, b) => b.updated - a.updated); };
+  await load();
+  const q = el('input', { type: 'search', placeholder: 'Поиск по названию' }), grid = el('div', { class: 'lib-grid' }), tabs = el('div', { class: 'seg lib-tabs' }), head = el('span', {});
+  const twoStep = (label, onGo, title) => {
+    let armed = 0; const b = el('button', { type: 'button', class: 'lib-act', title }, label);
+    b.onclick = async e => { e.stopPropagation();
+      if (!armed) { b.textContent = 'Точно?'; b.classList.add('armed'); armed = setTimeout(() => { armed = 0; b.textContent = label; b.classList.remove('armed'); }, 3000); return; }
+      clearTimeout(armed); b.disabled = true; await onGo(); };
+    return b;
+  };
   const card = r => {
-    const cur = r.id === pid; let armed = 0;
-    const dup = el('button', { type: 'button', class: 'lib-act', title: 'Создать копию проекта' }, 'Дублировать');
-    dup.onclick = async e => { e.stopPropagation(); list.unshift(await duplicateProject(r)); draw(); toast('Копия создана'); };
-    const del = el('button', { type: 'button', class: 'lib-act', disabled: cur, title: cur ? 'Открытый проект удалить нельзя' : 'Удалить проект из браузера' }, 'Удалить');
-    del.onclick = async e => {
-      e.stopPropagation();
-      if (!armed) { del.textContent = 'Точно?'; del.classList.add('armed'); armed = setTimeout(() => { armed = 0; del.textContent = 'Удалить'; del.classList.remove('armed'); }, 3000); return; }
-      clearTimeout(armed); await projects.del(r.id); projects.delHandle(r.id).catch(() => {}); list.splice(list.indexOf(r), 1); draw(); toast('Проект удалён');
-    };
-    const open = () => { close(); if (!cur) openProject(r.id); };
-    const c = el('div', { class: 'lib-card' + (cur ? ' cur' : ''), tabindex: 0, title: cur ? 'Этот проект открыт сейчас' : 'Открыть проект', onclick: open },
-      el('div', { class: 'lib-thumb' }, r.thumb ? el('img', { src: r.thumb, alt: '' }) : null, cur ? el('span', { class: 'lib-badge' }, 'открыт') : null),
+    const isCur = r.id === pid, sh = r.kind === 'shared', st = !sh && syncState(r);
+    const open = () => { if (r.conflict) return; close(); if (!isCur || (cur.shared && !pollT && !hbT)) openProject(r.id); };
+    const acts = [];
+    if (r.conflict) acts.push(
+      el('button', { type: 'button', class: 'lib-act', onclick: async e => { e.stopPropagation(); await resolveConflict(r.id, 'remote'); await load(); draw(); } }, 'Взять с Диска'),
+      el('button', { type: 'button', class: 'lib-act', onclick: async e => { e.stopPropagation(); await resolveConflict(r.id, 'local'); await load(); draw(); } }, 'Оставить мою'));
+    else if (!sh) acts.push(
+      el('button', { type: 'button', class: 'lib-act', title: 'Создать копию проекта', onclick: async e => { e.stopPropagation(); try { await duplicateProject(r); await load(); draw(); toast('Копия создана'); } catch (er) { toast('Не удалось: ' + er.message); } } }, 'Дублировать'),
+      isCur ? el('button', { type: 'button', class: 'lib-act', disabled: true, title: 'Открытый проект удалить нельзя' }, 'Удалить')
+        : twoStep('Удалить', async () => { await projects.del(r.id); projects.delHandle(r.id).catch(() => {}); if (account && r.acct === account.email) trashPersonal(r); await load(); draw(); toast('Проект удалён'); }, r.drive && r.drive.folder ? 'Удалить проект из браузера и с Диска (в корзину)' : 'Удалить проект'));
+    else acts.push(
+      el('button', { type: 'button', class: 'lib-act', title: 'Участники и роли', onclick: e => { e.stopPropagation(); close(); openMembers(r.drive.file); } }, 'Участники'),
+      isCur ? el('button', { type: 'button', class: 'lib-act', disabled: true, title: 'Сначала откройте другой проект' }, r.drive.isOwner ? 'Удалить для всех' : 'Выйти')
+        : r.drive.isOwner ? twoStep('Удалить для всех', async () => { if (await removeShared(r)) { await load(); draw(); toast('Общий проект удалён (в корзине Диска 30 дней)'); } }, 'Файл уйдёт в корзину Google Диска, у участников проект пропадёт')
+        : twoStep('Выйти', async () => { if (await removeShared(r)) { await load(); draw(); toast('Вы вышли из проекта'); } }, 'Проект пропадёт у вас, у остальных останется'));
+    const l = sh && r.drive.lock, lockTxt = sh ? (l ? (l.by === (account && account.email) ? 'вы редактируете' : 'редактирует ' + l.name) : 'свободен') : null;
+    const c = el('div', { class: 'lib-card' + (isCur ? ' cur' : '') + (r.gone ? ' gone' : ''), tabindex: 0, title: r.conflict ? 'Выберите, какую версию оставить' : isCur ? 'Этот проект открыт сейчас' : 'Открыть проект', onclick: open },
+      el('div', { class: 'lib-thumb' }, r.thumb ? el('img', { src: r.thumb, alt: '' }) : el('span', { class: 'cap' }, 'превью появится после открытия'),
+        isCur ? el('span', { class: 'lib-badge' }, 'открыт') : null,
+        st && SYNC_BADGE[st] ? el('span', { class: 'lib-sync s-' + st, title: SYNC_BADGE[st][1] }, SYNC_BADGE[st][0]) : null,
+        sh && r.drive.owner ? el('span', { class: 'lib-owner', title: 'Владелец: ' + (r.drive.owner.name || r.drive.owner.email) }, avatar(r.drive.owner, 22)) : null),
       el('div', { class: 'lib-meta' }, el('b', { title: r.title }, r.title || DEFAULT_TITLE),
-        el('span', {}, `${mmTxt(r.w)} × ${mmTxt(r.h)} мм` + (r.parts > 1 ? ` · частей: ${r.parts}` : '')), el('span', {}, fmtWhen(r.updated))),
-      el('div', { class: 'lib-acts' }, dup, del));
+        r.w ? el('span', {}, `${mmTxt(r.w)} × ${mmTxt(r.h)} мм` + (r.parts > 1 ? ` · частей: ${r.parts}` : '')) : null,
+        sh ? el('span', {}, (r.drive.isOwner ? 'ваш' : 'владелец ' + (r.drive.owner.name || r.drive.owner.email)) + ' · ' + (r.drive.canEdit ? 'редактор' : 'читатель')) : null,
+        sh ? el('span', { class: l && l.by !== (account && account.email) ? 'busy' : '' }, lockTxt) : null,
+        el('span', {}, sh && r.drive.lastBy ? `${r.drive.lastBy}, ${fmtWhen(r.drive.lastAt || r.updated)}` : fmtWhen(r.updated)),
+        r.gone ? el('span', { class: 'busy' }, 'доступ закрыт или проект удалён') : null,
+        r.conflict ? el('span', { class: 'busy' }, 'изменён и здесь, и на другом устройстве') : null,
+        !sh && r.sharedId ? el('span', {}, 'есть общая копия') : null),
+      el('div', { class: 'lib-acts' }, acts));
     c.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target === c) open(); });
     return c;
   };
   const draw = () => {
-    const f = q.value.trim().toLowerCase(), shown = list.filter(r => !f || (r.title || '').toLowerCase().includes(f));
-    grid.replaceChildren(el('button', { type: 'button', class: 'lib-card lib-new', onclick: () => { close(); newStand(); } }, el('span', { class: 'lib-plus' }, '+'), el('b', {}, 'Новый проект')),
-      ...shown.map(card), ...(f && !shown.length ? [el('div', { class: 'lib-empty' }, 'Ничего не найдено')] : []));
+    const f = q.value.trim().toLowerCase(), mine = all.filter(mineRec), shared = all.filter(r => r.kind === 'shared' && account && r.acct === account.email);
+    tabs.replaceChildren(...[['mine', `Личные · ${mine.length}`], ['shared', `Общие · ${shared.length}`]].map(([k, t]) => el('button', { type: 'button', class: libTab === k ? 'on' : '', onclick: () => { libTab = k; draw(); } }, t)));
+    head.textContent = 'Мои проекты';
+    const src = libTab === 'mine' ? mine : shared, shown = src.filter(r => !f || (r.title || '').toLowerCase().includes(f));
+    const lead = libTab === 'mine' ? [el('button', { type: 'button', class: 'lib-card lib-new', onclick: () => { close(); newStand(); } }, el('span', { class: 'lib-plus' }, '+'), el('b', {}, 'Новый проект'))]
+      : !account ? [el('div', { class: 'lib-empty' }, el('p', {}, 'Общие проекты хранятся на Google Диске. Войдите, чтобы видеть проекты, которыми с вами поделились.'), el('button', { type: 'button', class: 'btn primary', onclick: async () => { if (await signIn()) { await load(); draw(); } } }, 'Войти через Google'))]
+      : [el('button', { type: 'button', class: 'lib-card lib-new', onclick: () => { close(); openShare(); } }, el('span', { class: 'lib-plus' }, '+'), el('b', {}, 'Поделиться открытым'), el('span', { class: 'cap' }, 'создать общую копию'))];
+    grid.replaceChildren(...lead, ...shown.map(card),
+      ...(f && !shown.length ? [el('div', { class: 'lib-empty' }, 'Ничего не найдено')] : []),
+      ...(libTab === 'shared' && account && !shared.length && !f ? [el('div', { class: 'lib-empty' }, 'Пока нет общих проектов. Приглашение приходит письмом от Google — откройте ссылку из письма. Или найдите проект на Диске кнопкой выше.')] : []));
   };
   q.addEventListener('input', draw); draw();
-  m.replaceChildren(el('div', { class: 'dlg', role: 'dialog', style: 'width:min(980px,100%)' },
-    el('div', { class: 'dlg-h' }, el('span', {}, `Мои проекты · ${list.length}`), B('', '✕', close, { cls: 'icon', title: 'Закрыть (Esc)' })),
+  const syncLine = el('p', { class: 'hint', style: 'margin:14px 0 0' });
+  syncLine.textContent = account ? `Вы вошли как ${account.email}. Личные проекты сохраняются в браузере и на Google Диске (папка ASMaker), общие — на Диске владельца.`
+    : 'Проекты хранятся в этом браузере и сохраняются сами. Войдите через Google, чтобы хранить их на Диске и работать вместе. Для переноса без аккаунта — «Сохранить» в файл.';
+  m.replaceChildren(el('div', { class: 'dlg', role: 'dialog', style: 'width:min(1000px,100%)' },
+    el('div', { class: 'dlg-h' }, head, B('', '✕', close, { cls: 'icon', title: 'Закрыть (Esc)' })),
     el('div', { class: 'dlg-b', style: 'padding-top:14px' },
-      el('div', { class: 'lib-tools' }, q, B('folder', 'Открыть файл…', () => { close(); pickProjectFile(); }, { cls: 'btn', title: 'Добавить проект из файла .stand.json' })),
-      grid,
-      el('p', { class: 'hint', style: 'margin:14px 0 0' }, 'Проекты хранятся в этом браузере на этом устройстве и сохраняются сами. Чтобы перенести проект на другой компьютер или сделать резервную копию — «Сохранить» в файл.'))));
+      el('div', { class: 'lib-tools' }, tabs, q,
+        account ? el('button', { type: 'button', class: 'btn', title: 'Найти общие проекты на Google Диске, которыми с вами поделились', onclick: async () => { await findShared(); await load(); libTab = 'shared'; draw(); } }, 'Найти на Диске') : null,
+        B('folder', 'Открыть файл…', () => { close(); pickProjectFile(); }, { cls: 'btn', title: 'Добавить проект из файла .stand.json' })),
+      grid, syncLine)));
   m.hidden = false; m.onclick = e => { if (e.target === m) close(); };
   setTimeout(() => q.focus(), 30);
+  if (account && tokenOk()) pullAll().then(async () => { if (!m.hidden && m.contains(grid)) { await load(); draw(); } });
 }
 /* ---- файл проекта ---- */
 const canFS = () => 'showSaveFilePicker' in window && (() => { try { return window.self === window.top; } catch { return false; } })();
@@ -1510,9 +1600,10 @@ const unitBtns = {};
 topBar.append(
   el('div', { class: 'brand' }, el('i'), el('span', { class: 'title', id: 'docTitle', title: 'Нажмите, чтобы переименовать проект. Так будет называться сохраняемый файл', onclick: renameTitle })),
   B('library', 'Проекты', openLibrary, { title: 'Мои проекты: все стенды в этом браузере (Ctrl+Shift+O)' }),
-  B('file', 'Новый', newStand, { title: 'Новый проект' }),
-  B('folder', 'Открыть', pickProjectFile, { title: 'Открыть проект из файла (Ctrl+O)' }),
-  B('download', 'Сохранить', () => saveFile(), { title: 'Сохранить проект в файл (Ctrl+S). Сохранить как — Ctrl+Shift+S' }),
+  B('file', 'Новый', newStand, { title: 'Новый проект', cls: 'tb' }),
+  B('folder', 'Открыть', pickProjectFile, { title: 'Открыть проект из файла (Ctrl+O)', cls: 'tb' }),
+  B('download', 'Сохранить', () => saveFile(), { title: 'Сохранить проект в файл (Ctrl+S). Сохранить как — Ctrl+Shift+S', cls: 'tb' }),
+  B('share', 'Поделиться', () => openShare(), { title: 'Поделиться для совместной работы', id: 'shareBtn', cls: 'tb' }),
   el('div', { class: 'sep' }),
   B('undo', '', undo, { title: 'Отменить (Ctrl+Z)', id: 'undoBtn' }),
   B('redo', '', redo, { title: 'Повторить (Ctrl+Shift+Z)', id: 'redoBtn' }),
@@ -1530,8 +1621,10 @@ topBar.append(
   B('list', 'Спецификация', () => openSpec(), { cls: 'btn', title: 'Материалы, размеры и расположение карманов' }),
   B('download', 'Экспорт', () => openExport(), { cls: 'btn primary', title: 'Экспорт: PNG, JPEG, TIFF, PDF, SVG (Ctrl+Shift+E)' }),
 );
+queueMicrotask(() => topBar.append(acctBtn));
 let titleEditing = false;
 function renameTitle() {
+  if (readOnly) return roToast();
   if (titleEditing) return; titleEditing = true;
   const span = $('#docTitle'), inp = el('input', { value: doc.title, maxlength: 120 });
   span.replaceWith(inp); inp.focus(); inp.select();
@@ -2330,7 +2423,7 @@ stage.addEventListener('pointerdown', e => {
     if (drag && drag.moved) changed();
     drag = null; return;
   }
-  if (e.button === 1 || e.button === 2 || (e.button === 0 && spaceDown)) { e.preventDefault(); startPan(e); return; }
+  if (e.button === 1 || e.button === 2 || (e.button === 0 && spaceDown) || (e.button === 0 && readOnly)) { e.preventDefault(); startPan(e); return; }
   if (e.button !== 0) return;
   const w = toWorld(e), cur = selIds.length === 1 && sel && byId(sel), base0 = { sx: e.clientX, sy: e.clientY, sw: w, moved: false };
   const spA = e.target.closest && e.target.closest('[data-split-act]');
@@ -2505,6 +2598,7 @@ stage.addEventListener('drop', e => {
   e.preventDefault(); stage.classList.remove('dragover');
   const f = e.dataTransfer.files[0]; if (!f) return;
   if (/\.json$/i.test(f.name)) return openFile(f);
+  if (readOnly) return roToast();
   const hit = document.elementsFromPoint(e.clientX, e.clientY).map(n => n.closest && n.closest('[data-id]')).find(n => n && ['pocket', 'shape'].includes(byId(n.dataset.id)?.type));
   importImage(f, hit ? hit.dataset.id : null);
 });
@@ -2564,6 +2658,7 @@ window.addEventListener('keydown', e => {
   if (mod && e.code === 'KeyO') { e.preventDefault(); e.shiftKey ? openLibrary() : pickProjectFile(); return; }
   if (mod && e.shiftKey && e.code === 'KeyE') { e.preventDefault(); openExport(); return; }
   if (typing) return;
+  if (readOnly && !/^(Digit0|Digit1|Numpad0|Numpad1|Equal|Minus|NumpadAdd|NumpadSubtract|Escape|Space)$/.test(e.code)) return;
   if (mod && e.code === 'KeyZ') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if (mod && e.code === 'KeyY') { e.preventDefault(); redo(); return; }
   if (mod && e.code === 'KeyD') { e.preventDefault(); duplicateSel(); return; }
@@ -3144,6 +3239,628 @@ function openExport() {
   m.onclick = e => { if (e.target === m) { m.hidden = true; m.replaceChildren(); } };
 }
 
+/* ================= Google: вход, Диск, совместная работа =================
+   Всё работает из браузера, без своего сервера. Доступ только drive.file: приложение видит
+   лишь то, что создало само или что человек открыл ему через окно выбора Google.
+   Личный проект на Диске — папка: project.json (макет), картинки отдельными файлами, thumb.jpg.
+   Общий проект — один файл .asmaker.json со всем внутри: соавтору достаточно открыть его один раз.
+   Работа над общим проектом по очереди: кто редактирует, отмечается в свойствах файла раз в минуту. */
+const GOOGLE = {
+  clientId: '238973923974-ot264m6av2a5c1t6v4mcc2kl03le9o05.apps.googleusercontent.com',
+  apiKey: 'AIzaSyAztkLXY8hCX1kMgytDwpqXpGdwbbKh-oM',   // ограничен адресом сайта и Google Picker API
+  appId: '238973923974',                                // номер проекта: окно выбора отдаёт доступ именно этому приложению
+  scope: 'openid email profile https://www.googleapis.com/auth/drive.file',
+  appUrl: 'https://inikonoff.github.io/ASMaker/',
+};
+/* Заготовка под согласование через Telegram-бота. Пока bot и api не заданы, в интерфейсе его нет.
+   bot — имя бота без @, api — адрес его сервера. Конструктор передаст боту id общего файла и версию. */
+const APPROVAL = { bot: null, api: null };
+const approvalEnabled = () => !!(APPROVAL.bot && APPROVAL.api);
+async function sendForApproval() { if (!approvalEnabled()) return toast('Согласование через Telegram пока не подключено'); }
+
+const FOLDER_MIME = 'application/vnd.google-apps.folder', LOCK_STALE = 5 * 60e3;
+const ACCT_KEY = STORE + ':account', TOKEN_KEY = STORE + ':gtoken', TOMB_KEY = STORE + ':trash', HIDDEN_KEY = STORE + ':hiddenShared', MAILS_KEY = STORE + ':mates';
+const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch { return d; } };
+const lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+let account = lsGet(ACCT_KEY, null);
+let gToken = (t => t && t.exp > Date.now() + 60e3 ? t : null)(lsGet(TOKEN_KEY, null));
+let cloudStatus = 'idle', cloudErr = '';
+const tokenOk = () => !!(gToken && gToken.exp > Date.now() + 30e3);
+const isTop = (() => { try { return window.self === window.top; } catch { return false; } })();
+function setCloud(s, err = '') { cloudStatus = s; cloudErr = err; renderAccount(); }
+
+/* ---- вход ---- */
+const scriptP = {};
+const loadScript = src => scriptP[src] || (scriptP[src] = new Promise((ok, err) => {
+  const s = el('script', { src, async: true }); s.onload = ok; s.onerror = () => { delete scriptP[src]; err(new Error('Не загрузилась библиотека Google')); }; document.head.append(s);
+}));
+let tokenClient = null;
+async function requestToken(prompt) {
+  await loadScript('https://accounts.google.com/gsi/client');
+  return new Promise((ok, err) => {
+    if (!tokenClient) tokenClient = google.accounts.oauth2.initTokenClient({ client_id: GOOGLE.clientId, scope: GOOGLE.scope, callback: () => {} });
+    tokenClient.callback = r => {
+      if (r.error) return err(new Error(r.error));
+      if (!google.accounts.oauth2.hasGrantedAllScopes(r, 'https://www.googleapis.com/auth/drive.file')) return err(new Error('drive_denied'));
+      gToken = { t: r.access_token, exp: Date.now() + (r.expires_in - 60) * 1000 }; lsSet(TOKEN_KEY, gToken); ok(gToken);
+    };
+    tokenClient.error_callback = e => err(new Error((e && e.type) || 'popup_failed'));
+    tokenClient.requestAccessToken({ prompt, login_hint: account ? account.email : undefined });
+  });
+}
+const authErr = e => e.message === 'drive_denied' ? 'Без доступа к Диску синхронизация не работает. Войдите ещё раз и оставьте галочку «Google Диск»'
+  : /popup_closed|access_denied/.test(e.message) ? null : /popup_failed/.test(e.message) ? 'Браузер заблокировал окно входа: разрешите всплывающие окна для сайта' : 'Не удалось войти в Google: ' + e.message;
+async function signIn() {
+  if (!isTop) return toast('Вход через Google работает на сайте inikonoff.github.io/ASMaker, а не во встроенном окне');
+  try {
+    await requestToken(account ? '' : 'select_account');
+    const me = await gd('https://www.googleapis.com/oauth2/v3/userinfo');
+    const first = !account || account.email !== me.email;
+    account = { email: me.email, name: me.name || me.email, picture: me.picture || null };
+    lsSet(ACCT_KEY, account); setCloud('idle');
+    if (first) await afterFirstLogin();
+    cloudKick(0); pullAll().catch(() => {});
+    if (cur.shared && !hbT && !pollT) { const id = cur.id; cur = { shared: false }; setReadOnly(false); openShared(id); }
+    return true;
+  } catch (e) { const m = authErr(e); if (m) toast(m, 5000); return false; }
+}
+async function reconnect() { try { await requestToken(''); setCloud('idle'); cloudKick(0); if (cur.shared && !hbT && !pollT && account) { const id = cur.id; cur = { shared: false }; setReadOnly(false); openShared(id); } return true; } catch (e) { const m = authErr(e); if (m) toast(m, 5000); return false; } }
+async function signOut() {
+  await leaveShared();
+  account = null; gToken = null; lsSet(ACCT_KEY, null); lsSet(TOKEN_KEY, null); setCloud('idle');
+  toast('Вы вышли. Проекты остались в этом браузере');
+}
+async function afterFirstLogin() {
+  const mine = (await projects.all()).filter(r => r.kind !== 'shared' && !r.acct && !r.localOnly);
+  if (!mine.length) return;
+  const yes = await ask(`Перенести проекты на Google Диск?`, `В этом браузере ${mine.length} ${plural(mine.length, 'проект', 'проекта', 'проектов')}. Перенесённые будут сохраняться на Диск сами и появятся на других ваших устройствах.`, 'Перенести', 'Оставить только в браузере');
+  for (const r of mine) await recUpdate(r.id, x => { if (yes) x.acct = account.email; else x.localOnly = true; });
+  if (yes) toast('Переношу проекты на Диск…');
+}
+const plural = (n, a, b, c) => { const m = n % 10, h = n % 100; return m === 1 && h !== 11 ? a : m >= 2 && m <= 4 && (h < 12 || h > 14) ? b : c; };
+
+/* ---- запросы к Диску ---- */
+const DRIVE = 'https://www.googleapis.com/drive/v3', UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
+const qs = o => new URLSearchParams(Object.entries(o).filter(([, v]) => v != null)).toString();
+async function gd(url, opt = {}) {
+  if (!tokenOk()) { setCloud('auth'); throw Object.assign(new Error('auth'), { auth: true }); }
+  let r;
+  try { r = await fetch(url.startsWith('http') ? url : DRIVE + url, { ...opt, headers: { Authorization: 'Bearer ' + gToken.t, ...(opt.json ? { 'Content-Type': 'application/json; charset=UTF-8' } : {}), ...(opt.headers || {}) }, body: opt.json ? JSON.stringify(opt.json) : opt.body }); }
+  catch (e) { throw Object.assign(new Error('offline'), { offline: true }); }
+  if (r.status === 401) { gToken = null; lsSet(TOKEN_KEY, null); setCloud('auth'); throw Object.assign(new Error('auth'), { auth: true }); }
+  if (!r.ok) { const t = await r.text().catch(() => ''); throw Object.assign(new Error(`Диск ответил ${r.status}: ${t.slice(0, 160)}`), { status: r.status }); }
+  if (opt.raw) return r;
+  return r.status === 204 ? null : r.json();
+}
+const gList = (q, fields) => gd('/files?' + qs({ q, fields: 'files(' + fields + ')', pageSize: 1000, spaces: 'drive' })).then(r => r.files || []);
+const gMedia = id => gd(`/files/${id}?alt=media`, { raw: true });
+/* загрузка: до 4 МБ одним запросом, больше — частями через resumable */
+async function gPut(meta, blob, id, fields = 'id,headRevisionId') {
+  const method = id ? 'PATCH' : 'POST', path = `${UPLOAD}/files${id ? '/' + id : ''}?`;
+  if (blob.size < 4e6) {
+    const b = 'asm' + uid() + uid(), body = new Blob([`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`, JSON.stringify(meta), `\r\n--${b}\r\nContent-Type: ${blob.type || 'application/octet-stream'}\r\n\r\n`, blob, `\r\n--${b}--`]);
+    return gd(path + qs({ uploadType: 'multipart', fields }), { method, headers: { 'Content-Type': 'multipart/related; boundary=' + b }, body });
+  }
+  const r = await gd(path + qs({ uploadType: 'resumable', fields }), { method, json: meta, headers: { 'X-Upload-Content-Type': blob.type || 'application/octet-stream' }, raw: true });
+  const up = await fetch(r.headers.get('Location'), { method: 'PUT', body: blob });
+  if (!up.ok) throw Object.assign(new Error('Диск не принял файл: ' + up.status), { status: up.status });
+  return up.json();
+}
+const blobOf = u => fetch(u).then(r => r.blob());
+const jsonBlob = o => new Blob([JSON.stringify(o)], { type: 'application/json' });
+
+/* ---- записи библиотеки: все изменения идут через ту же очередь, что и автосохранение ---- */
+function recUpdate(id, fn) {
+  return libQ = libQ.then(async () => { const r = await projects.get(id); if (!r) return null; if (fn(r) === false) return r; await projects.put(r); return r; })
+    .catch(e => { console.warn('rec', e); return null; });
+}
+const mineRec = r => r && r.kind !== 'shared' && (!r.acct || !account || r.acct === account.email);
+const syncState = r => !account || r.localOnly || (r.acct && r.acct !== account.email) ? null
+  : r.conflict ? 'conflict' : r.stub ? 'remote' : r.drive && r.drive.synced === r.updated ? (r.pullRev ? 'newer' : 'ok') : 'pending';
+
+/* ---- личные проекты: отправка ---- */
+let rootId = null;
+async function ensureRoot() {
+  const k = STORE + ':root:' + account.email;
+  if (!rootId) rootId = lsGet(k, null);
+  if (rootId) return rootId;
+  const f = await gList("appProperties has { key='asmaker' and value='root' } and trashed=false", 'id');
+  rootId = f.length ? f[0].id : (await gd('/files?fields=id', { method: 'POST', json: { name: 'ASMaker', mimeType: FOLDER_MIME, appProperties: { asmaker: 'root' } } })).id;
+  lsSet(k, rootId); return rootId;
+}
+const forgetRoot = () => { rootId = null; lsSet(STORE + ':root:' + account.email, null); };
+async function syncPersonal(id) {
+  const r = await projects.get(id);
+  if (!r || !mineRec(r) || r.localOnly || r.stub || r.conflict || !r.data) return;
+  if (!r.acct) await recUpdate(id, x => { x.acct = account.email; });
+  const d = { assets: {}, ...(r.drive || {}) };
+  if (d.synced === r.updated) return;
+  const upd = r.updated, data = r.data;
+  try {
+    if (!d.folder) d.folder = (await gd('/files?fields=id', { method: 'POST', json: { name: r.title, mimeType: FOLDER_MIME, parents: [await ensureRoot()], appProperties: { asmaker: 'pfolder', pid: id } } })).id;
+    else if (d.name !== r.title) await gd(`/files/${d.folder}?fields=id`, { method: 'PATCH', json: { name: r.title } });
+    d.name = r.title;
+    for (const [k, u] of Object.entries(data.assets || {})) if (!d.assets[k]) // картинки неизменны: каждая уходит один раз
+      d.assets[k] = (await gPut({ name: 'img-' + k, parents: [d.folder], appProperties: { asmaker: 'asset', key: k } }, await blobOf(u), null, 'id')).id;
+    const fsig = (data.fonts || []).map(faceKey).sort().join(';');
+    if (fsig !== (d.fontsSig || '')) { d.fonts = (await gPut(d.fonts ? {} : { name: 'fonts.json', parents: [d.folder] }, jsonBlob(data.fonts || []), d.fonts, 'id')).id; d.fontsSig = fsig; }
+    if (r.thumb && d.thumbOf !== upd) { d.thumb = (await gPut(d.thumb ? {} : { name: 'thumb.jpg', parents: [d.folder] }, await blobOf(r.thumb), d.thumb, 'id')).id; d.thumbOf = upd; }
+    if (d.json && !d.force) {
+      const cur = await gd(`/files/${d.json}?fields=headRevisionId,trashed`);
+      if (cur.trashed) { d.json = null; d.folder = null; d.assets = {}; d.fonts = null; d.thumb = null; d.fontsSig = ''; await recUpdate(id, x => { x.drive = d; }); return syncPersonal(id); }
+      if (cur.headRevisionId !== d.rev) { await recUpdate(id, x => { x.conflict = true; x.drive = d; }); toast(`«${r.title}» изменён на другом устройстве. Выберите версию в «Моих проектах»`, 6000); return; }
+    }
+    const pj = { ...data, assets: {}, fonts: [], assetIds: d.assets, fontsId: d.fonts || null };
+    const meta = { description: r.title, appProperties: { asmaker: 'pjson', pid: id, thumb: d.thumb || '', w: String(r.w), h: String(r.h), parts: String(r.parts || 1), upd: String(upd) } };
+    if (!d.json) Object.assign(meta, { name: 'project.json', parents: [d.folder] });
+    const res = await gPut(meta, jsonBlob(pj), d.json);
+    d.json = res.id; d.rev = res.headRevisionId; d.synced = upd; d.force = false;
+    await recUpdate(id, x => { x.drive = { ...d, synced: x.updated === upd ? upd : d.synced }; delete x.pullRev; });
+  } catch (e) {
+    if (e.status === 404 && !d.retried) { forgetRoot(); await recUpdate(id, x => { x.drive = { assets: {}, retried: true }; }); return syncPersonal(id); }
+    await recUpdate(id, x => { x.drive = d; }); throw e;
+  }
+}
+/* ---- личные проекты: с Диска ---- */
+async function pullPersonal() {
+  const files = await gList("appProperties has { key='asmaker' and value='pjson' } and trashed=false", 'id,headRevisionId,description,appProperties,parents,ownedByMe');
+  const tomb = new Set(lsGet(TOMB_KEY, []).map(t => t.pid));
+  for (const f of files) {
+    const a = f.appProperties || {}, id = a.pid; if (!id || !f.ownedByMe || tomb.has(id)) continue;
+    const r = await projects.get(id), upd = +a.upd || Date.now();
+    const meta = { title: f.description || 'Без названия', w: +a.w || 0, h: +a.h || 0, parts: +a.parts || 1 };
+    if (!r) {
+      let thumb = null; try { if (a.thumb) thumb = await readDataURL(await (await gMedia(a.thumb)).blob()); } catch {}
+      await projects.put({ id, ...meta, created: upd, updated: upd, thumb, data: null, stub: true, acct: account.email, drive: { folder: f.parents && f.parents[0], json: f.id, rev: f.headRevisionId, synced: upd, thumb: a.thumb, name: meta.title, assets: {} } });
+    } else if (r.acct === account.email && r.drive && r.drive.rev && r.drive.rev !== f.headRevisionId && !r.conflict) {
+      const dirty = r.drive.synced !== r.updated;
+      await recUpdate(id, x => { if (dirty && !x.stub) x.conflict = true; else { x.pullRev = f.headRevisionId; Object.assign(x, meta); } });
+    }
+  }
+}
+async function fetchPersonal(id) {
+  const r = await projects.get(id), d = r.drive;
+  const fm = await gd(`/files/${d.json}?fields=headRevisionId,appProperties,description`);
+  const pj = await (await gMedia(d.json)).json(), have = (r.data && r.data.assets) || {}, assetsOut = {};
+  for (const [k, fid] of Object.entries(pj.assetIds || {})) assetsOut[k] = have[k] || await readDataURL(await (await gMedia(fid)).blob());
+  let fonts = []; if (pj.fontsId) try { fonts = await (await gMedia(pj.fontsId)).json(); } catch {}
+  const data = { ...pj, assets: assetsOut, fonts }; delete data.assetIds; delete data.fontsId;
+  const upd = +(fm.appProperties && fm.appProperties.upd) || Date.now();
+  return recUpdate(id, x => {
+    x.data = data; x.title = fm.description || x.title; x.updated = upd; delete x.stub; delete x.pullRev; x.conflict = false;
+    x.drive = { ...d, rev: fm.headRevisionId, synced: upd, assets: pj.assetIds || {}, fonts: pj.fontsId || null, fontsSig: fonts.map(faceKey).sort().join(';') };
+  });
+}
+async function resolveConflict(id, take) {
+  if (take === 'remote') { await fetchPersonal(id); if (id === pid) { const r = await projects.get(id); applyData(r.data); pristine = docKey(); } toast('Взята версия с Диска'); }
+  else { await recUpdate(id, x => { x.conflict = false; x.drive = { ...x.drive, force: true, synced: -1 }; }); await syncPersonal(id); toast('Ваша версия сохранена на Диск'); }
+}
+async function trashPersonal(r) {
+  if (!r.drive || !r.drive.folder) return;
+  lsSet(TOMB_KEY, [...lsGet(TOMB_KEY, []), { pid: r.id, folder: r.drive.folder }]); cloudKick(0);
+}
+async function processTomb() {
+  const left = [];
+  for (const t of lsGet(TOMB_KEY, [])) try { await gd(`/files/${t.folder}?fields=id`, { method: 'PATCH', json: { trashed: true } }); } catch (e) { if (e.status !== 404 && e.status !== 403) left.push(t); }
+  lsSet(TOMB_KEY, left);
+}
+
+/* ---- планировщик ---- */
+let kickT = 0, running = false, again = false;
+function cloudKick(ms = 4000) { clearTimeout(kickT); if (account) kickT = setTimeout(cloudRun, ms); }
+async function cloudRun() {
+  if (!account) return;
+  if (!tokenOk()) return setCloud('auth');
+  if (running) { again = true; return; }
+  running = true; setCloud('sync');
+  try {
+    await processTomb();
+    for (const r of await projects.all()) if (mineRec(r) && !r.localOnly && !r.stub && !r.conflict && r.data && (!r.drive || r.drive.synced !== r.updated)) await syncPersonal(r.id);
+    setCloud('ok');
+  } catch (e) {
+    console.warn('sync', e);
+    if (e.auth) setCloud('auth'); else if (e.offline) { setCloud('offline'); cloudKick(60e3); } else { setCloud('error', e.message); cloudKick(120e3); }
+  } finally { running = false; if (again) { again = false; cloudKick(1000); } }
+}
+let pulling = null;
+function pullAll() {
+  if (!account || !tokenOk()) return Promise.resolve();
+  return pulling || (pulling = Promise.all([pullPersonal(), pullShared()]).catch(e => console.warn('pull', e)).finally(() => { pulling = null; }));
+}
+window.addEventListener('online', () => cloudKick(1000));
+setInterval(() => { if (account && tokenOk()) { cloudKick(0); if (!document.hidden) pullAll(); } }, 5 * 60e3);
+
+/* ---- общие проекты ---- */
+const SH_FIELDS = 'id,name,description,headRevisionId,modifiedTime,ownedByMe,trashed,owners(displayName,emailAddress,photoLink),lastModifyingUser(displayName,emailAddress,photoLink),capabilities(canEdit,canShare),appProperties';
+const shId = fileId => 'sh-' + fileId;
+let cur = { shared: false };          // открытый общий проект: { shared, file, canEdit, owner, mode: 'edit'|'view', lock }
+let readOnly = false, hbT = 0, pollT = 0, shSaveT = 0;
+const lockOf = f => { const a = (f && f.appProperties) || {}, at = +a.lockAt || 0; return a.lockBy && Date.now() - at < LOCK_STALE ? { by: a.lockBy, name: a.lockName || a.lockBy, at } : null; };
+function shMeta(f, x = {}) {
+  const o = (f.owners && f.owners[0]) || {}, lm = f.lastModifyingUser || {};
+  return { ...x, kind: 'shared', title: f.description || f.name.replace(/\.asmaker\.json$/, ''), acct: account.email,
+    drive: { ...(x.drive || {}), file: f.id, remoteRev: f.headRevisionId, owner: { name: o.displayName, email: o.emailAddress, photo: o.photoLink }, isOwner: !!f.ownedByMe,
+      canEdit: !!(f.capabilities && f.capabilities.canEdit), lock: lockOf(f), lastBy: lm.displayName || lm.emailAddress, lastAt: Date.parse(f.modifiedTime) || 0 } };
+}
+async function pullShared() {
+  const files = await gList("appProperties has { key='asmaker' and value='shared' } and trashed=false", SH_FIELDS), hidden = new Set(lsGet(HIDDEN_KEY, [])), seen = new Set();
+  for (const f of files) {
+    if (hidden.has(f.id)) continue; const id = shId(f.id); seen.add(id);
+    const r = await projects.get(id);
+    if (!r) await projects.put({ id, created: Date.now(), updated: Date.parse(f.modifiedTime) || Date.now(), thumb: null, data: null, stub: true, w: +(f.appProperties.w || 0), h: +(f.appProperties.h || 0), parts: 1, ...shMeta(f) });
+    else await recUpdate(id, x => { Object.assign(x, shMeta(f, x)); });
+  }
+  for (const r of await projects.all()) if (r.kind === 'shared' && r.acct === account.email && !seen.has(r.id)) await recUpdate(r.id, x => { x.gone = true; });
+}
+const shFile = id => gd(`/files/${id}?fields=${SH_FIELDS}`);
+/* скачать общий файл, если на Диске новее */
+async function fetchShared(id, f) {
+  const r = await projects.get(id); f = f || await shFile(r.drive.file);
+  if (!r.stub && r.data && r.drive.rev === f.headRevisionId) { await recUpdate(id, x => { Object.assign(x, shMeta(f, x)); }); return projects.get(id); }
+  const d = await (await gMedia(f.id)).json(), thumb = d.thumb || null; delete d.thumb;
+  return recUpdate(id, x => { Object.assign(x, shMeta(f, x)); x.data = d; x.thumb = thumb || x.thumb; delete x.stub; delete x.gone;
+    const b = d.doc && d.doc.objects && d.doc.objects.find(o => o.type === 'base'); if (b) { x.w = b.w; x.h = b.h; }
+    x.updated = Date.parse(f.modifiedTime) || Date.now(); x.drive.rev = f.headRevisionId; x.drive.synced = x.updated; });
+}
+async function sharedPayload() { const d = structuredClone(serialize()); try { d.thumb = (await renderStand(360)).toDataURL('image/jpeg', 0.8); } catch {} return d; }
+async function invite(fileId, email, role, title) {
+  const who = account.name || account.email, what = role === 'writer' ? 'работать вместе над проектом' : 'посмотреть проект';
+  const msg = `${who} приглашает вас ${what} «${title}» в ASMaker — конструкторе рекламных стендов. Откройте проект по ссылке: ${GOOGLE.appUrl}?open=${fileId}`;
+  await gd(`/files/${fileId}/permissions?` + qs({ sendNotificationEmail: true, emailMessage: msg, fields: 'id' }), { method: 'POST', json: { type: 'user', role, emailAddress: email } });
+  lsSet(MAILS_KEY, [email, ...lsGet(MAILS_KEY, []).filter(x => x !== email)].slice(0, 30));
+}
+/* «Поделиться для совместной работы»: из личного проекта создаётся общая копия одним файлом */
+async function createShared(email, role) {
+  await flushLib();
+  const src = await projects.get(pid), title = doc.title || DEFAULT_TITLE, b = base(), payload = await sharedPayload();
+  const f = await gPut({ name: title + '.asmaker.json', description: title, parents: [await ensureRoot()], mimeType: 'application/json',
+    appProperties: { asmaker: 'shared', origin: pid, w: String(b.w), h: String(b.h), lockBy: '', lockAt: '0' } }, jsonBlob(payload), null, SH_FIELDS);
+  const thumb = payload.thumb; delete payload.thumb;
+  const id = shId(f.id), now = Date.now();
+  await projects.put({ id, created: now, updated: now, thumb, data: payload, w: b.w, h: b.h, parts: partsOf(b).length, origin: pid, ...shMeta(f) });
+  await recUpdate(id, x => { x.drive.rev = f.headRevisionId; x.drive.synced = x.updated; });
+  if (src) await recUpdate(pid, x => { x.sharedId = f.id; });
+  if (email) await invite(f.id, email, role, title);
+  return id;
+}
+
+/* ---- открытие общего проекта: блокировка «по очереди» ---- */
+function setReadOnly(v) { readOnly = v; document.body.classList.toggle('ro', v); renderSharedBar(); }
+function stopShared() { clearInterval(hbT); clearInterval(pollT); clearTimeout(shSaveT); hbT = pollT = shSaveT = 0; }
+async function openShared(id) {
+  if (!account) { if (!(await signIn())) return; }
+  if (!tokenOk() && !(await reconnect())) return;
+  let r;
+  try { r = await fetchShared(id); } catch (e) { return toast(e.status === 404 ? 'Нет доступа к общему проекту: возможно, его удалили или закрыли доступ' : 'Не удалось открыть общий проект: ' + e.message, 5000); }
+  if (!r || !applyData(r.data)) return toast('Не удалось открыть общий проект');
+  setPid(id); pristine = docKey();
+  cur = { shared: true, id, file: r.drive.file, canEdit: r.drive.canEdit, isOwner: r.drive.isOwner, owner: r.drive.owner, rev: r.drive.rev, mode: 'view', lock: r.drive.lock };
+  if (r.drive.canEdit && (!r.drive.lock || r.drive.lock.by === account.email)) await takeLock(true);
+  else enterView();
+  toast('Открыт общий проект: ' + r.title);
+}
+function enterView() {
+  stopShared(); cur.mode = 'view'; setReadOnly(true);
+  pollT = setInterval(pollShared, 30e3);
+}
+async function takeLock(quiet) {
+  try {
+    const f = await shFile(cur.file), l = lockOf(f);
+    if (l && l.by !== account.email) { cur.lock = l; enterView(); if (!quiet) toast(`Сейчас редактирует ${l.name}`); return false; }
+    if (f.headRevisionId !== cur.rev) await reloadShared(f, true);
+    const lock = { lockBy: account.email, lockName: account.name || account.email, lockAt: String(Date.now()) };
+    await gd(`/files/${cur.file}?fields=id`, { method: 'PATCH', json: { appProperties: lock } });
+    const chk = await shFile(cur.file); // кто-то мог взять одновременно
+    if ((chk.appProperties || {}).lockBy !== account.email) { cur.lock = lockOf(chk); enterView(); return false; }
+    stopShared(); cur.mode = 'edit'; cur.lock = { by: account.email, name: lock.lockName, at: +lock.lockAt }; setReadOnly(false);
+    hbT = setInterval(heartbeat, 60e3);
+    // локальные правки, не успевшие уйти на Диск в прошлый раз
+    const r = await projects.get(cur.id); if (r && r.drive.synced !== r.updated) scheduleSharedSave(1000);
+    if (!quiet) toast('Проект ваш: остальные видят его только для просмотра');
+    return true;
+  } catch (e) { enterView(); toast('Не удалось взять проект в работу: ' + e.message, 5000); return false; }
+}
+async function heartbeat() {
+  try {
+    const f = await shFile(cur.file), a = f.appProperties || {};
+    if (a.lockBy !== account.email) { cur.lock = lockOf(f); enterView(); return toast(`${cur.lock ? cur.lock.name : 'Другой участник'} взял проект в работу. Открыт просмотр`, 6000); }
+    await gd(`/files/${cur.file}?fields=id`, { method: 'PATCH', json: { appProperties: { lockAt: String(Date.now()) } } });
+  } catch (e) { console.warn('heartbeat', e); }
+}
+async function pollShared() {
+  if (!cur.shared || cur.mode !== 'view' || document.hidden) return;
+  try { const f = await shFile(cur.file); cur.lock = lockOf(f); if (f.headRevisionId !== cur.rev) await reloadShared(f); renderSharedBar(); } catch (e) { console.warn('poll', e); }
+}
+async function reloadShared(f, silent) {
+  const r = await fetchShared(cur.id, f); cur.rev = r.drive.rev; cur.canEdit = r.drive.canEdit;
+  const v = view && { ...view }; applyData(r.data); if (v) Object.assign(view, v), invalidate('view'); pristine = docKey();
+  if (!silent) toast(`${r.drive.lastBy || 'Участник'} сохранил новую версию`, 4000);
+}
+function scheduleSharedSave(ms = 20e3) { clearTimeout(shSaveT); shSaveT = setTimeout(() => saveShared().catch(e => toast('Общий проект не сохранился: ' + e.message, 5000)), ms); }
+let shSaving = null;
+async function saveShared(release) {
+  if (!cur.shared || cur.mode !== 'edit') return;
+  clearTimeout(shSaveT);
+  await flushLib();
+  return shSaving = (async () => {
+    const f = await shFile(cur.file), a = f.appProperties || {};
+    if (a.lockBy && a.lockBy !== account.email) { cur.lock = lockOf(f); enterView(); throw new Error('проект взял другой участник'); }
+    if (f.headRevisionId !== cur.rev) return sharedConflict(f);
+    const r = await projects.get(cur.id), upd = r.updated, payload = await sharedPayload(), b = base();
+    const props = { w: String(b.w), h: String(b.h), ...(release ? { lockBy: '', lockAt: '0' } : { lockAt: String(Date.now()) }) };
+    const res = await gPut({ description: doc.title || DEFAULT_TITLE, appProperties: props }, jsonBlob(payload), cur.file, SH_FIELDS);
+    cur.rev = res.headRevisionId;
+    await recUpdate(cur.id, x => { Object.assign(x, shMeta(res, x)); x.drive.rev = res.headRevisionId; x.drive.synced = upd; });
+  })().finally(() => { shSaving = null; });
+}
+async function sharedConflict(f) {
+  const who = (f.lastModifyingUser && f.lastModifyingUser.displayName) || 'другой участник';
+  const take = await ask('Общий проект изменился', `Пока вы работали, ${who} сохранил свою версию. Что сделать?`, 'Взять их версию', 'Сохранить мою как личную копию');
+  if (take) return reloadShared(f, true);
+  await takeToPersonal(true); await reloadShared(f, true);
+}
+async function finishWork() {
+  if (!cur.shared || cur.mode !== 'edit') return;
+  try { await saveShared(true); cur.lock = null; enterView(); toast('Сохранено. Проект свободен для других'); }
+  catch (e) { toast('Не удалось сохранить: ' + e.message, 5000); }
+}
+async function leaveShared() {
+  if (!cur.shared) return;
+  try { if (cur.mode === 'edit' && tokenOk()) await saveShared(true); } catch (e) { console.warn(e); }
+  stopShared(); cur = { shared: false }; setReadOnly(false);
+}
+window.addEventListener('pagehide', () => { // освобождаем проект, если вкладку закрыли
+  if (cur.shared && cur.mode === 'edit' && tokenOk())
+    try { fetch(`${DRIVE}/files/${cur.file}?fields=id`, { method: 'PATCH', keepalive: true, headers: { Authorization: 'Bearer ' + gToken.t, 'Content-Type': 'application/json' }, body: JSON.stringify({ appProperties: { lockBy: '', lockAt: '0' } }) }); } catch {}
+});
+/* «Забрать общую версию себе»: в исходный личный проект (если он есть) или новым личным */
+async function takeToPersonal(silent) {
+  if (!cur.shared) return;
+  await flushLib();
+  const sh = await projects.get(cur.id), origin = sh.origin && await projects.get(sh.origin), data = structuredClone(sh.data), now = Date.now();
+  if (origin && origin.kind !== 'shared' && !origin.stub && (silent || await ask('Забрать общую версию себе', `Заменить ваш личный проект «${origin.title}» общей версией?`, 'Заменить', 'Создать новый личный'))) {
+    data.id = origin.id; await recUpdate(origin.id, x => { x.data = data; x.updated = now; x.thumb = sh.thumb; x.title = sh.title; });
+    cloudKick(0); if (!silent) toast(`Общая версия теперь в личном проекте «${origin.title}»`); return origin.id;
+  }
+  const id = uid(); data.id = id;
+  await projects.put({ id, title: sh.title, w: sh.w, h: sh.h, parts: sh.parts, created: now, updated: now, thumb: sh.thumb, data, acct: account && account.email, sharedId: cur.file });
+  cloudKick(0); toast(`Создан личный проект «${sh.title}»`); return id;
+}
+/* «Отправить мою версию в общую» из личного проекта */
+async function sendToShared() {
+  const me = await projects.get(pid); if (!me || !me.sharedId) return;
+  const id = shId(me.sharedId);
+  try {
+    const f = await shFile(me.sharedId), l = lockOf(f);
+    if (!f.capabilities || !f.capabilities.canEdit) return toast('У вас доступ только для просмотра');
+    if (l && l.by !== account.email) return toast(`Сейчас общий проект редактирует ${l.name}. Попробуйте позже`, 5000);
+    if (!(await ask('Отправить мою версию в общую', 'Общая версия заменится вашей для всех участников. Прежняя останется в истории версий Google Диска.', 'Отправить', 'Отмена'))) return;
+    await flushLib();
+    const payload = await sharedPayload();
+    const res = await gPut({ description: doc.title || DEFAULT_TITLE }, jsonBlob(payload), me.sharedId, SH_FIELDS);
+    const thumb = payload.thumb; delete payload.thumb; payload.id = id;
+    await recUpdate(id, x => { Object.assign(x, shMeta(res, x)); x.data = payload; x.thumb = thumb; x.drive.rev = res.headRevisionId; x.updated = Date.now(); x.drive.synced = x.updated; delete x.stub; });
+    toast('Общая версия обновлена');
+  } catch (e) { toast('Не удалось отправить: ' + e.message, 5000); }
+}
+/* удаление: владелец — для всех (в корзину Диска), участник — выходит сам */
+async function removeShared(r) {
+  const fid = r.drive.file;
+  try {
+    if (r.drive.isOwner) await gd(`/files/${fid}?fields=id`, { method: 'PATCH', json: { trashed: true } });
+    else { const me = await gd('/about?fields=user(permissionId)'); await gd(`/files/${fid}/permissions/${me.user.permissionId}`, { method: 'DELETE' }).catch(() => {}); }
+  } catch (e) { if (e.status !== 404) return toast('Не получилось: ' + e.message), false; }
+  lsSet(HIDDEN_KEY, [...lsGet(HIDDEN_KEY, []), fid]);
+  await projects.del(r.id);
+  return true;
+}
+/* ссылка из письма: ?open=<id файла> */
+async function openFromLink(fileId) {
+  if (!account && !(await ask('Вас пригласили в общий проект', 'Чтобы открыть его, войдите через Google — тот аккаунт, на почту которого пришло приглашение.', 'Войти через Google', 'Позже'))) return;
+  if (!account && !(await signIn())) return;
+  if (!tokenOk() && !(await reconnect())) return;
+  try {
+    let f; try { f = await shFile(fileId); } catch (e) { if (e.status !== 404) throw e; }
+    if (!f) { const picked = await pickFiles(fileId); if (!picked || !picked.includes(fileId)) return toast('Проект не открыт: подтвердите его в окне Google'); f = await shFile(fileId); }
+    lsSet(HIDDEN_KEY, lsGet(HIDDEN_KEY, []).filter(x => x !== fileId));
+    const id = shId(fileId);
+    if (!(await projects.get(id))) await projects.put({ id, created: Date.now(), updated: Date.now(), thumb: null, data: null, stub: true, w: 0, h: 0, parts: 1, ...shMeta(f) });
+    await openProject(id);
+  } catch (e) { toast('Не удалось открыть проект по ссылке: ' + e.message, 6000); }
+}
+/* окно выбора Google: открывает приложению доступ к выбранным файлам */
+async function pickFiles(fileId) {
+  await loadScript('https://apis.google.com/js/api.js'); await new Promise(ok => gapi.load('picker', ok));
+  return new Promise(ok => {
+    const P = google.picker, view = new P.DocsView(P.ViewId.DOCS).setMode(P.DocsViewMode.LIST);
+    if (fileId) view.setFileIds(fileId); else view.setOwnedByMe(false).setQuery('asmaker.json');
+    new P.PickerBuilder().setAppId(GOOGLE.appId).setOAuthToken(gToken.t).setDeveloperKey(GOOGLE.apiKey).setLocale('ru').addView(view)
+      .enableFeature(P.Feature.MULTISELECT_ENABLED).setTitle(fileId ? 'Подтвердите доступ к общему проекту' : 'Общие проекты ASMaker')
+      .setCallback(d => { if (d.action === P.Action.PICKED) ok(d.docs.map(x => x.id)); else if (d.action === P.Action.CANCEL) ok(null); })
+      .build().setVisible(true);
+  });
+}
+async function findShared() {
+  if (!tokenOk() && !(await reconnect())) return;
+  const ids = await pickFiles(); if (!ids) return;
+  lsSet(HIDDEN_KEY, lsGet(HIDDEN_KEY, []).filter(x => !ids.includes(x)));
+  await pullShared(); toast(`Добавлено: ${ids.length}`);
+}
+
+/* ================= интерфейс облака ================= */
+function ask(title, text, yes, no) {
+  return new Promise(ok => {
+    const w = el('div', { class: 'ask-wrap' }), done = v => { w.remove(); ok(v); };
+    w.append(el('div', { class: 'dlg', role: 'alertdialog' },
+      el('div', { class: 'dlg-h' }, el('span', {}, title)),
+      el('div', { class: 'dlg-b', style: 'padding-top:12px' }, el('p', { style: 'margin:0' }, text)),
+      el('div', { class: 'dlg-f' }, no ? el('button', { type: 'button', class: 'btn', onclick: () => done(false) }, no) : null,
+        el('button', { type: 'button', class: 'btn primary', onclick: () => done(true) }, yes))));
+    w.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } });
+    document.body.append(w); setTimeout(() => w.querySelector('.primary').focus(), 20);
+  });
+}
+const avatar = (p, size = 26) => p && p.picture || p && p.photo ? el('img', { class: 'ava', src: p.picture || p.photo, alt: '', referrerpolicy: 'no-referrer', style: `width:${size}px;height:${size}px` })
+  : el('span', { class: 'ava ava-l', style: `width:${size}px;height:${size}px;font-size:${size * 0.45}px` }, ((p && (p.name || p.email)) || '?').trim()[0].toUpperCase());
+const CLOUD_TXT = { idle: 'Google Диск подключён', sync: 'Синхронизация…', ok: 'Всё сохранено на Диске', offline: 'Нет связи — сохранено в браузере, отправлю позже', auth: 'Нужно переподключить Диск', error: 'Ошибка синхронизации' };
+const acctBtn = el('button', { type: 'button', class: 'acct', id: 'acctBtn' });
+const acctPop = el('div', { class: 'pop', hidden: true, style: 'width:290px' });
+document.body.append(acctPop);
+document.addEventListener('pointerdown', e => { if (!acctPop.hidden && !acctPop.contains(e.target) && !acctBtn.contains(e.target)) acctPop.hidden = true; });
+acctBtn.addEventListener('click', e => { e.stopPropagation(); if (!account) return signIn(); acctPop.hidden = !acctPop.hidden; if (!acctPop.hidden) renderAcctPop(); });
+function renderAccount() {
+  if (!account) { acctBtn.className = 'btn acct-in'; acctBtn.title = 'Войти через Google: проекты на Диске и совместная работа'; acctBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3z" fill="#4285f4" stroke="none"/><path d="M12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22z" fill="#34a853" stroke="none"/><path d="M6.4 14c-.2-.6-.3-1.3-.3-2s.1-1.4.3-2V7.4H3.1a10 10 0 0 0 0 9.2z" fill="#fbbc05" stroke="none"/><path d="M12 6c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.4L6.4 10C7.2 7.7 9.4 6 12 6z" fill="#ea4335" stroke="none"/></svg><span>Войти</span>'; }
+  else {
+    acctBtn.className = 'acct st-' + cloudStatus; acctBtn.title = `${account.name} · ${CLOUD_TXT[cloudStatus] || ''}`;
+    acctBtn.replaceChildren(avatar(account, 28), el('i', { class: 'dot' }));
+  }
+  if (!acctPop.hidden) renderAcctPop();
+  $('#shareBtn') && ($('#shareBtn').hidden = !account || cur.shared);
+}
+function renderAcctPop() {
+  const st = cloudStatus;
+  acctPop.replaceChildren(
+    el('div', { class: 'acct-head' }, avatar(account, 38), el('div', {}, el('b', {}, account.name), el('div', { class: 'cap', style: 'margin:0' }, account.email))),
+    el('div', { class: 'acct-st st-' + st }, el('i', { class: 'dot' }), el('span', {}, CLOUD_TXT[st] || ''), cloudErr ? el('div', { class: 'hint', style: 'margin:4px 0 0' }, cloudErr) : null),
+    st === 'auth' ? el('button', { type: 'button', class: 'btn primary', style: 'width:100%;margin-top:8px', onclick: async () => { if (await reconnect()) { acctPop.hidden = true; pullAll(); } } }, 'Переподключить Google Диск')
+      : el('button', { type: 'button', class: 'btn', style: 'width:100%;margin-top:8px', onclick: () => { cloudKick(0); pullAll(); } }, 'Синхронизировать сейчас'),
+    el('div', { class: 'acct-links' },
+      el('button', { type: 'button', onclick: () => { acctPop.hidden = true; openLibrary(); } }, 'Мои проекты'),
+      el('button', { type: 'button', onclick: () => { acctPop.hidden = true; openWhatsNew(); } }, 'Что нового'),
+      el('button', { type: 'button', onclick: () => { acctPop.hidden = true; signOut(); } }, 'Выйти')));
+}
+
+/* ---- поделиться и участники ---- */
+const ROLE_TXT = { writer: 'Редактор', reader: 'Читатель', owner: 'Владелец', commenter: 'Комментатор' };
+function roleSeg(get, set) {
+  const s = el('div', { class: 'seg' });
+  const draw = () => s.replaceChildren(...[['writer', 'Редактор', 'Может править по очереди с другими'], ['reader', 'Читатель', 'Только смотрит, спецификация и экспорт доступны']]
+    .map(([v, l, t]) => el('button', { type: 'button', class: get() === v ? 'on' : '', title: t, onclick: () => { set(v); draw(); } }, l)));
+  draw(); return s;
+}
+function mailInput() {
+  const id = 'mates' + uid(), inp = el('input', { type: 'email', placeholder: 'email соавтора (его Google-аккаунт)', list: id, autocomplete: 'email', style: 'flex:1' });
+  return [inp, el('datalist', { id }, lsGet(MAILS_KEY, []).map(m => el('option', { value: m })))];
+}
+const validMail = s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+async function openShare() {
+  if (!account && !(await signIn())) return;
+  if (cur.shared) return openMembers(cur.file);
+  await flushLib();
+  const me = await projects.get(pid), m = $('#modal'), close = () => { m.hidden = true; m.replaceChildren(); };
+  let role = 'writer'; const [inp, dl] = mailInput();
+  const body = [];
+  if (me && me.sharedId && await projects.get(shId(me.sharedId))) {
+    body.push(el('p', { style: 'margin:0 0 10px' }, 'У этого проекта уже есть общая копия. Личный проект и общая копия правятся отдельно.'),
+      el('div', { class: 'btns' },
+        el('button', { type: 'button', class: 'btn', onclick: () => { close(); openProject(shId(me.sharedId)); } }, 'Открыть общую копию'),
+        el('button', { type: 'button', class: 'btn', onclick: () => { close(); openMembers(me.sharedId); } }, 'Участники'),
+        el('button', { type: 'button', class: 'btn', onclick: () => { close(); sendToShared(); } }, 'Отправить мою версию в общую')),
+      el('p', { class: 'hint', style: 'margin:14px 0 6px' }, 'Или создать ещё одну, отдельную общую копию:'));
+  }
+  const go = el('button', { type: 'button', class: 'btn primary' }, 'Создать общую копию и пригласить');
+  go.onclick = async () => {
+    const email = inp.value.trim();
+    if (email && !validMail(email)) return toast('Проверьте адрес почты');
+    go.disabled = true; go.textContent = 'Создаю…';
+    try { const id = await createShared(email, role); close(); toast(email ? `Общая копия создана, ${email} получит письмо от Google` : 'Общая копия создана', 5000);
+      if (await ask('Общая копия создана', 'Открыть её сейчас? Личный проект останется как есть.', 'Открыть общую', 'Остаться в личном')) openProject(id); }
+    catch (e) { go.disabled = false; go.textContent = 'Создать общую копию и пригласить'; toast('Не удалось: ' + e.message, 6000); }
+  };
+  m.replaceChildren(el('div', { class: 'dlg', role: 'dialog', style: 'width:min(560px,100%)' },
+    el('div', { class: 'dlg-h' }, el('span', {}, 'Поделиться для совместной работы'), B('', '✕', close, { cls: 'icon', title: 'Закрыть (Esc)' })),
+    el('div', { class: 'dlg-b', style: 'padding-top:14px' }, body,
+      cap('Пригласить'), row(inp, dl), cap('Роль'), row(roleSeg(() => role, v => role = v)),
+      el('p', { class: 'hint' }, 'Создаётся общая копия проекта на вашем Google Диске. Соавтору придёт письмо от Google со ссылкой. Работают по очереди: пока один редактирует, у остальных просмотр.')),
+    el('div', { class: 'dlg-f' }, go)));
+  m.hidden = false; m.onclick = e => { if (e.target === m) close(); }; setTimeout(() => inp.focus(), 30);
+}
+async function openMembers(fileId) {
+  const m = $('#modal'), close = () => { m.hidden = true; m.replaceChildren(); };
+  const r = await projects.get(shId(fileId)), owner = r && r.drive.isOwner, list = el('div', { class: 'members' });
+  const load = async () => {
+    list.replaceChildren(el('p', { class: 'hint' }, 'Загружаю…'));
+    try {
+      const ps = (await gd(`/files/${fileId}/permissions?fields=permissions(id,type,role,emailAddress,displayName,photoLink)`)).permissions.filter(p => p.type === 'user');
+      ps.sort((a, b) => (a.role === 'owner' ? -1 : 0) - (b.role === 'owner' ? -1 : 0));
+      list.replaceChildren(...ps.map(p => {
+        const me = p.emailAddress === account.email;
+        const roleEl = owner && p.role !== 'owner' ? (() => { const s_ = el('select', {}, ['writer', 'reader'].map(v => el('option', { value: v }, ROLE_TXT[v]))); s_.value = p.role === 'reader' ? 'reader' : 'writer';
+          s_.onchange = () => gd(`/files/${fileId}/permissions/${p.id}?fields=id`, { method: 'PATCH', json: { role: s_.value } }).then(() => toast('Роль изменена'), e => toast(e.message)); return s_; })()
+          : el('span', { class: 'cap', style: 'margin:0' }, ROLE_TXT[p.role] || p.role);
+        const rm = owner && p.role !== 'owner' ? B('trash', '', async () => { await gd(`/files/${fileId}/permissions/${p.id}`, { method: 'DELETE' }).catch(e => toast(e.message)); load(); }, { cls: 'btn', title: 'Закрыть доступ' }) : null;
+        return el('div', { class: 'member' }, avatar({ name: p.displayName, email: p.emailAddress, photo: p.photoLink }, 30),
+          el('div', { style: 'flex:1;min-width:0' }, el('b', {}, (p.displayName || p.emailAddress) + (me ? ' (вы)' : '')), el('div', { class: 'cap', style: 'margin:0' }, p.emailAddress || '')), roleEl, rm);
+      }));
+    } catch (e) { list.replaceChildren(el('p', { class: 'hint' }, e.status === 403 ? 'Список участников видит только владелец.' : 'Не удалось загрузить: ' + e.message)); }
+  };
+  let role = 'writer'; const [inp, dl] = mailInput();
+  const add = el('button', { type: 'button', class: 'btn primary' }, 'Пригласить');
+  add.onclick = async () => { const email = inp.value.trim(); if (!validMail(email)) return toast('Проверьте адрес почты');
+    add.disabled = true; try { await invite(fileId, email, role, (r && r.title) || doc.title); inp.value = ''; toast(`${email} получит письмо от Google`); load(); } catch (e) { toast('Не удалось: ' + e.message, 5000); } add.disabled = false; };
+  m.replaceChildren(el('div', { class: 'dlg', role: 'dialog', style: 'width:min(560px,100%)' },
+    el('div', { class: 'dlg-h' }, el('span', {}, 'Участники · ' + ((r && r.title) || '')), B('', '✕', close, { cls: 'icon', title: 'Закрыть (Esc)' })),
+    el('div', { class: 'dlg-b', style: 'padding-top:12px' }, list,
+      owner ? [cap('Пригласить'), row(inp, dl), row(roleSeg(() => role, v => role = v)), row(add)] : el('p', { class: 'hint' }, 'Приглашать участников может только владелец проекта.'))));
+  m.hidden = false; m.onclick = e => { if (e.target === m) close(); }; load();
+}
+
+/* ---- плашка общего проекта над холстом ---- */
+const sharedBar = el('div', { id: 'sharedBar', hidden: true });
+$('#stage').append(sharedBar);
+for (const ev of ['pointerdown', 'dblclick', 'wheel']) sharedBar.addEventListener(ev, e => e.stopPropagation());
+function renderSharedBar() {
+  sharedBar.hidden = !cur.shared; renderAccount(); if (!cur.shared) return;
+  const l = cur.lock, other = l && l.by !== account.email, free = !other;
+  const status = cur.mode === 'edit' ? el('span', { class: 'sb-st on' }, 'Вы редактируете')
+    : !cur.canEdit ? el('span', { class: 'sb-st' }, 'Только просмотр')
+    : other ? el('span', { class: 'sb-st' }, `Редактирует ${l.name}`) : el('span', { class: 'sb-st' }, 'Свободен');
+  sharedBar.replaceChildren(
+    el('span', { class: 'sb-tag' }, 'Общий'),
+    el('span', { class: 'sb-own' }, 'владелец ' + ((cur.owner && (cur.isOwner ? 'вы' : cur.owner.name || cur.owner.email)) || '—')),
+    status,
+    cur.mode === 'edit' ? el('button', { type: 'button', class: 'btn primary', onclick: finishWork, title: 'Сохранить и освободить проект для других' }, 'Закончить работу')
+      : cur.canEdit ? el('button', { type: 'button', class: 'btn primary', disabled: !free, onclick: () => takeLock(), title: free ? 'Взять проект в работу' : 'Станет доступно, когда редактор закончит или через 5 минут без активности' }, 'Взять в работу') : '',
+    el('button', { type: 'button', class: 'btn', onclick: () => openMembers(cur.file) }, 'Участники'),
+    el('button', { type: 'button', class: 'btn', onclick: () => takeToPersonal(), title: 'Скопировать общую версию в ваш личный проект' }, 'Забрать себе'),
+    approvalEnabled() ? el('button', { type: 'button', class: 'btn', onclick: sendForApproval }, 'На согласование') : '');
+}
+
+/* ---- «Что нового» ---- */
+const WHATS_NEW = [
+  { v: '2026-11-08b', date: '8 ноября 2026', items: [
+    'Вход через Google: проекты сохраняются на Google Диск и появляются на других ваших устройствах.',
+    'Совместная работа: «Поделиться» создаёт общую копию проекта, соавтор получает письмо от Google. Роли — редактор или читатель.',
+    'Работа по очереди: пока один редактирует, у остальных просмотр с автообновлением. «Закончить работу» освобождает проект сразу.',
+    'В «Моих проектах» — вкладки «Личные» и «Общие», значки синхронизации.',
+    'Кнопки «Забрать себе» и «Отправить мою версию в общую».'] },
+  { v: '2026-11-08a', date: '8 ноября 2026', items: [
+    '«Мои проекты»: все стенды в браузере с превью, поиском, копированием и удалением.',
+    'Раздел подложки на части: линии раздела, отверстия и экспорт по частям с белым полем.',
+    'Ctrl+S перезаписывает тот же файл проекта (Chrome, Edge).'] },
+];
+const SEEN_KEY = STORE + ':seen';
+function openWhatsNew() {
+  const m = $('#modal'), close = () => { m.hidden = true; m.replaceChildren(); };
+  lsSet(SEEN_KEY, WHATS_NEW[0].v);
+  m.replaceChildren(el('div', { class: 'dlg', role: 'dialog', style: 'width:min(560px,100%)' },
+    el('div', { class: 'dlg-h' }, el('span', {}, 'Что нового в ASMaker'), B('', '✕', close, { cls: 'icon', title: 'Закрыть (Esc)' })),
+    el('div', { class: 'dlg-b', style: 'padding-top:6px' }, WHATS_NEW.map(r => [cap(r.date), el('ul', { class: 'news' }, r.items.map(t => el('li', {}, t)))]))));
+  m.hidden = false; m.onclick = e => { if (e.target === m) close(); };
+}
+function maybeWhatsNew() { const s = lsGet(SEEN_KEY, null); if (s === WHATS_NEW[0].v) return; if (s || hadStored) setTimeout(openWhatsNew, 800); else lsSet(SEEN_KEY, WHATS_NEW[0].v); }
+
+async function cloudInit() {
+  renderAccount();
+  const p = new URLSearchParams(location.search), open = p.get('open');
+  if (open) { history.replaceState(null, '', location.pathname + location.hash); }
+  const r = pid && await projects.get(pid).catch(() => null);
+  if (open) openFromLink(open);
+  else if (r && r.kind === 'shared') { if (account && tokenOk()) openShared(pid); else { cur = { shared: true, id: pid, file: r.drive.file, canEdit: false, owner: r.drive.owner, isOwner: r.drive.isOwner, mode: 'view', lock: null }; setReadOnly(true); toast('Общий проект открыт для просмотра. Войдите, чтобы работать с ним', 5000); } }
+  else maybeWhatsNew();
+  if (account && tokenOk()) { cloudKick(1500); pullAll(); } else if (account) setCloud('auth');
+}
+
 /* ================= theme ================= */
 const THEME_KEY = STORE + ':theme';
 const theme = (() => { try { return Object.assign({ dark: false, level: 50 }, JSON.parse(localStorage.getItem(THEME_KEY))); } catch { return { dark: false, level: 50 }; } })();
@@ -3169,6 +3886,7 @@ themeLevel.addEventListener('dblclick', () => { theme.level = 50; themeLevel.val
 const themePop = el('div', { class: 'pop', hidden: true }, el('h5', {}, 'Тема'), row(themeSeg), el('h5', { style: 'margin-top:12px' }, 'Насыщенность тёмной темы'), themeLevel,
   el('div', { class: 'cap', style: 'display:flex;justify-content:space-between;margin-top:2px' }, el('span', {}, 'графит'), el('span', {}, 'почти чёрный')));
 document.body.append(themePop);
+themePop.append(el('button', { type: 'button', class: 'linkbtn', style: 'margin-top:12px', onclick: () => { themePop.hidden = true; openWhatsNew(); } }, 'Что нового в ASMaker'));
 document.addEventListener('pointerdown', e => { if (!themePop.hidden && !themePop.contains(e.target) && !$('#themeBtn').contains(e.target)) themePop.hidden = true; });
 renderThemeSeg(); applyTheme();
 
@@ -3223,7 +3941,7 @@ propsRz.addEventListener('dblclick', () => setPropsW(296));
 /* ================= start ================= */
 loadStored();
 sel = base().id; selIds = [sel];
-libInit();
+libInit().then(cloudInit);
 if (document.fonts) document.fonts.ready.then(relayoutTexts);
 try { fontStore.all().then(loadCustomFonts, () => {}); } catch {}
 invalidate('all');
