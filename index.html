@@ -124,6 +124,15 @@ body.ro #undoBtn,body.ro #redoBtn{opacity:.4;pointer-events:none}
 .member{display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid var(--line)}
 .member select{width:auto}
 ul.news{margin:4px 0 14px;padding-left:20px;line-height:1.5}
+.wiz{display:grid;grid-template-columns:minmax(300px,1fr) 1.1fr;gap:22px}
+.wiz-form .grid2{margin-bottom:6px}.wiz-form .check{margin:2px 0 6px}
+.wiz-side{display:flex;flex-direction:column;gap:10px;align-items:stretch}
+.wiz-prev{background:var(--stage);border-radius:10px;padding:14px;display:grid;place-items:center;min-height:240px}
+.wiz-prev svg{max-width:100%;height:auto;max-height:340px}
+.tpl-h{margin:18px 0 10px;font-size:13px;font-weight:650}
+.lib-plus svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.5}
+.lib-card.tpl .lib-thumb svg{max-width:100%;max-height:100%;height:auto}
+@media (max-width:760px){.wiz{grid-template-columns:1fr}}
 .lib-tools{display:flex;gap:10px;align-items:center;margin-bottom:14px}
 .lib-tools input{flex:1;height:34px;border:1px solid var(--line);border-radius:8px;background:var(--input);color:var(--text);padding:0 10px;font:inherit}
 .lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
@@ -3096,10 +3105,10 @@ async function openFile(file, handle) {
   if (handle) projects.setHandle(id, handle).catch(() => {}); else if (!ex) projects.delHandle(id).catch(() => {});
   toast(msg, 4000);
 }
-async function newStand() {
+async function newStand(quiet) {
   await flushLib(); await leaveShared();
   doc = newDoc(); assets = {}; setPid(uid()); sel = base().id; selIds = [sel]; resetHistory(); changed(); fit();
-  pristine = docKey(); toast('Новый проект. Прежний — в «Мои проекты»');
+  pristine = docKey(); if (!quiet) toast('Новый проект. Прежний — в «Мои проекты»');
 }
 
 /* ================= библиотека проектов =================
@@ -3110,9 +3119,9 @@ async function newStand() {
 let idbP = null;
 function idbOpen() {
   return idbP || (idbP = new Promise((ok, err) => {
-    const r = indexedDB.open('stand-designer', 3);
+    const r = indexedDB.open('stand-designer', 4);
     r.onupgradeneeded = () => { const db = r.result;
-      for (const [n, k] of [['fonts', 'label'], ['faces', 'key'], ['projects', 'id'], ['handles', 'id']]) if (!db.objectStoreNames.contains(n)) db.createObjectStore(n, { keyPath: k }); };
+      for (const [n, k] of [['fonts', 'label'], ['faces', 'key'], ['projects', 'id'], ['handles', 'id'], ['templates', 'id']]) if (!db.objectStoreNames.contains(n)) db.createObjectStore(n, { keyPath: k }); };
     r.onsuccess = () => ok(r.result); r.onerror = () => { idbP = null; err(r.error); };
   }));
 }
@@ -3226,6 +3235,8 @@ async function openLibrary() {
       el('button', { type: 'button', class: 'lib-act', onclick: async e => { e.stopPropagation(); await resolveConflict(r.id, 'local'); await load(); draw(); } }, 'Оставить мою'));
     else if (!sh) acts.push(
       el('button', { type: 'button', class: 'lib-act', title: 'Создать копию проекта', onclick: async e => { e.stopPropagation(); try { await duplicateProject(r); await load(); draw(); toast('Копия создана'); } catch (er) { toast('Не удалось: ' + er.message); } } }, 'Дублировать'),
+      el('button', { type: 'button', class: 'lib-act', title: 'Сохранить как шаблон для новых проектов', onclick: async e => { e.stopPropagation();
+        if (r.id !== pid) return toast('Откройте проект, затем «В шаблоны»'); close(); saveAsTemplate(); } }, 'В шаблоны'),
       isCur ? el('button', { type: 'button', class: 'lib-act', disabled: true, title: 'Открытый проект удалить нельзя' }, 'Удалить')
         : twoStep('Удалить', async () => { await projects.del(r.id); projects.delHandle(r.id).catch(() => {}); if (account && r.acct === account.email) trashPersonal(r); await load(); draw(); toast('Проект удалён'); }, r.drive && r.drive.folder ? 'Удалить проект из браузера и с Диска (в корзину)' : 'Удалить проект'));
     else acts.push(
@@ -3256,7 +3267,7 @@ async function openLibrary() {
     tabs.replaceChildren(...[['mine', `Личные · ${mine.length}`], ['shared', `Общие · ${shared.length}`]].map(([k, t]) => el('button', { type: 'button', class: libTab === k ? 'on' : '', onclick: () => { libTab = k; draw(); } }, t)));
     head.textContent = 'Мои проекты';
     const src = libTab === 'mine' ? mine : shared, shown = src.filter(r => !f || (r.title || '').toLowerCase().includes(f));
-    const lead = libTab === 'mine' ? [el('button', { type: 'button', class: 'lib-card lib-new', onclick: () => { close(); newStand(); } }, el('span', { class: 'lib-plus' }, '+'), el('b', {}, 'Новый проект'))]
+    const lead = libTab === 'mine' ? [el('button', { type: 'button', class: 'lib-card lib-new', onclick: () => { close(); openNewDialog(); } }, el('span', { class: 'lib-plus' }, '+'), el('b', {}, 'Новый проект'), el('span', { class: 'cap' }, 'пустой, мастер или шаблон'))]
       : !account ? [el('div', { class: 'lib-empty' }, el('p', {}, 'Общие проекты хранятся на Google Диске. Войдите, чтобы видеть проекты, которыми с вами поделились.'), el('button', { type: 'button', class: 'btn primary', onclick: async () => { if (await signIn()) { await load(); draw(); } } }, 'Войти через Google'))]
       : [el('button', { type: 'button', class: 'lib-card lib-new', onclick: () => { close(); openShare(); } }, el('span', { class: 'lib-plus' }, '+'), el('b', {}, 'Поделиться открытым'), el('span', { class: 'cap' }, 'создать общую копию'))];
     grid.replaceChildren(...lead, ...shown.map(card),
@@ -4155,7 +4166,7 @@ function renderGridPop() {
 topBar.append(
   el('div', { class: 'brand' }, el('i'), el('span', { class: 'title', id: 'docTitle', title: 'Нажмите, чтобы переименовать проект. Так будет называться сохраняемый файл', onclick: renameTitle })),
   B('library', 'Проекты', openLibrary, { title: 'Мои проекты: все стенды в этом браузере (Ctrl+Shift+O)' }),
-  B('file', 'Новый', newStand, { title: 'Новый проект', cls: 'tb' }),
+  B('file', 'Новый', () => openNewDialog(), { title: 'Новый проект: пустой, мастер раскладки или шаблон', cls: 'tb' }),
   B('folder', 'Открыть', pickProjectFile, { title: 'Открыть проект из файла (Ctrl+O)', cls: 'tb' }),
   B('download', 'Сохранить', () => saveFile(), { title: 'Сохранить проект в файл (Ctrl+S). Сохранить как — Ctrl+Shift+S', cls: 'tb' }),
   B('share', 'Поделиться', () => openShare(), { title: 'Поделиться для совместной работы', id: 'shareBtn', cls: 'tb' }),
@@ -4941,7 +4952,7 @@ const ALIGN = [['l', 'aL', 'По левому краю'], ['ch', 'aCH', 'По ц
 function buildMulti() {
   const list = selected(); arrangeOpts.cols = null; arrangeOpts.rows = null;
   return [
-    selIsGroup() ? groupPanel(selIsGroup()) : null,
+    selIsGroup() ? groupPanel(selIsGroup()) : '',
     sec('Выбрано элементов: ' + list.length,
       el('p', { class: 'hint', style: 'margin:0 0 10px' }, 'Рамка мышью — выделить область, с ', el('kbd', {}, 'Shift'), ' — добавить. ', el('kbd', {}, 'Shift'), ' + клик — добавить или убрать элемент. В списке слоёв ', el('kbd', {}, 'Shift'), ' — диапазон, ', el('kbd', {}, 'Ctrl'), ' — по одному.'),
       row(checkField('Относительно стенда', () => alignToStand, v => { alignToStand = v; })),
@@ -5392,6 +5403,189 @@ $('#imageInput').addEventListener('change', e => { const f = e.target.files[0]; 
 $('#fontInput').addEventListener('change', e => { const fs = [...e.target.files]; if (fs.length) addFontFiles(fs); e.target.value = ''; });
 $('#projectInput').addEventListener('change', e => { const f = e.target.files[0]; if (f) openFile(f); e.target.value = ''; });
 
+/* ================= мастер раскладки и шаблоны ================= */
+const wiz = { fmt: 'А4', iw: 210, ih: 297, land: false, auto: true, cols: 3, rows: 2, gx: 30, gy: 30, margin: 50, header: true, headerH: 150, valign: 'center', fitBase: false, replace: true, group: false };
+const pocketOuter = (iw, ih) => { const p = makePocket(); p.iw = iw; p.ih = ih; return pocketGeom(p); };
+/* раскладка: сколько карманов и где — по размеру стенда, полям, зазорам и месту под заголовок */
+function wizLayout(W, H, o = wiz) {
+  const iw = o.land ? Math.max(o.iw, o.ih) : Math.min(o.iw, o.ih), ih = o.land ? Math.min(o.iw, o.ih) : Math.max(o.iw, o.ih), g = pocketOuter(iw, ih);
+  const top = o.margin + (o.header ? o.headerH : 0), aw = W - 2 * o.margin, ah = H - top - o.margin;
+  const C = o.auto ? Math.max(0, Math.floor((aw + o.gx) / (g.w + o.gx))) : o.cols, R = o.auto ? Math.max(0, Math.floor((ah + o.gy) / (g.h + o.gy))) : o.rows;
+  const gw = C * g.w + Math.max(0, C - 1) * o.gx, gh = R * g.h + Math.max(0, R - 1) * o.gy;
+  const x0 = o.margin + (aw - gw) / 2, y0 = o.valign === 'top' ? top : top + (ah - gh) / 2, list = [];
+  for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) list.push({ x: r2(x0 + c * (g.w + o.gx)), y: r2(y0 + r * (g.h + o.gy)) });
+  return { iw, ih, pw: g.w, ph: g.h, C, R, list, gw, gh, fits: gw <= aw + 0.01 && gh <= ah + 0.01 && C > 0 && R > 0, need: { w: gw + 2 * o.margin, h: gh + top + o.margin }, top };
+}
+function wizApply(o = wiz) {
+  let W = base().w, H = base().h;
+  if (o.fitBase) { const L0 = wizLayout(1e6, 1e6, { ...o, auto: false }); W = Math.ceil(L0.need.w); H = Math.ceil(L0.need.h); }
+  const L = wizLayout(W, H, o);
+  if (!L.list.length) return toast('Ни одного кармана не помещается: уменьшите поля, зазоры или формат');
+  const gid = o.group ? 'g' + uid() : null, ids = [];
+  mutate(null, () => {
+    const b = base(); b.w = W; b.h = H;
+    if (o.replace) doc.objects = doc.objects.filter(x => x.type !== 'pocket');
+    L.list.forEach((p, i) => { const k = makePocket(); k.iw = L.iw; k.ih = L.ih; k.name = 'Карман ' + (i + 1); syncDerived(k); k.x = p.x; k.y = p.y; if (gid) k.group = gid; insertObj(k); ids.push(k.id); });
+    if (gid) doc.groups = (doc.groups || []).concat({ id: gid, name: 'Карманы', collapsed: true });
+    if (o.header && o.headerH >= 40 && !doc.objects.some(x => x.type === 'text')) {
+      const t = makeText(); t.text = 'Заголовок стенда'; t.size = Math.round(Math.min(o.headerH * 0.45, W / 12)); syncDerived(t);
+      t.x = r2((W - t.w) / 2); t.y = r2(o.margin + (o.headerH - t.h) / 2 - 10); insertObj(t);
+    }
+  });
+  fit(); setSel(ids); toast(`Разложено карманов: ${L.list.length} (${L.C} × ${L.R})`);
+}
+/* маленькая схема стенда: подложка, карманы, полоса заголовка */
+function miniSVG(W, H, pockets, header, size = 220) {
+  const k = size / Math.max(W, H), pad = 2;
+  const r = pockets.map(p => `<rect x="${p.x * k + pad}" y="${p.y * k + pad}" width="${Math.max(1, p.w * k)}" height="${Math.max(1, p.h * k)}" rx="1" fill="#eef4ff" stroke="#93a8cf" stroke-width="1"/>`).join('');
+  const hd = header ? `<rect x="${header.x * k + pad}" y="${header.y * k + pad}" width="${header.w * k}" height="${Math.max(3, header.h * k)}" rx="2" fill="#1f2937" opacity=".75"/>` : '';
+  return `<svg viewBox="0 0 ${W * k + pad * 2} ${H * k + pad * 2}" width="${W * k + pad * 2}" height="${H * k + pad * 2}"><rect x="${pad}" y="${pad}" width="${W * k}" height="${H * k}" fill="#fff" stroke="#cbd2db"/>${hd}${r}</svg>`;
+}
+function openWizard(opts = {}) {
+  Object.assign(wiz, opts);
+  const m = $('#modal'), close = () => { m.hidden = true; m.replaceChildren(); };
+  const prev = el('div', { class: 'wiz-prev' }), info = el('div', { class: 'info' }), warn = el('p', { class: 'warn bad', hidden: true });
+  const num = (label, k, { min = 0, max = 10000, suf = 'мм', title } = {}) => {
+    const i = el('input', { type: 'text', inputmode: 'decimal', value: String(wiz[k]).replace('.', ',') });
+    i.addEventListener('input', () => { const v = parseNum(i.value); if (v != null) { wiz[k] = clamp(v, min, max); draw(); } });
+    return el('label', { class: 'nf', title: title || null }, el('b', {}, label), i, el('i', {}, suf));
+  };
+  const chk = (label, k, after) => { const i = el('input', { type: 'checkbox' }); i.checked = !!wiz[k]; i.onchange = () => { wiz[k] = i.checked; after ? after() : draw(); }; return el('label', { class: 'check' }, i, label); };
+  const fmtSel = el('select', {}, POCKET_FORMATS.map(([n, a, b]) => el('option', { value: n }, `${n} — ${a}×${b} мм`)), el('option', { value: '' }, 'Свой формат'));
+  fmtSel.value = POCKET_FORMATS.some(f => f[0] === wiz.fmt) ? wiz.fmt : '';
+  const own = el('div', { class: 'grid2' });
+  const show = (n, v) => { n.style.display = v ? '' : 'none'; };
+  const fmtSync = () => { const f = POCKET_FORMATS.find(x => x[0] === fmtSel.value); if (f) { wiz.fmt = f[0]; wiz.iw = f[1]; wiz.ih = f[2]; } else wiz.fmt = ''; show(own, !f); };
+  fmtSel.onchange = () => { fmtSync(); draw(); };
+  own.append(num('Ш', 'iw', { min: 20, max: 3000, title: 'Ширина вкладыша' }), num('В', 'ih', { min: 20, max: 3000, title: 'Высота вкладыша' }));
+  const orient2 = () => { const s_ = segField([[false, 'Книжная'], [true, 'Альбомная']], wiz.land, v => { wiz.land = v; const n = orient2(); s_.replaceWith(n); draw(); }); return s_; };
+  const countBox = el('div', { class: 'grid2' }, num('Колонок', 'cols', { min: 1, max: 50, suf: 'шт' }), num('Рядов', 'rows', { min: 1, max: 50, suf: 'шт' }));
+  const autoChk = chk('Сколько поместится', 'auto', () => draw());
+  const vSeg = () => { const s_ = segField([['center', 'По центру'], ['top', 'Сверху']], wiz.valign, v => { wiz.valign = v; s_.replaceWith(vSeg()); draw(); }); return s_; };
+  const headBox = el('div', {}, num('Высота', 'headerH', { min: 20, max: 2000, title: 'Полоса под заголовок сверху' }));
+  const draw = () => {
+    let W = base().w, H = base().h;
+    if (wiz.fitBase) { const L0 = wizLayout(1e6, 1e6, { ...wiz, auto: false }); W = Math.ceil(L0.need.w); H = Math.ceil(L0.need.h); }
+    const L = wizLayout(W, H, wiz);
+    prev.innerHTML = miniSVG(W, H, L.list.map(p => ({ ...p, w: L.pw, h: L.ph })), wiz.header ? { x: W * 0.2, y: wiz.margin + wiz.headerH * 0.3, w: W * 0.6, h: wiz.headerH * 0.4 } : null, 300);
+    info.textContent = `Стенд ${mmTxt(W)} × ${mmTxt(H)} мм · карманов ${L.C * L.R} (${L.C} × ${L.R}) · карман целиком ${mmTxt(L.pw)} × ${mmTxt(L.ph)} мм · раскладка ${mmTxt(L.gw)} × ${mmTxt(L.gh)} мм`;
+    warn.hidden = L.fits || wiz.fitBase; warn.textContent = 'Не помещается: уменьшите число карманов, зазоры или поля — или включите «Размер стенда по раскладке».';
+    if (wiz.fitBase && wiz.auto) { wiz.auto = false; autoChk.querySelector('input').checked = false; }
+    show(headBox, wiz.header); show(countBox, !wiz.auto);
+    if (wiz.auto) { countBox.querySelectorAll('input')[0].value = L.C; countBox.querySelectorAll('input')[1].value = L.R; wiz.cols = Math.max(1, L.C); wiz.rows = Math.max(1, L.R); }
+  };
+  fmtSync();
+  m.replaceChildren(el('div', { class: 'dlg', role: 'dialog', style: 'width:min(860px,100%)' },
+    el('div', { class: 'dlg-h' }, el('span', {}, 'Мастер раскладки карманов'), B('', '✕', close, { cls: 'icon', title: 'Закрыть (Esc)' })),
+    el('div', { class: 'dlg-b wiz', style: 'padding-top:14px' },
+      el('div', { class: 'wiz-form' },
+        cap('Формат вкладыша'), row(fmtSel), own, row(orient2()),
+        cap('Количество'), row(autoChk), countBox,
+        cap('Зазоры и поля'), el('div', { class: 'grid2' }, num('Зазор ↔', 'gx'), num('Зазор ↕', 'gy')), row(num('Поля по краям', 'margin', { title: 'От края стенда до карманов' })),
+        cap('Заголовок'), row(chk('Место под заголовок сверху', 'header')), headBox,
+        cap('По вертикали'), row(vSeg()),
+        cap('Стенд'), row(chk('Размер стенда — по раскладке', 'fitBase')), row(chk('Заменить карманы, которые уже есть', 'replace')), row(chk('Сгруппировать карманы', 'group'))),
+      el('div', { class: 'wiz-side' }, prev, info, warn)),
+    el('div', { class: 'dlg-f' }, B('', 'Разложить', () => { close(); wizApply(); }, { cls: 'btn primary' }))));
+  m.hidden = false; m.onclick = e => { if (e.target === m) close(); };
+  draw();
+}
+
+/* ---- шаблоны: встроенные строятся мастером, свои — снимок проекта в IndexedDB ---- */
+const BUILTIN_TPL = [
+  { name: 'Информационный стенд', note: '4 кармана А4 и заголовок', w: 1000, h: 600, o: { fmt: 'А4', iw: 210, ih: 297, auto: false, cols: 4, rows: 1, gx: 30, gy: 30, margin: 60, header: true, headerH: 160, valign: 'center' } , fit: true},
+  { name: 'Уголок потребителя', note: '6 карманов А4', w: 1000, h: 1000, o: { fmt: 'А4', iw: 210, ih: 297, auto: false, cols: 3, rows: 2, gx: 40, gy: 40, margin: 70, header: true, headerH: 150, valign: 'center' } , fit: true},
+  { name: '9 карманов А4', note: '3 × 3, без заголовка', w: 900, h: 1200, o: { fmt: 'А4', iw: 210, ih: 297, auto: false, cols: 3, rows: 3, gx: 40, gy: 40, margin: 60, header: false, headerH: 0, valign: 'center' }, fit: true },
+  { name: '12 карманов А4', note: '4 × 3 и заголовок', w: 1200, h: 1300, o: { fmt: 'А4', iw: 210, ih: 297, auto: false, cols: 4, rows: 3, gx: 35, gy: 35, margin: 60, header: true, headerH: 160, valign: 'center' }, fit: true },
+  { name: 'Меню / прайс', note: '2 кармана А4 и заголовок', w: 700, h: 600, o: { fmt: 'А4', iw: 210, ih: 297, auto: false, cols: 2, rows: 1, gx: 40, gy: 40, margin: 60, header: true, headerH: 150, valign: 'center' }, fit: true },
+  { name: 'Расписание', note: 'А3 альбомный и 2 А4', w: 1100, h: 700, special: 'schedule' },
+  { name: 'Фотостенд', note: '12 фото 10×15', w: 1000, h: 700, o: { fmt: 'Фото 10×15', iw: 100, ih: 150, land: true, auto: false, cols: 4, rows: 3, gx: 40, gy: 40, margin: 60, header: true, headerH: 130, valign: 'center' }, fit: true },
+  { name: 'Объявления', note: '8 карманов А5', w: 900, h: 700, o: { fmt: 'А5', iw: 148, ih: 210, auto: false, cols: 4, rows: 2, gx: 30, gy: 30, margin: 60, header: true, headerH: 130, valign: 'center' }, fit: true },
+];
+function builtinPreview(t) {
+  if (t.special === 'schedule') return miniSVG(1100, 700, [{ x: 60, y: 190, w: 444, h: 321 }, { x: 560, y: 190, w: 234, h: 311 }, { x: 820, y: 190, w: 234, h: 311 }], { x: 220, y: 70, w: 660, h: 60 }, 200);
+  let W = t.w, H = t.h; const o = { ...wiz, ...t.o, land: !!t.o.land };
+  if (t.fit) { const L0 = wizLayout(1e6, 1e6, o); W = Math.ceil(L0.need.w); H = Math.ceil(L0.need.h); }
+  const L = wizLayout(W, H, o);
+  return miniSVG(W, H, L.list.map(p => ({ ...p, w: L.pw, h: L.ph })), o.header ? { x: W * 0.2, y: o.margin + o.headerH * 0.3, w: W * 0.6, h: o.headerH * 0.4 } : null, 200);
+}
+async function newFromBuiltin(t) {
+  await newStand(true);
+  if (t.special === 'schedule') {
+    mutate(null, () => {
+      const b = base(); b.w = 1100; b.h = 700;
+      const add = (iw, ih, x, y, name) => { const k = makePocket(); k.iw = iw; k.ih = ih; k.name = name; syncDerived(k); k.x = x; k.y = y; insertObj(k); };
+      add(420, 297, 60, 190, 'Расписание'); add(210, 297, 560, 190, 'Объявление 1'); add(210, 297, 820, 190, 'Объявление 2');
+      const tx = makeText(); tx.text = 'Расписание'; tx.size = 60; syncDerived(tx); tx.x = r2((1100 - tx.w) / 2); tx.y = 60; insertObj(tx);
+    });
+  } else {
+    mutate(null, () => { const b = base(); b.w = t.w; b.h = t.h; });
+    wizApply({ ...wiz, ...t.o, land: !!t.o.land, fitBase: !!t.fit, replace: true, group: false });
+  }
+  mutate(null, () => { doc.title = t.name; });
+  fit(); toast('Шаблон «' + t.name + '»: замените тексты и вставьте свои картинки');
+}
+const tplStore = {
+  all: () => idbTx('templates', 'readonly', s_ => s_.getAll()).then(a => (a || []).sort((x, y) => y.created - x.created)),
+  put: r => idbTx('templates', 'readwrite', s_ => s_.put(r)),
+  del: id => idbTx('templates', 'readwrite', s_ => s_.delete(id)),
+};
+function promptText(title, label, value) {
+  return new Promise(ok => {
+    const w = el('div', { class: 'ask-wrap' }), inp = el('input', { type: 'text', class: 'txt', value, style: 'width:100%' }), done = v => { w.remove(); ok(v); };
+    w.append(el('div', { class: 'dlg', role: 'dialog' }, el('div', { class: 'dlg-h' }, el('span', {}, title)),
+      el('div', { class: 'dlg-b', style: 'padding-top:12px' }, cap(label), inp),
+      el('div', { class: 'dlg-f' }, el('button', { type: 'button', class: 'btn', onclick: () => done(null) }, 'Отмена'), el('button', { type: 'button', class: 'btn primary', onclick: () => done(inp.value.trim() || null) }, 'Сохранить'))));
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') done(inp.value.trim() || null); if (e.key === 'Escape') { e.stopPropagation(); done(null); } });
+    document.body.append(w); setTimeout(() => { inp.focus(); inp.select(); }, 20);
+  });
+}
+async function saveAsTemplate() {
+  const name = await promptText('Сохранить как шаблон', 'Название шаблона', doc.title || DEFAULT_TITLE); if (!name) return;
+  await flushLib();
+  let thumb = null; try { thumb = (await renderStand(360)).toDataURL('image/jpeg', 0.8); } catch {}
+  const b = base(), data = structuredClone(serialize()); delete data.id; data.doc.title = name;
+  await tplStore.put({ id: 't' + uid(), name, created: Date.now(), w: b.w, h: b.h, pockets: doc.objects.filter(o => o.type === 'pocket').length, thumb, data });
+  toast(`Шаблон «${name}» сохранён — он появится в «Новый проект»`);
+}
+async function newFromTemplate(t) {
+  await newStand(true);
+  const d = structuredClone(t.data); d.id = pid;
+  // новые id у элементов, чтобы проекты из одного шаблона не пересекались
+  const n = normalize(d.doc); if (!n) return toast('Шаблон повреждён');
+  const ids = new Map(); for (const o of n.objects) { const id = uid(); ids.set(o.id, id); o.id = id; }
+  d.doc = n; applyData(d); pristine = null; libSave();
+  toast('Проект из шаблона «' + t.name + '»');
+}
+async function openNewDialog() {
+  const m = $('#modal'), close = () => { m.hidden = true; m.replaceChildren(); };
+  const mine = await tplStore.all().catch(() => []);
+  const card = (preview, title, note, onOpen, extra) => {
+    const c = el('div', { class: 'lib-card tpl', tabindex: 0, onclick: () => { close(); onOpen(); } },
+      el('div', { class: 'lib-thumb' }, preview), el('div', { class: 'lib-meta' }, el('b', {}, title), note ? el('span', {}, note) : null), extra || null);
+    c.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target === c) { close(); onOpen(); } });
+    return c;
+  };
+  const myCards = mine.map(t => {
+    let armed = 0; const del = el('button', { type: 'button', class: 'lib-act' }, 'Удалить');
+    del.onclick = async e => { e.stopPropagation(); if (!armed) { del.textContent = 'Точно?'; del.classList.add('armed'); armed = setTimeout(() => { armed = 0; del.textContent = 'Удалить'; del.classList.remove('armed'); }, 3000); return; }
+      await tplStore.del(t.id); close(); openNewDialog(); toast('Шаблон удалён'); };
+    return card(t.thumb ? el('img', { src: t.thumb, alt: '' }) : el('span', { class: 'cap' }, 'без превью'), t.name, `${mmTxt(t.w)} × ${mmTxt(t.h)} мм · карманов ${t.pockets}`, () => newFromTemplate(t), el('div', { class: 'lib-acts' }, del));
+  });
+  m.replaceChildren(el('div', { class: 'dlg', role: 'dialog', style: 'width:min(1000px,100%)' },
+    el('div', { class: 'dlg-h' }, el('span', {}, 'Новый проект'), B('', '✕', close, { cls: 'icon', title: 'Закрыть (Esc)' })),
+    el('div', { class: 'dlg-b', style: 'padding-top:14px' },
+      el('div', { class: 'lib-grid' },
+        el('button', { type: 'button', class: 'lib-card lib-new', onclick: () => { close(); newStand(); } }, el('span', { class: 'lib-plus' }, '+'), el('b', {}, 'Пустой стенд')),
+        el('button', { type: 'button', class: 'lib-card lib-new', onclick: async () => { close(); await newStand(true); openWizard({ replace: true }); } }, el('span', { class: 'lib-plus', html: ic('grid') }), el('b', {}, 'Мастер раскладки'), el('span', { class: 'cap' }, 'формат, количество, зазоры'))),
+      el('h4', { class: 'tpl-h' }, 'Шаблоны'),
+      el('div', { class: 'lib-grid' }, BUILTIN_TPL.map(t => card(el('span', { html: builtinPreview(t) }), t.name, t.note, () => newFromBuiltin(t)))),
+      el('h4', { class: 'tpl-h' }, 'Мои шаблоны'),
+      myCards.length ? el('div', { class: 'lib-grid' }, myCards) : el('p', { class: 'hint' }, 'Пока нет. Любой проект можно сохранить как шаблон: правой кнопкой по пустому месту на холсте «Сохранить как шаблон…» или в «Моих проектах» кнопкой «В шаблоны».'),
+      el('div', { class: 'btns', style: 'margin-top:12px' }, B('', 'Сохранить текущий проект как шаблон…', () => { close(); saveAsTemplate(); }, { cls: 'btn' })))));
+  m.hidden = false; m.onclick = e => { if (e.target === m) close(); };
+}
+
 /* ================= группы =================
    Группа — запись в doc.groups { id, name, collapsed }, у её элементов поле group. Видимость и блокировка
    группы — это видимость и блокировка всех её элементов. Элементы группы в списке слоёв всегда идут подряд. */
@@ -5634,6 +5828,9 @@ function canvasMenu(w) {
     { label: 'Показать целиком', kbd: '0', icon: 'fit', act: fit },
     { label: doc.grid && doc.grid.on ? 'Скрыть сетку' : 'Показать сетку', kbd: 'G', icon: 'grid', act: () => setGrid(g => g.on = !g.on) },
     { label: 'Свойства подложки', act: () => select(b.id) },
+    '-',
+    { label: 'Мастер раскладки…', icon: 'grid', act: () => openWizard({ replace: false }), edit: true },
+    { label: 'Сохранить как шаблон…', act: saveAsTemplate },
   ];
 }
 function splitMenu(id) {
@@ -6864,6 +7061,11 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-08h', date: '8 ноября 2026', items: [
+    '«Новый» открывает выбор: пустой стенд, мастер раскладки или шаблон.',
+    'Мастер раскладки: формат вкладыша, количество (или «сколько поместится»), зазоры, поля, место под заголовок; размер стенда можно подогнать под раскладку. Схема меняется на лету. Для текущего стенда — правой кнопкой по пустому месту.',
+    '8 готовых шаблонов: информационный стенд, уголок потребителя, 9 и 12 карманов А4, меню, расписание, фотостенд, объявления.',
+    '«Сохранить как шаблон» — любой свой проект становится шаблоном (правой кнопкой по холсту или «В шаблоны» в «Моих проектах»).'] },
   { v: '2026-11-08g', date: '8 ноября 2026', items: [
     'Группы: Ctrl+G — сгруппировать, Ctrl+Shift+G — разгруппировать (или правой кнопкой). Клик по элементу выделяет группу целиком, второй клик — только этот элемент.',
     'Группа двигается, дублируется, скрывается и блокируется целиком, сворачивается в списке слоёв. R и Shift+R поворачивают её вокруг общего центра, в свойствах — поворот на любой угол.',
