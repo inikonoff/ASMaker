@@ -62,6 +62,9 @@ textarea.txt{width:100%;height:auto;min-height:64px;padding:6px 8px;resize:verti
 @media (max-width:1520px){header .tb span{display:none}}
 .acct,.acct-in{flex:none}
 .dims{pointer-events:none}
+.rot-stem{stroke:var(--acc);stroke-width:1;vector-effect:non-scaling-stroke}
+.rot-h{fill:#fff;stroke:var(--acc);stroke-width:1.5;vector-effect:non-scaling-stroke;cursor:grab;pointer-events:all}
+.rot-h:hover{fill:var(--acc)}
 .dim-l{stroke:#f97316;stroke-width:1;vector-effect:non-scaling-stroke}
 .dim-bg{fill:#f97316}
 .dim-t{fill:#fff;font-weight:600;font-family:system-ui,sans-serif}
@@ -2817,15 +2820,50 @@ const localWH = o => o.type === 'pocket' ? pocketGeom(o) : (o.rot % 180 ? { w: o
 function objTransform(o) {
   if (o.type === 'holes') return null;
   if (o.type === 'grid') return null;
-  if (!o.rot && !o.flip) return `translate(${o.x} ${o.y})`;
+  const t = tiltOf(o), pre = t ? `rotate(${t} ${r2(o.x + o.w / 2)} ${r2(o.y + o.h / 2)}) ` : '';
+  if (!o.rot && !o.flip) return pre + `translate(${o.x} ${o.y})`;
   const l = localWH(o);
-  return `translate(${r2(o.x + o.w / 2)} ${r2(o.y + o.h / 2)})${o.flip ? ' scale(-1 1)' : ''} rotate(${o.rot}) translate(${r2(-l.w / 2)} ${r2(-l.h / 2)})`;
+  return pre + `translate(${r2(o.x + o.w / 2)} ${r2(o.y + o.h / 2)})${o.flip ? ' scale(-1 1)' : ''} rotate(${o.rot}) translate(${r2(-l.w / 2)} ${r2(-l.h / 2)})`;
+}
+/* ---- свободный поворот: rot — четверти (0/90/180/270, меняют рабочие размеры), tilt — доворот в пределах ±45°
+   вокруг центра. x, y, w, h остаются рамкой до доворота; для привязки, выделения и проверок берётся описанная рамка AB() ---- */
+const tiltOf = o => (o && o.tilt) || 0;
+const angleOf = o => { const a = (o.flip ? -o.rot : o.rot) + tiltOf(o); return r2(((a % 360) + 540) % 360 - 180); };
+function AB(o) {
+  const t = tiltOf(o); if (!t) return o;
+  const a = t * Math.PI / 180, c = Math.abs(Math.cos(a)), s_ = Math.abs(Math.sin(a)), w = o.w * c + o.h * s_, h = o.w * s_ + o.h * c;
+  return { x: o.x + o.w / 2 - w / 2, y: o.y + o.h / 2 - h / 2, w, h };
+}
+const rotPt = (p, c, deg) => { const a = deg * Math.PI / 180, dx = p.x - c.x, dy = p.y - c.y; return { x: c.x + dx * Math.cos(a) - dy * Math.sin(a), y: c.y + dx * Math.sin(a) + dy * Math.cos(a) }; };
+function cornersOf(o) {
+  const c = { x: o.x + o.w / 2, y: o.y + o.h / 2 }, t = tiltOf(o), P = [{ x: o.x, y: o.y }, { x: o.x + o.w, y: o.y }, { x: o.x + o.w, y: o.y + o.h }, { x: o.x, y: o.y + o.h }];
+  return t ? P.map(p => rotPt(p, c, t)) : P;
+}
+/* пересечение двух повёрнутых прямоугольников (теорема о разделяющей оси) */
+function boxesOverlap(a, b) {
+  const A = cornersOf(a), B = cornersOf(b);
+  for (const poly of [A, B]) for (let i = 0; i < 4; i++) {
+    const p = poly[i], q = poly[(i + 1) % 4], nx = q.y - p.y, ny = p.x - q.x;
+    const pa = A.map(v => v.x * nx + v.y * ny), pb = B.map(v => v.x * nx + v.y * ny);
+    if (Math.max(...pa) <= Math.min(...pb) + 0.01 || Math.max(...pb) <= Math.min(...pa) + 0.01) return false;
+  }
+  return true;
+}
+/* выставить общий угол: ближайшая четверть уходит в rot, остаток — в tilt; центр элемента на месте */
+function applyAngle(x, A) {
+  A = ((A % 360) + 540) % 360 - 180;
+  const q = Math.round(A / 90) * 90, rotN = (((x.flip ? -q : q) % 360) + 360) % 360, tilt = r2(A - q);
+  const cx = x.x + x.w / 2, cy = x.y + x.h / 2;
+  if (rotN !== x.rot) { if (x.type === 'shape' && ((rotN - x.rot) / 90) % 2) [x.w, x.h] = [x.h, x.w]; x.rot = rotN; syncDerived(x); }
+  x.tilt = Math.abs(tilt) < 0.01 ? 0 : tilt;
+  x.x = r2(cx - x.w / 2); x.y = r2(cy - x.h / 2);
 }
 
 function normalizeObj(raw, ids) {
   if (!raw || typeof raw !== 'object' || !MAKERS[raw.type]) return null;
   const o = Object.assign(MAKERS[raw.type](), raw);
   if (typeof o.id !== 'string' || ids.has(o.id)) o.id = uid();
+  if (o.type === 'pocket' || o.type === 'shape' || o.type === 'text' || o.type === 'qr') { const t = +o.tilt || 0; o.tilt = Math.abs(t) < 0.01 ? 0 : clamp(r2(t), -45, 45); } else delete o.tilt;
   for (const k of ['x', 'y']) if (!isFinite(o[k])) o[k] = 0;
   o.name = String(o.name || '').slice(0, 80) || MAKERS[o.type]().name;
   o.opacity = isFinite(o.opacity) ? clamp(+o.opacity, 0, 1) : 1;
@@ -2978,9 +3016,9 @@ function keepTextAnchors(before) {
     const p = o.type === 'text' && before.get(o.id);
     if (!p || o.x !== p.x || o.y !== p.y || (Math.abs(o.w - p.w) < 0.01 && Math.abs(o.h - p.h) < 0.01)) continue;
     const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
-    let ax = o.rot ? 'c' : o.align === 'center' ? 'c' : o.align === 'right' ? 'r' : 'l';
+    let ax = o.rot || o.tilt ? 'c' : o.align === 'center' ? 'c' : o.align === 'right' ? 'r' : 'l';
     if (Math.abs(cx - b.w / 2) < 0.6) ax = 'c';
-    const ay = o.rot || Math.abs(cy - b.h / 2) < 0.6 ? 'c' : 't';
+    const ay = o.rot || o.tilt || Math.abs(cy - b.h / 2) < 0.6 ? 'c' : 't';
     o.x = r2(ax === 'c' ? cx - o.w / 2 : ax === 'r' ? p.x + p.w - o.w : p.x);
     o.y = r2(ay === 'c' ? cy - o.h / 2 : p.y);
   }
@@ -3353,12 +3391,12 @@ function autoCols() {
 function arrangeGrid() {
   const list = arrangeList(); if (list.length < 2) return toast('Выберите хотя бы 2 элемента');
   const ord = readingRows(list).flatMap(r => r.items), n = ord.length, { C, R } = gridDims(n);
-  const cw = Math.max(...ord.map(o => o.w)), ch = Math.max(...ord.map(o => o.h)), b = base();
+  const abs = new Map(ord.map(o => [o.id, AB(o)])), cw = Math.max(...ord.map(o => abs.get(o.id).w)), ch = Math.max(...ord.map(o => abs.get(o.id).h)), b = base();
   const axis = (B, k, cell, v) => arrangeOpts.mode === 'gap' ? { start: (B - k * cell - (k - 1) * v) / 2, gap: v } : k === 1 ? { start: (B - cell) / 2, gap: 0 } : { start: v, gap: (B - 2 * v - k * cell) / (k - 1) };
   const X = axis(b.w, C, cw, arrangeOpts.gx), Y = axis(b.h, R, ch, arrangeOpts.gy);
   mutate(null, () => ord.forEach((o, i) => {
-    const r = Math.floor(i / C), c = i % C, inRow = r === R - 1 ? n - r * C : C, shift = (C - inRow) * (cw + X.gap) / 2, x = byId(o.id);
-    x.x = r2(X.start + shift + c * (cw + X.gap) + (cw - o.w) / 2); x.y = r2(Y.start + r * (ch + Y.gap) + (ch - o.h) / 2);
+    const r = Math.floor(i / C), c = i % C, inRow = r === R - 1 ? n - r * C : C, shift = (C - inRow) * (cw + X.gap) / 2, x = byId(o.id), a = abs.get(o.id);
+    x.x = r2(x.x - a.x + X.start + shift + c * (cw + X.gap) + (cw - a.w) / 2); x.y = r2(x.y - a.y + Y.start + r * (ch + Y.gap) + (ch - a.h) / 2);
   }));
   if (X.gap < 0 || Y.gap < 0 || X.start < 0 || Y.start < 0) toast('Сетка не помещается на стенд: уменьшите ' + (arrangeOpts.mode === 'gap' ? 'зазоры' : 'отступы') + ' или число колонок');
 }
@@ -3366,14 +3404,15 @@ function alignSel(k, forceStand) {
   const list = selected().filter(o => isBox(o) && !o.locked); if (!list.length) return;
   const b = base(), ref = forceStand || alignToStand || list.length < 2 ? { x: 0, y: 0, w: b.w, h: b.h } : bboxOf(list);
   mutate(null, () => { for (const x of list.map(o => byId(o.id))) {
-    if (k === 'l') x.x = ref.x; if (k === 'ch') x.x = ref.x + (ref.w - x.w) / 2; if (k === 'r') x.x = ref.x + ref.w - x.w;
-    if (k === 't') x.y = ref.y; if (k === 'cv') x.y = ref.y + (ref.h - x.h) / 2; if (k === 'b') x.y = ref.y + ref.h - x.h;
-    x.x = r2(x.x); x.y = r2(x.y);
+    const a = AB(x); let nx = a.x, ny = a.y;
+    if (k === 'l') nx = ref.x; if (k === 'ch') nx = ref.x + (ref.w - a.w) / 2; if (k === 'r') nx = ref.x + ref.w - a.w;
+    if (k === 't') ny = ref.y; if (k === 'cv') ny = ref.y + (ref.h - a.h) / 2; if (k === 'b') ny = ref.y + ref.h - a.h;
+    x.x = r2(x.x + nx - a.x); x.y = r2(x.y + ny - a.y);
   } });
 }
 /* распределение по стенду: колонки/ряды (элементы, перекрывающиеся по оси) двигаются целиком */
 function distributeOnStand(axis) {
-  const list = selected().filter(o => isBox(o) && !o.locked).map(o => byId(o.id)); if (!list.length) return;
+  const list = selected().filter(o => isBox(o) && !o.locked).map(o => ({ id: o.id, ...AB(byId(o.id)) })); if (!list.length) return;
   const P = axis, S = axis === 'x' ? 'w' : 'h', B = base()[S], v = multiGap;
   const groups = [];
   for (const o of [...list].sort((a, c) => a[P] - c[P])) {
@@ -3392,12 +3431,12 @@ function distributeOnStand(axis) {
 function distribute(axis, gap) {
   const list = selected().filter(o => isBox(o) && !o.locked), P = axis, S = axis === 'x' ? 'w' : 'h', b = base();
   if (list.length < 2 || (gap == null && !alignToStand && list.length < 3)) return toast(gap == null ? 'Для равных промежутков выберите хотя бы 3 элемента или включите «Относительно стенда»' : 'Выберите хотя бы 2 элемента');
-  const items = list.map(o => byId(o.id)).sort((a, c) => a[P] - c[P]), sum = items.reduce((t, o) => t + o[S], 0), total = b[S];
+  const items = list.map(o => ({ id: o.id, ...AB(byId(o.id)) })).sort((a, c) => a[P] - c[P]), sum = items.reduce((t, o) => t + o[S], 0), total = b[S];
   let start, g;
   if (gap != null) { g = gap; start = alignToStand ? (total - sum - g * (items.length - 1)) / 2 : items[0][P]; }
   else if (alignToStand) { g = (total - sum) / (items.length + 1); start = g; }
   else { const span = items[items.length - 1][P] + items[items.length - 1][S] - items[0][P]; g = (span - sum) / (items.length - 1); start = items[0][P]; }
-  mutate(null, () => { let p = start; for (const o of items) { byId(o.id)[P] = r2(p); p += o[S] + g; } });
+  mutate(null, () => { let p = start; for (const o of items) { const x = byId(o.id); x[P] = r2(x[P] + p - o[P]); p += o[S] + g; } });
 }
 /* ---- массив карманов ---- */
 const arrayOpts = { cols: 3, rows: 2, gx: 30, gy: 30, center: true };
@@ -3556,7 +3595,7 @@ function holePoints(o, b) { // b — прямоугольник части (x, y
   for (let i = 1; i <= nV; i++) { const y = m + i / (nV + 1) * (b.h - 2 * m); pts.push({ x: m, y }, { x: b.w - m, y }); }
   return pts.map(p => ({ x: p.x + X, y: p.y + Y }));
 }
-const circleHitsRect = (p, r, k) => { const cx = clamp(p.x, k.x, k.x + k.w), cy = clamp(p.y, k.y, k.y + k.h); return (p.x - cx) ** 2 + (p.y - cy) ** 2 < r * r; };
+const circleHitsRect = (p, r, k) => { if (tiltOf(k)) p = rotPt(p, { x: k.x + k.w / 2, y: k.y + k.h / 2 }, -tiltOf(k)); const cx = clamp(p.x, k.x, k.x + k.w), cy = clamp(p.y, k.y, k.y + k.h); return (p.x - cx) ** 2 + (p.y - cy) ** 2 < r * r; };
 function badHoles(o, pts) {
   const r = o.d / 2, pk = doc.objects.filter(x => x.type === 'pocket' && x.visible), bad = new Set();
   pts.forEach((p, i) => { if (pk.some(k => circleHitsRect(p, r, k))) bad.add(i); });
@@ -3980,8 +4019,8 @@ function splitOverlay(kids, b, z) {
 }
 /* ---- размеры и расстояния: от выделенного элемента до ближайших соседей или краёв подложки ---- */
 const showDims = (() => { try { return { on: JSON.parse(localStorage.getItem(STORE + ':dims')) === true }; } catch { return { on: false }; } })();
-function dimsOverlay(kids, o, z) {
-  const b = base(), others = doc.objects.filter(x => x !== o && isBox(x) && x.visible);
+function dimsOverlay(kids, o0, z) {
+  const b = base(), o = AB(o0), others = doc.objects.filter(x => x !== o0 && isBox(x) && x.visible).map(AB);
   const ov = (a1, a2, b1, b2) => a1 < b2 - 0.01 && b1 < a2 - 0.01;
   const near = (dir) => { // ближайшее препятствие в направлении: сосед, перекрывающийся по другой оси, или край подложки
     let best = null;
@@ -4024,7 +4063,7 @@ function renderOverlay() {
   if (showDims.on && o && isBox(o) && o.visible) dimsOverlay(kids, o, z);
   if (selIds.length > 1) {
     const list = selected().filter(x => x.visible && x.type !== 'holes' && x.type !== 'grid');
-    for (const x of list) kids.push(sv('rect', { class: 'sel-outline' + (x.locked ? ' locked' : ''), x: x.x, y: x.y, width: x.w, height: x.h }));
+    for (const x of list) kids.push(sv('polygon', { class: 'sel-outline' + (x.locked ? ' locked' : ''), points: cornersOf(x).map(p => p.x + ',' + p.y).join(' ') }));
     if (list.length) { const bb = bboxOf(list); kids.push(sv('rect', { class: 'group-box', x: bb.x, y: bb.y, width: bb.w, height: bb.h, 'stroke-dasharray': `${4 / z} ${3 / z}` }));
       kids.push(svText(`${fmtLen(bb.w)} × ${fmtLen(bb.h)}`, bb.x + bb.w / 2, bb.y + bb.h + 16 / z, 11 / z, 'dim acc', 'middle')); }
   }
@@ -4035,7 +4074,9 @@ function renderOverlay() {
       const r = o.d / 2 + 4 / z;
       for (const p of holePoints(o, b)) kids.push(sv('circle', { class: cls, cx: p.x, cy: p.y, r }));
     } else {
-      kids.push(sv('rect', { class: cls, x: o.x, y: o.y, width: o.w, height: o.h }));
+      // рамка выделения, ручки и подпись — в повороте элемента
+      const t = tiltOf(o), K = t ? [] : kids;
+      K.push(sv('rect', { class: cls, x: o.x, y: o.y, width: o.w, height: o.h }));
       if (o.type === 'base') {
         const i = o.image;
         if (i && !o.locked && assets[i.asset]) {
@@ -4043,9 +4084,17 @@ function renderOverlay() {
           handles(kids, i.x, i.y, i.w, i.h);
         }
       } else {
-        kids.push(svText(`${fmtLen(o.w)} × ${fmtLen(o.h)}`, o.x + o.w / 2, o.y + o.h + 16 / z, 11 / z, 'dim acc', 'middle'));
-        if (!o.locked) handles(kids, o.x, o.y, o.w, o.h, o.type === 'text' ? (o.rot % 180 ? ['n', 's'] : ['e', 'w']) : undefined);
+        const a = angleOf(o);
+        K.push(svText(`${fmtLen(o.w)} × ${fmtLen(o.h)}` + (a ? ` · ${String(r2(a)).replace('.', ',')}°` : ''), o.x + o.w / 2, o.y + o.h + 16 / z, 11 / z, 'dim acc', 'middle'));
+        if (!o.locked) {
+          handles(K, o.x, o.y, o.w, o.h, o.type === 'text' ? (o.rot % 180 ? ['n', 's'] : ['e', 'w']) : undefined);
+          // ручка поворота над верхней стороной
+          const cx = o.x + o.w / 2, hy = o.y - 26 / z;
+          K.push(sv('line', { class: 'rot-stem', x1: cx, y1: o.y, x2: cx, y2: hy + 6 / z }),
+            sv('circle', { class: 'rot-h', 'data-rot': o.id, cx, cy: hy, r: 6 / z }));
+        }
       }
+      if (t) { const g = sv('g', { transform: `rotate(${t} ${o.x + o.w / 2} ${o.y + o.h / 2})` }); g.append(...K); kids.push(g); }
     }
   }
   if (drag && drag.guides) for (const g of drag.guides) kids.push(sv('line', Object.assign({ class: 'guide' }, g, g.class === 'guide gap' ? { 'stroke-dasharray': `${4 / z} ${3 / z}` } : {})));
@@ -4251,6 +4300,7 @@ function toggleSel(id) {
 }
 const selected = () => selIds.map(byId).filter(Boolean);
 const bboxOf = list => {
+  list = list.map(AB);
   const x = Math.min(...list.map(o => o.x)), y = Math.min(...list.map(o => o.y));
   return { x, y, w: Math.max(...list.map(o => o.x + o.w)) - x, h: Math.max(...list.map(o => o.y + o.h)) - y };
 };
@@ -4411,9 +4461,18 @@ function layerSection(o, O, upd) {
     row(checkField('Заблокирован', () => O().locked, v => upd(null, x => x.locked = v))),
     btns);
 }
-const posGrid = (O, upd) => el('div', { class: 'grid2' },
+const posGrid = (O, upd) => [el('div', { class: 'grid2' },
   lenField('X', () => O().x, (v, k) => upd(k, x => x.x = v), { min: -1e5, title: 'От левого края подложки' }),
-  lenField('Y', () => O().y, (v, k) => upd(k, x => x.y = v), { min: -1e5, title: 'От верхнего края подложки' }));
+  lenField('Y', () => O().y, (v, k) => upd(k, x => x.y = v), { min: -1e5, title: 'От верхнего края подложки' })),
+  isBox(O()) ? el('div', { class: 'grid2' }, angleField(O, upd), el('div', { class: 'btns', style: 'margin:0' },
+    [0, 15, 45].map(v => el('button', { type: 'button', class: 'btn', title: v ? `Наклон ${v}°` : 'Без наклона', onclick: () => upd(null, x => applyAngle(x, v)) }, v + '°')))) : null];
+function angleField(O, upd) {
+  const inp = el('input', { type: 'text', inputmode: 'decimal' });
+  bind(inp, () => String(angleOf(O())).replace('.', ','));
+  inp.addEventListener('change', () => { const v = parseNum(inp.value); if (v != null) upd(null, x => applyAngle(x, v)); inp.value = String(angleOf(O())).replace('.', ','); });
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
+  return el('label', { class: 'nf', title: 'Угол поворота, градусы. На холсте — круглая ручка над элементом, Shift — шаг 15°' }, el('b', {}, '∠'), inp, el('i', {}, '°'));
+}
 function ctx(o) { const id = o.id; return [() => byId(id) || o, (key, fn) => mutate(key, () => { const x = byId(id); if (x) fn(x); })]; }
 
 function buildBase(o) {
@@ -4558,12 +4617,13 @@ function buildPocket(o) {
   bind(outer, () => { const x = O(); return `Карман целиком: ${fmtLen(x.w)} × ${fmtLen(x.h)} ${unitLabel()}`; }, 'textContent');
   const warn = warnField(() => {
     const x = O(), b = base(), out = [];
-    if (x.x < -0.01 || x.y < -0.01 || x.x + x.w > b.w + 0.01 || x.y + x.h > b.h + 0.01) out.push('Карман выходит за край подложки.');
-    const hit = doc.objects.filter(k => k.type === 'pocket' && k.id !== x.id && k.visible && k.x < x.x + x.w && x.x < k.x + k.w && k.y < x.y + x.h && x.y < k.y + k.h);
+    if (cornersOf(x).some(p => p.x < -0.01 || p.y < -0.01 || p.x > b.w + 0.01 || p.y > b.h + 0.01)) out.push('Карман выходит за край подложки.');
+    const hit = doc.objects.filter(k => k.type === 'pocket' && k.id !== x.id && k.visible && boxesOverlap(k, x));
     if (hit.length) out.push('Пересекается: ' + hit.map(k => '«' + k.name + '»').join(', ') + '.');
     const h = holesCfg();
     if (h && allHoles().some(p => circleHitsRect(p, h.d / 2, x))) out.push('На карман попадает отверстие под крепёж.');
-    if (b.splits.some(l => l.axis === 'v' ? l.pos > x.x + 0.5 && l.pos < x.x + x.w - 0.5 : l.pos > x.y + 0.5 && l.pos < x.y + x.h - 0.5)) out.push('Карман попадает на линию раздела — при производстве он будет разрезан.');
+    const xa = AB(x);
+    if (b.splits.some(l => l.axis === 'v' ? l.pos > xa.x + 0.5 && l.pos < xa.x + xa.w - 0.5 : l.pos > xa.y + 0.5 && l.pos < xa.y + xa.h - 0.5)) out.push('Карман попадает на линию раздела — при производстве он будет разрезан.');
     return out.join('\n');
   }, true);
   const i = o.image;
@@ -4980,7 +5040,7 @@ function toWorld(e) { const r = stage.getBoundingClientRect(); return { x: (e.cl
 const normRect = (a, c) => ({ x: Math.min(a.x, c.x), y: Math.min(a.y, c.y), w: Math.abs(a.x - c.x), h: Math.abs(a.y - c.y) });
 function snapTargets(except) {
   const ex = new Set([].concat(except)), b = base(), xs = [0, b.w / 2, b.w], ys = [0, b.h / 2, b.h];
-  for (const o of doc.objects) if (isBox(o) && o.visible && !ex.has(o.id)) { xs.push(o.x, o.x + o.w / 2, o.x + o.w); ys.push(o.y, o.y + o.h / 2, o.y + o.h); }
+  for (const o0 of doc.objects) if (isBox(o0) && o0.visible && !ex.has(o0.id)) { const o = AB(o0); xs.push(o.x, o.x + o.w / 2, o.x + o.w); ys.push(o.y, o.y + o.h / 2, o.y + o.h); }
   return { xs, ys };
 }
 function snapAxis(pos, size, list, thr, offs = [0, size / 2, size]) {
@@ -4998,8 +5058,9 @@ function midSnap(axis, x, y, s, exclude, thr) {
   const P = axis === 'x' ? 'x' : 'y', S = axis === 'x' ? 'w' : 'h', Q = axis === 'x' ? 'y' : 'x', T = axis === 'x' ? 'h' : 'w';
   const me = { x, y, w: s.w, h: s.h }, lo = me[Q], hi = me[Q] + me[T];
   let a = null, c = null;
-  for (const o of doc.objects) {
-    if (!isBox(o) || !o.visible || exclude.has(o.id) || o[Q] >= hi || o[Q] + o[T] <= lo) continue;
+  for (const o0 of doc.objects) {
+    if (!isBox(o0) || !o0.visible || exclude.has(o0.id)) continue;
+    const o = AB(o0); if (o[Q] >= hi || o[Q] + o[T] <= lo) continue;
     const end = o[P] + o[S];
     if (end <= me[P] + me[S] / 2 && (!a || end > a[P] + a[S])) a = o;
     if (o[P] >= me[P] + me[S] / 2 && (!c || o[P] < c[P])) c = o;
@@ -5042,6 +5103,8 @@ stage.addEventListener('pointerdown', e => {
   if (spA) { const id = spA.dataset.splitId; if (spA.dataset.splitAct === 'rotate') rotateSplit(id); else removeSplit(id); return; }
   const spL = e.target.closest && e.target.closest('[data-split]');
   if (spL) { const l = base().splits.find(x => x.id === spL.dataset.split); if (l) { drag = { ...base0, type: 'split', sid: l.id, start: l.pos }; return; } }
+  const rh = e.target.closest && e.target.closest('[data-rot]');
+  if (rh && cur && !cur.locked && rh.dataset.rot === cur.id) { drag = { ...base0, type: 'tilt', id: cur.id, c: { x: cur.x + cur.w / 2, y: cur.y + cur.h / 2 } }; return; }
   const h = e.target.closest && e.target.closest('[data-handle]');
   const startMarquee = clickId => {
     if (e.pointerType === 'touch') { if (clickId !== undefined) select(clickId); startPan(e); return; } // на сенсоре палец двигает холст
@@ -5100,7 +5163,7 @@ stage.addEventListener('pointermove', e => {
   if (drag.type === 'marquee') {
     if (!drag.moved) { if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return; drag.moved = true; }
     drag.cur = w; const r = normRect(drag.sw, w);
-    const hits = doc.objects.filter(o => isBox(o) && o.visible && o.x < r.x + r.w && r.x < o.x + o.w && o.y < r.y + r.h && r.y < o.y + o.h).map(o => o.id);
+    const hits = doc.objects.filter(o0 => { if (!isBox(o0) || !o0.visible) return false; const o = AB(o0); return o.x < r.x + r.w && r.x < o.x + o.w && o.y < r.y + r.h && r.y < o.y + o.h; }).map(o => o.id);
     setSel([...drag.keep, ...hits]); invalidate('overlay'); return;
   }
   let o = byId(drag.id); if (!o) { drag = null; return; }
@@ -5131,6 +5194,11 @@ stage.addEventListener('pointermove', e => {
     let nw = hW || hE ? Math.max(5, hW ? ax - w.x : w.x - ax) : s.w, nh = hN || hS ? Math.max(5, hN ? ay - w.y : w.y - ay) : s.h;
     if ((hW || hE) && (hN || hS) && i.lockRatio !== e.shiftKey) { const r = s.w / s.h; if (nw / nh > r) nh = nw / r; else nw = nh * r; }
     i.w = nw; i.h = nh; i.x = hW ? ax - nw : s.x; i.y = hN ? ay - nh : s.y;
+  } else if (drag.type === 'tilt') { // Shift — шаг 15°, рядом с четвертями прилипает к ним
+    let a = Math.atan2(w.y - drag.c.y, w.x - drag.c.x) * 180 / Math.PI + 90;
+    if (e.shiftKey) a = Math.round(a / 15) * 15; else if (!free) { const q = Math.round(a / 90) * 90; if (Math.abs(a - q) < 3) a = q; }
+    applyAngle(o, Math.round(a * 10) / 10);
+    hud.textContent = `Угол ${String(angleOf(o)).replace('.', ',')}°`;
   } else if (drag.type === 'boxmove') {
     let x = s.x + (w.x - drag.sw.x), y = s.y + (w.y - drag.sw.y);
     if (!free) {
@@ -5148,8 +5216,9 @@ stage.addEventListener('pointermove', e => {
   } else if (drag.type === 'boxresize') {
     const c = drag.corner, hW = c.includes('w'), hE = c.includes('e'), hN = c.includes('n'), hS = c.includes('s');
     const ax = hW ? s.x + s.w : s.x, ay = hN ? s.y + s.h : s.y, mx = hW || hE, my = hN || hS, corner = mx && my;
-    let ex = w.x, ey = w.y, gx = null, gy = null;
-    if (!free) {
+    const tl = tiltOf(o), sc = { x: s.x + s.w / 2, y: s.y + s.h / 2 }, lw = tl ? rotPt(w, sc, -tl) : w;
+    let ex = lw.x, ey = lw.y, gx = null, gy = null;
+    if (!free && !tl) {
       if (mx) { const sx = snapAxis(ex, 0, drag.xs, thr, [0]); ex += sx.delta; gx = sx.line; }
       if (my) { const sy = snapAxis(ey, 0, drag.ys, thr, [0]); ey += sy.delta; gy = sy.line; }
     }
@@ -5170,7 +5239,11 @@ stage.addEventListener('pointermove', e => {
       o.iw = Math.max(10, Math.round(lw - g.w)); o.ih = Math.max(10, Math.round(lh - g.h)); syncDerived(o); nw = o.w; nh = o.h;
     } else { o.w = Math.max(1, Math.round(nw)); o.h = Math.max(1, Math.round(nh)); nw = o.w; nh = o.h; }
     o.x = r2(hW ? ax - nw : s.x); o.y = r2(hN ? ay - nh : s.y);
-    drag.guides = guideLines(gx, gy, o);
+    if (tl) { // поворот вокруг нового центра сдвинул бы опорный угол — возвращаем его на место
+      const A0 = rotPt({ x: ax, y: ay }, sc, tl), A1 = rotPt({ x: ax, y: ay }, { x: o.x + o.w / 2, y: o.y + o.h / 2 }, tl);
+      o.x = r2(o.x + A0.x - A1.x); o.y = r2(o.y + A0.y - A1.y);
+    }
+    drag.guides = tl ? null : guideLines(gx, gy, o);
   }
   invalidate('scene', 'overlay', 'props');
 });
@@ -5562,8 +5635,10 @@ function specSections() {
       secs.push({ title: 'Материалы', head: ['Материал', 'Количество', `С запасом ${nf(wst, wst % 1 ? 1 : 0)}%`], rows: mat });
     } else secs.push({ title: 'Материалы', head: ['Материал', 'Количество'], rows: mat });
   }
-  if (P.length) secs.push({ title: 'Расположение карманов (от левого верхнего угла стенда)', head: ['№', 'Название', 'X, мм', 'Y, мм', 'Ш × В, мм', 'Поворот'],
-    rows: [...P].sort((a, c) => a.y - c.y || a.x - c.x).map((o, i) => [String(i + 1), o.name, mmTxt(o.x), mmTxt(o.y), `${mmTxt(o.w)} × ${mmTxt(o.h)}`, (o.rot ? o.rot + '°' : '—') + (o.flip ? ', отраж.' : '')]) });
+  if (P.length) secs.push({ title: 'Расположение карманов (от левого верхнего угла стенда' + (P.some(tiltOf) ? '; «ц» — центр наклонённого кармана)' : ')'), head: ['№', 'Название', 'X, мм', 'Y, мм', 'Ш × В, мм', 'Поворот'],
+    rows: [...P].sort((a, c) => a.y - c.y || a.x - c.x).map((o, i) => { const t = tiltOf(o), a = angleOf(o);
+      // у наклонённого кармана левый верхний угол рамки ничего не значит — даём центр
+      return [String(i + 1), o.name, t ? mmTxt(o.x + o.w / 2) + ' ц' : mmTxt(o.x), t ? mmTxt(o.y + o.h / 2) + ' ц' : mmTxt(o.y), t ? `${mmTxt(o.rot % 180 ? o.h : o.w)} × ${mmTxt(o.rot % 180 ? o.w : o.h)}` : `${mmTxt(o.w)} × ${mmTxt(o.h)}`, (a ? String(a).replace('.', ',') + '°' : '—') + (o.flip ? ', отраж.' : '')]; }) });
   if (holes.length) secs.push({ title: 'Отверстия под крепёж (центры)', head: ['№', 'X, мм', 'Y, мм'],
     rows: [...holes].sort((a, c) => a.y - c.y || a.x - c.x).map((p, i) => [String(i + 1), mmTxt(p.x), mmTxt(p.y)]) });
   if (T.length) secs.push({ title: 'Надписи', head: ['Текст', 'Шрифт', 'Размер, мм', 'Цвет'],
@@ -6658,6 +6733,10 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-08f', date: '8 ноября 2026', items: [
+    'Свободный поворот карманов, слоёв, текста и QR-кодов: круглая ручка над выделенным элементом (Shift — шаг 15°, у 0/90/180° прилипает) или поле «∠» в свойствах с кнопками 0°, 15°, 45°.',
+    'Наклонённые элементы правильно выравниваются, привязываются и выделяются рамкой; пересечения карманов и выход за край считаются по настоящему контуру.',
+    'В спецификации у наклонённого кармана — координаты центра и угол.'] },
   { v: '2026-11-08e', date: '8 ноября 2026', items: [
     'QR-код: «Слой → QR-код» или правой кнопкой «Добавить здесь». Кириллица, цвета, надёжность; подсказка, с какого расстояния он читается.',
     'Размеры и расстояния (клавиша D или в настройках сетки): от выделенного элемента до соседей и краёв подложки.',
