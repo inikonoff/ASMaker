@@ -147,6 +147,13 @@ aside{background:var(--panel);overflow:auto;min-height:0}
 .sel-outline.locked{stroke:#9ca3af}
 .img-box{fill:none;stroke:var(--acc);stroke-width:1;vector-effect:non-scaling-stroke}
 .handle.side{rx:2}
+.split-line{stroke:#f97316;stroke-width:1.6;vector-effect:non-scaling-stroke}
+.split-hit{stroke:transparent;pointer-events:stroke}
+.split-btn{pointer-events:all;cursor:pointer}
+.split-btn circle{fill:#f97316;stroke:#fff;stroke-width:1.5;vector-effect:non-scaling-stroke}
+.split-btn:hover circle{fill:#ea580c}
+.split-btn text{fill:#fff;font-weight:700;font-family:system-ui,sans-serif}
+.part-lbl{fill:#ea580c;font-weight:600;font-family:inherit}
 .marquee{fill:rgba(37,99,235,.08);stroke:var(--acc);stroke-width:1;vector-effect:non-scaling-stroke}
 .group-box{fill:none;stroke:var(--acc);stroke-width:1;vector-effect:non-scaling-stroke}
 .handle{fill:#fff;stroke:var(--acc);stroke-width:1.5;vector-effect:non-scaling-stroke;pointer-events:all}
@@ -320,6 +327,7 @@ const ICON = {
   moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
   list: '<path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01" stroke-width="3"/>',
   empty: '<rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 2.5"/>',
+  scissors: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/>',
   rotate: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
 };
 const ic = n => `<svg class="i" viewBox="0 0 24 24">${ICON[n]}</svg>`;
@@ -359,7 +367,8 @@ const GRID_STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
 
 const common = () => ({ id: uid(), opacity: 1, locked: false, visible: true });
 const fillDefaults = (fill, fill2, type = 'solid') => ({ fillType: type, fill, fill2, angle: 90, fillOpacity: 1 });
-const makeBase = () => ({ ...common(), type: 'base', name: 'База', x: 0, y: 0, w: 1000, h: 700, thickness: 4, ...fillDefaults('#ffffff', '#dbe4ff'), image: null });
+const HOLES_DEFAULT = () => ({ on: false, count: 4, d: 6, inset: 20, color: '#374151' });
+const makeBase = () => ({ ...common(), type: 'base', name: 'База', x: 0, y: 0, w: 1000, h: 700, thickness: 4, ...fillDefaults('#ffffff', '#dbe4ff'), image: null, holes: HOLES_DEFAULT(), splits: [], partMargin: 50 });
 const makeShape = (kind = 'solid') => ({ ...common(), type: 'shape', name: 'Слой', x: 0, y: 0, w: 300, h: 200, rot: 0, radius: 0, image: null,
   ...fillDefaults(kind === 'grad' ? '#2563eb' : '#f59e0b', '#a5f3fc', kind === 'grad' ? 'linear' : kind === 'empty' ? 'none' : 'solid') });
 const makePocket = () => ({ ...common(), type: 'pocket', name: 'Карман', x: 0, y: 0, w: 0, h: 0, rot: 0, iw: 210, ih: 297,
@@ -369,7 +378,7 @@ const makeText = () => ({ ...common(), type: 'text', name: 'Текст', x: 0, y
   align: 'center', lh: 1.2, ls: 0, skew: 0, color: '#1f2937', colorOpacity: 1, strokeW: 0, strokeColor: '#ffffff', wrap: false, boxW: 600 });
 const makeGrid = () => ({ ...common(), type: 'grid', name: 'Сетка', x: 0, y: 0, w: 0, h: 0, step: 50, color: '#2563eb', lineOpacity: 0.35, snap: true, export: false });
 const makeHoles = () => ({ ...common(), type: 'holes', name: 'Отверстия', x: 0, y: 0, w: 0, h: 0, count: 4, d: 6, inset: 20, color: '#374151' });
-const MAKERS = { base: makeBase, shape: () => makeShape(), pocket: makePocket, holes: makeHoles, text: makeText, grid: makeGrid };
+const MAKERS = { base: makeBase, shape: () => makeShape(), pocket: makePocket, holes: makeHoles, text: makeText, grid: makeGrid }; // holes — только для чтения старых проектов
 const DEFAULT_TITLE = 'Конструктор стендов';
 const UNITS = { 'шт': ['count', 1], 'компл.': ['count', 1], 'лист': ['sheet', 1], 'упак.': ['count', 1], 'усл.': ['count', 1], 'ч': ['time', 1],
   'мм': ['len', 0.001], 'см': ['len', 0.01], 'м.пог.': ['len', 1], 'см²': ['area', 1e-4], 'м²': ['area', 1], 'кг': ['mass', 1], 'л': ['vol', 1] };
@@ -432,6 +441,10 @@ function normalizeObj(raw, ids) {
     const i = o.image;
     if (i && !(i.w > 0 && i.h > 0 && typeof i.asset === 'string')) o.image = null;
     else if (i) o.image = Object.assign({ x: 0, y: 0, opacity: 1, lockRatio: true, ar: i.w / i.h }, i);
+    o.holes = normHoles(o.holes);
+    o.splits = (Array.isArray(o.splits) ? o.splits : []).filter(l => l && (l.axis === 'v' || l.axis === 'h') && isFinite(l.pos))
+      .map(l => ({ id: String(l.id || uid()), axis: l.axis, pos: clamp(+l.pos, 1, (l.axis === 'v' ? o.w : o.h) - 1) }));
+    o.partMargin = isFinite(+o.partMargin) ? clamp(+o.partMargin, 0, 500) : 50;
   }
   if (o.type === 'shape' || o.type === 'pocket' || o.type === 'text') o.rot = [0, 90, 180, 270].includes(+o.rot) ? +o.rot : 0;
   if (o.type === 'shape' || o.type === 'pocket') o.flip = !!o.flip;
@@ -472,6 +485,10 @@ function normalizeObj(raw, ids) {
   ids.add(o.id);
   return o;
 }
+function normHoles(h) {
+  h = h && typeof h === 'object' ? h : {};
+  return { on: !!h.on, count: clamp(Math.round((+h.count || 4) / 2) * 2, 4, 60), d: clamp(+h.d || 6, 1, 50), inset: clamp(+h.inset || 20, 0, 1000), color: normHex(h.color) || '#374151' };
+}
 function normalize(d) {
   if (!d || !Array.isArray(d.objects)) return null;
   const ids = new Set(), out = d.objects.map(r => normalizeObj(r, ids)).filter(Boolean);
@@ -479,15 +496,30 @@ function normalize(d) {
   const [b] = out.splice(bi, 1);
   const rest = out.filter(o => o.type !== 'base');
   const single = t => { const i = rest.findIndex(o => o.type === t); return (o, j) => o.type !== t || j === i; }; // по одному слою отверстий и сетки
-  const sh = single('holes'), sg = single('grid');
-  return { version: 3, title: String(d.title || DEFAULT_TITLE).slice(0, 120), pricing: normPricing(d.pricing), objects: [b, ...rest.filter((o, j) => sh(o, j) && sg(o, j))] };
+  const sg = single('grid');
+  // старые проекты: слой «Отверстия» переезжает в свойства подложки
+  const oldHoles = rest.find(o => o.type === 'holes');
+  if (oldHoles && !(d.objects.find(o => o && o.type === 'base') || {}).holes) b.holes = normHoles({ ...oldHoles, on: oldHoles.visible });
+  return { version: 4, title: String(d.title || DEFAULT_TITLE).slice(0, 120), pricing: normPricing(d.pricing), objects: [b, ...rest.filter((o, j) => o.type !== 'holes' && sg(o, j))] };
 }
 
 let doc = newDoc(), assets = {}, unit = 'mm', sel = null, selIds = [];
 const view = { x: 0, y: 0, z: 0.5 };
 const byId = id => doc.objects.find(o => o.id === id);
 const base = () => doc.objects.find(o => o.type === 'base');
-const holesObj = () => doc.objects.find(o => o.type === 'holes');
+const holesCfg = () => { const b = base(); return b && b.visible && b.holes && b.holes.on ? b.holes : null; };
+/* части подложки по линиям раздела: прямоугольники в порядке чтения */
+function partsOf(b = base()) {
+  const xs = [0, ...b.splits.filter(l => l.axis === 'v').map(l => l.pos).filter(p => p > 0 && p < b.w).sort((a, c) => a - c), b.w];
+  const ys = [0, ...b.splits.filter(l => l.axis === 'h').map(l => l.pos).filter(p => p > 0 && p < b.h).sort((a, c) => a - c), b.h];
+  const out = [];
+  for (let j = 0; j < ys.length - 1; j++) for (let i = 0; i < xs.length - 1; i++) {
+    const w = xs[i + 1] - xs[i], h = ys[j + 1] - ys[j];
+    if (w > 0.5 && h > 0.5) out.push({ x: xs[i], y: ys[j], w, h, n: out.length + 1 });
+  }
+  return out;
+}
+const allHoles = () => { const h = holesCfg(); return h ? partsOf().flatMap(r => holePoints(h, r)) : []; };
 const isBox = o => !!o && (o.type === 'pocket' || o.type === 'shape' || o.type === 'text');
 const canFlip = o => !!o && (o.type === 'pocket' || o.type === 'shape');
 const gridObj = () => doc.objects.find(o => o.type === 'grid');
@@ -606,8 +638,36 @@ function addGrid() {
 }
 function focusText() { setTimeout(() => { const t = $('#textArea'); if (t) { t.focus(); t.select(); } }, 60); }
 function addHoles() {
-  const h = holesObj(); if (h) { select(h.id); toast('Отверстия уже есть: количество меняется справа'); return; }
-  const o = makeHoles(); mutate(null, () => doc.objects.push(o)); select(o.id);
+  const b = base(); if (b.locked) return toast('Подложка заблокирована');
+  if (!b.holes.on) mutate(null, () => { base().holes.on = true; });
+  select(b.id); toast('Отверстия — в свойствах подложки, раздел «Отверстия под крепёж»');
+}
+/* ---- линии раздела подложки ---- */
+function addSplit() {
+  const b = base(); if (b.locked) return toast('Подложка заблокирована');
+  const axis = b.w >= b.h ? 'v' : 'h', L = axis === 'v' ? b.w : b.h;
+  const cuts = [0, ...b.splits.filter(l => l.axis === axis).map(l => l.pos).sort((a, c) => a - c), L];
+  let best = 0; for (let i = 1; i < cuts.length - 1; i++) if (cuts[i + 1] - cuts[i] > cuts[best + 1] - cuts[best]) best = i;
+  const pos = Math.round((cuts[best] + cuts[best + 1]) / 2);
+  mutate(null, () => base().splits.push({ id: uid(), axis, pos }));
+  select(b.id);
+}
+function rotateSplit(id) {
+  if (base().locked) return toast('Подложка заблокирована');
+  mutate(null, () => { const b = base(), l = b.splits.find(x => x.id === id); if (!l) return;
+    const from = l.axis === 'v' ? b.w : b.h, to = l.axis === 'v' ? b.h : b.w; l.axis = l.axis === 'v' ? 'h' : 'v'; l.pos = clamp(Math.round(l.pos / from * to), 1, to - 1); });
+}
+function removeSplit(id) { if (base().locked) return toast('Подложка заблокирована'); mutate(null, () => { const b = base(); b.splits = b.splits.filter(x => x.id !== id); }); }
+const fitsSheet = r => (r.w <= SHEET[0] && r.h <= SHEET[1]) || (r.w <= SHEET[1] && r.h <= SHEET[0]);
+const sheetsFor = r => fitsSheet(r) ? 1 : Math.min(Math.ceil(r.w / SHEET[0]) * Math.ceil(r.h / SHEET[1]), Math.ceil(r.w / SHEET[1]) * Math.ceil(r.h / SHEET[0]));
+function splitBySheets() {
+  const b = base(); if (b.locked) return toast('Подложка заблокирована');
+  const a = [Math.ceil(b.w / SHEET[0]), Math.ceil(b.h / SHEET[1])], c = [Math.ceil(b.w / SHEET[1]), Math.ceil(b.h / SHEET[0])], [cols, rows] = a[0] * a[1] <= c[0] * c[1] ? a : c;
+  if (cols * rows === 1) return toast(`Стенд помещается на один лист ${SHEET[0]} × ${SHEET[1]} мм`);
+  mutate(null, () => { const x = base(); x.splits = [];
+    for (let i = 1; i < cols; i++) x.splits.push({ id: uid(), axis: 'v', pos: Math.round(x.w * i / cols) });
+    for (let j = 1; j < rows; j++) x.splits.push({ id: uid(), axis: 'h', pos: Math.round(x.h * j / rows) }); });
+  toast(`Разделено на ${cols * rows} части по ${cols} × ${rows}`);
 }
 function deleteSel() {
   const list = selected(); if (!list.length) return;
@@ -842,13 +902,13 @@ function pocketMarkup(o, exp) {
   return m;
 }
 /* 4 по углам; дальше пары по очереди: на длинные стороны, на короткие, снова на длинные... */
-function holePoints(o, b) {
-  const m = o.inset, k = (o.count - 4) / 2, nLong = Math.ceil(k / 2), nShort = Math.floor(k / 2), land = b.w >= b.h;
+function holePoints(o, b) { // b — прямоугольник части (x, y, w, h)
+  const m = o.inset, k = (o.count - 4) / 2, nLong = Math.ceil(k / 2), nShort = Math.floor(k / 2), land = b.w >= b.h, X = b.x || 0, Y = b.y || 0;
   const pts = [{ x: m, y: m }, { x: b.w - m, y: m }, { x: m, y: b.h - m }, { x: b.w - m, y: b.h - m }];
   const nH = land ? nLong : nShort, nV = land ? nShort : nLong; // на горизонтальные / вертикальные стороны
   for (let i = 1; i <= nH; i++) { const x = m + i / (nH + 1) * (b.w - 2 * m); pts.push({ x, y: m }, { x, y: b.h - m }); }
   for (let i = 1; i <= nV; i++) { const y = m + i / (nV + 1) * (b.h - 2 * m); pts.push({ x: m, y }, { x: b.w - m, y }); }
-  return pts;
+  return pts.map(p => ({ x: p.x + X, y: p.y + Y }));
 }
 const circleHitsRect = (p, r, k) => { const cx = clamp(p.x, k.x, k.x + k.w), cy = clamp(p.y, k.y, k.y + k.h); return (p.x - cx) ** 2 + (p.y - cy) ** 2 < r * r; };
 function badHoles(o, pts) {
@@ -857,10 +917,9 @@ function badHoles(o, pts) {
   return bad;
 }
 function holesMarkup(o, exp) {
-  const b = base(); if (!b) return '';
-  const pts = holePoints(o, b), r = o.d / 2, bad = exp ? new Set() : badHoles(o, pts), vs = exp ? '' : ' vector-effect="non-scaling-stroke"';
+  o = o || holesCfg(); if (!o) return '';
+  const pts = allHoles(), r = o.d / 2, bad = exp ? new Set() : badHoles(o, pts), vs = exp ? '' : ' vector-effect="non-scaling-stroke"';
   return pts.map((p, i) =>
-    (exp ? '' : `<circle cx="${p.x}" cy="${p.y}" r="${r + 8}" fill="transparent"/>`) +
     `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${o.color}" fill-opacity=".85" stroke="#fff" stroke-opacity=".7" stroke-width="${exp ? 0.4 : 1}"${vs}/>` +
     (bad.has(i) ? `<circle cx="${p.x}" cy="${p.y}" r="${r + 3}" fill="none" stroke="#e11d48" stroke-width="2"${vs}/>` : '')).join('');
 }
@@ -1069,7 +1128,9 @@ const objMarkup = (o, exp) => o.type === 'pocket' ? pocketMarkup(o, exp) : o.typ
 
 /* ================= export PNG ================= */
 function exportSVG(W, H, opts = {}) {
-  const b = base(), bl = opts.bleed || 0, off = bl + (opts.pad || 0), VW = b.w + 2 * off, VH = b.h + 2 * off;
+  // opts.region — часть стенда (по умолчанию весь), opts.off — поле вокруг неё (вылеты + метки или белое поле части)
+  const b = base(), bl = opts.bleed || 0, R = opts.region || { x: 0, y: 0, w: b.w, h: b.h };
+  const off = opts.off != null ? opts.off : bl + (opts.pad || 0), VW = R.w + 2 * off, VH = R.h + 2 * off;
   const parts = doc.objects.filter(o => o.visible && (o.type !== 'grid' || o.export)).map(o => {
     if (o.type === 'base') {
       // с вылетами фон подложки продлевается за край на величину вылета
@@ -1079,19 +1140,20 @@ function exportSVG(W, H, opts = {}) {
     }
     const t = objTransform(o), tr = t ? ` transform="${t}"` : '';
     return `<g opacity="${o.opacity}"${tr}>${objMarkup(o, true)}</g>`;
-  }).join('');
+  }).join('') + holesMarkup(null, true);
   const used = new Set(doc.objects.filter(o => o.type === 'text' && o.visible).map(o => o.font));
   const css = used.size ? `<style>${fontFaceCSS(used)}</style>` : '';
   let marks = '';
   if (opts.marks) { // метки реза: от края вылета наружу, по 6 мм
     const sw = Math.max(0.1, opts.markW || 0.1), g0 = bl + 2, g1 = bl + 8, L = [];
-    for (const [cx, sx] of [[0, -1], [b.w, 1]]) for (const [cy, sy] of [[0, -1], [b.h, 1]]) {
+    for (const [cx, sx] of [[R.x, -1], [R.x + R.w, 1]]) for (const [cy, sy] of [[R.y, -1], [R.y + R.h, 1]]) {
       L.push(`M${cx + sx * g0} ${cy}H${cx + sx * g1}`, `M${cx} ${cy + sy * g0}V${cy + sy * g1}`);
     }
     marks = `<path d="${L.join('')}" stroke="#000" stroke-width="${sw}" fill="none"/>`;
   }
   const size = opts.mm ? `width="${r2(VW)}mm" height="${r2(VH)}mm"` : `width="${W}" height="${H}"`;
-  return `<svg xmlns="${NS}" xmlns:xlink="http://www.w3.org/1999/xlink" ${size} viewBox="${-off} ${-off} ${VW} ${VH}"><defs>${css}${GLARE}</defs><clipPath id="stand"><rect x="${-bl}" y="${-bl}" width="${b.w + 2 * bl}" height="${b.h + 2 * bl}"/></clipPath><g clip-path="url(#stand)">${parts}</g>${marks}</svg>`;
+  const white = opts.white ? `<rect x="${R.x - off}" y="${R.y - off}" width="${VW}" height="${VH}" fill="#ffffff"/>` : '';
+  return `<svg xmlns="${NS}" xmlns:xlink="http://www.w3.org/1999/xlink" ${size} viewBox="${R.x - off} ${R.y - off} ${VW} ${VH}"><defs>${css}${GLARE}</defs>${white}<clipPath id="stand"><rect x="${R.x - bl}" y="${R.y - bl}" width="${R.w + 2 * bl}" height="${R.h + 2 * bl}"/></clipPath><g clip-path="url(#stand)">${parts}</g>${marks}</svg>`;
 }
 async function renderStand(maxPx) {
   const b = base(), k = Math.min(maxPx / Math.max(b.w, b.h), 8), W = Math.round(b.w * k), H = Math.round(b.h * k);
@@ -1185,6 +1247,13 @@ function renderScene() {
     n.g.classList.toggle('pick', o.type === 'holes');
     if (o.type === 'grid') n.g.setAttribute('pointer-events', 'none');
   });
+  // отверстия под крепёж — всегда поверх всех слоёв, по каждой части подложки
+  let hn = nodes.get('__holes');
+  if (!hn) { hn = { type: '__holes', g: sv('g', { 'pointer-events': 'none' }), sig: null }; nodes.set('__holes', hn); }
+  seen.add('__holes');
+  if (scene.lastChild !== hn.g) scene.appendChild(hn.g);
+  const hc = holesCfg(), b0 = base(), hsig = hc ? JSON.stringify([hc, b0.w, b0.h, b0.splits, doc.objects.filter(k => k.type === 'pocket' && k.visible).map(k => [k.x, k.y, k.w, k.h])]) : '';
+  if (hsig !== hn.sig) { hn.sig = hsig; hn.g.innerHTML = hc ? holesMarkup(hc, false) : ''; }
   for (const [id, n] of nodes) if (!seen.has(id)) { n.g.remove(); n.clip && n.clip.remove(); nodes.delete(id); }
 }
 function renderShadow() {
@@ -1204,6 +1273,27 @@ function handles(kids, x, y, w, h, sides = ['n', 'e', 's', 'w']) {
     kids.push(sv('rect', { class: 'handle' + (side ? ' side' : ''), 'data-handle': c, x: cx - hw / 2, y: cy - hh / 2, width: hw, height: hh, rx: 2 / z, style: `cursor:${CURSORS[c]}-resize` }));
   }
 }
+/* линии раздела: пунктир, широкая невидимая зона для перетаскивания, кнопки ⟳ и ✕ посередине, размеры частей */
+function splitOverlay(kids, b, z) {
+  const parts = partsOf(b);
+  const hc = holesCfg(), dx = (hc ? hc.inset + hc.d / 2 : 0) + 6 / z; // подпись правее углового отверстия
+  if (parts.length > 1) for (const r of parts) kids.push(svText(`${r.n} · ${fmtLen(r.w)} × ${fmtLen(r.h)}`, r.x + dx, r.y + 16 / z, 11 / z, 'part-lbl'));
+  for (const l of b.splits) {
+    const v = l.axis === 'v', a = { x1: v ? l.pos : 0, y1: v ? 0 : l.pos, x2: v ? l.pos : b.w, y2: v ? b.h : l.pos };
+    kids.push(sv('line', { class: 'split-line', ...a, 'stroke-dasharray': `${8 / z} ${5 / z}` }));
+    if (b.locked) continue;
+    kids.push(sv('line', { class: 'split-hit', 'data-split': l.id, ...a, 'stroke-width': 14 / z, style: `cursor:${v ? 'ew' : 'ns'}-resize` }));
+    // кнопки за краем подложки, чтобы не перекрывать макет: под нижним краем или справа от правого
+    const g0 = 20 / z, cx = v ? l.pos : b.w + g0, cy = v ? b.h + g0 : l.pos, sh = v ? [13 / z, 0] : [0, 13 / z];
+    kids.push(sv('line', { class: 'split-line', x1: v ? l.pos : b.w, y1: v ? b.h : l.pos, x2: v ? l.pos : b.w + g0, y2: v ? b.h + g0 : l.pos, 'stroke-dasharray': `${3 / z} ${3 / z}` }));
+    for (const [act, k, glyph, title] of [['rotate', -1, '⟳', 'Повернуть линию на 90°'], ['delete', 1, '✕', 'Убрать линию раздела']]) {
+      const g = sv('g', { 'data-split-act': act, 'data-split-id': l.id, class: 'split-btn', transform: `translate(${cx + k * sh[0]} ${cy + k * sh[1]})` });
+      const t = sv('text', { 'font-size': 13 / z, 'text-anchor': 'middle', 'dominant-baseline': 'central' }); t.textContent = glyph;
+      const tt = sv('title'); tt.textContent = title;
+      g.append(sv('circle', { r: 11 / z }), t, tt); kids.push(g);
+    }
+  }
+}
 function renderOverlay() {
   const z = view.z, kids = [], b = base();
   if (b && b.visible) {
@@ -1211,6 +1301,7 @@ function renderOverlay() {
     const t = svText(b.name, 0, -8 / z, 12 / z, 'lbl'), ts = sv('tspan', { class: 'dim', dx: 8 / z });
     ts.textContent = `${fmtLen(b.w)} × ${fmtLen(b.h)} ${unitLabel()}`; t.append(ts); kids.push(t);
   }
+  if (b && b.visible && b.splits.length) splitOverlay(kids, b, z);
   const o = selIds.length === 1 && sel && byId(sel);
   if (selIds.length > 1) {
     const list = selected().filter(x => x.visible && x.type !== 'holes' && x.type !== 'grid');
@@ -1307,7 +1398,8 @@ $('#layersFoot').append(layerMenu,
     B('pocket', 'Карман', addPocket, { cls: 'btn', title: 'Добавить карман' }),
     B('text', 'Текст', addText, { cls: 'btn', title: 'Добавить текст' }),
     B('grid', 'Сетка', addGrid, { cls: 'btn', title: 'Сетка для разметки и привязки' }),
-    B('holes', 'Отверстия', addHoles, { cls: 'btn wide', title: 'Отверстия под крепёж' })));
+    B('holes', 'Отверстия', addHoles, { cls: 'btn', title: 'Отверстия под крепёж — в свойствах подложки' }),
+    B('scissors', 'Раздел', addSplit, { cls: 'btn', title: 'Разделить подложку на части линией' })));
 document.addEventListener('pointerdown', e => { if (!layerMenu.hidden && !layerMenu.contains(e.target)) layerMenu.hidden = true; });
 
 let renaming = false, dragLayer = null;
@@ -1414,7 +1506,7 @@ function bindFn(read, apply) { const b = { read, apply, last: read() }; bindings
 function renderProps() {
   const o = sel && byId(sel);
   const multi = selIds.length > 1;
-  const sig = multi ? 'multi|' + selIds.join() + unit : o ? [o.id, o.type, o.locked, o.fillType, o.image ? o.image.asset : '-', unit, o.font, o.wrap, o.type === 'pocket' ? o.notch : ''].join('|') : 'none';
+  const sig = multi ? 'multi|' + selIds.join() + unit : o ? [o.id, o.type, o.locked, o.fillType, o.image ? o.image.asset : '-', unit, o.font, o.wrap, o.type === 'pocket' ? o.notch : '', o.type === 'base' ? o.holes.on + o.splits.map(l => l.id + l.axis).join() : ''].join('|') : 'none';
   if (sig !== propsSig) {
     propsSig = sig; bindings = [];
     const build = { base: buildBase, shape: buildShape, pocket: buildPocket, holes: buildHoles, text: buildText, grid: buildGrid }[o && o.type];
@@ -1570,9 +1662,11 @@ function buildBase(o) {
           lenField('Ш', () => O().w, (v, k) => upd(k, x => x.w = v), { min: 10, max: 20000 }),
           lenField('В', () => O().h, (v, k) => upd(k, x => x.h = v), { min: 10, max: 20000 })),
         row(thick),
-        warnField(() => { const x = O(); return Math.max(x.w, x.h) > SHEET[1] || Math.min(x.w, x.h) > SHEET[0] ? `Больше стандартного листа ПВХ ${SHEET[0]} × ${SHEET[1]} мм: стенд будет составным.` : ''; }))),
+        warnField(() => { const x = O(), big = partsOf(x).filter(r => !fitsSheet(r)); return !big.length ? '' : x.splits.length ? `Части ${big.map(r => r.n).join(', ')} больше листа ПВХ ${SHEET[0]} × ${SHEET[1]} мм.` : `Больше стандартного листа ПВХ ${SHEET[0]} × ${SHEET[1]} мм: разделите стенд на части (раздел ниже).`; }))),
     fillSection(o, O, upd),
     sec('Фоновое изображение', el('fieldset', { disabled: L }, imgSec)),
+    holesSection(o, O, upd),
+    splitSection(o, O, upd),
     layerSection(o, O, upd),
   ];
 }
@@ -1655,8 +1749,9 @@ function buildPocket(o) {
     if (x.x < -0.01 || x.y < -0.01 || x.x + x.w > b.w + 0.01 || x.y + x.h > b.h + 0.01) out.push('Карман выходит за край подложки.');
     const hit = doc.objects.filter(k => k.type === 'pocket' && k.id !== x.id && k.visible && k.x < x.x + x.w && x.x < k.x + k.w && k.y < x.y + x.h && x.y < k.y + k.h);
     if (hit.length) out.push('Пересекается: ' + hit.map(k => '«' + k.name + '»').join(', ') + '.');
-    const h = holesObj();
-    if (h && h.visible && holePoints(h, b).some(p => circleHitsRect(p, h.d / 2, x))) out.push('На карман попадает отверстие под крепёж.');
+    const h = holesCfg();
+    if (h && allHoles().some(p => circleHitsRect(p, h.d / 2, x))) out.push('На карман попадает отверстие под крепёж.');
+    if (b.splits.some(l => l.axis === 'v' ? l.pos > x.x + 0.5 && l.pos < x.x + x.w - 0.5 : l.pos > x.y + 0.5 && l.pos < x.y + x.h - 0.5)) out.push('Карман попадает на линию раздела — при производстве он будет разрезан.');
     return out.join('\n');
   }, true);
   const i = o.image;
@@ -1816,6 +1911,46 @@ function insetSelect(O, upd) {
   bindFn(() => O().inset, fill);
   sel_.addEventListener('change', () => upd(null, x => x.inset = +sel_.value));
   return sel_;
+}
+function holesSection(o, O, upd) {
+  const H = () => O().holes, updH = (k, fn) => upd(k, x => fn(x.holes)), on = o.holes.on;
+  const out = el('output'); bind(out, () => String(H().count), 'textContent');
+  return sec('Отверстия под крепёж', el('fieldset', { disabled: o.locked },
+    row(checkField('Отверстия в каждой части подложки', () => H().on, v => updH(null, h => h.on = v))),
+    on ? [
+      cap('Количество на часть (чётное)'),
+      row(el('div', { class: 'stepper' },
+        B('minus', '', () => updH(null, h => h.count = Math.max(4, h.count - 2)), { cls: 'btn', title: '−2' }), out,
+        B('plus', '', () => updH(null, h => h.count = Math.min(60, h.count + 2)), { cls: 'btn', title: '+2' }))),
+      el('div', { class: 'grid2' },
+        lenField('Ø', () => H().d, (v, k) => updH(k, h => h.d = v), { min: 1, max: 50, title: 'Диаметр отверстия' }),
+        insetSelect(H, updH)),
+      cap('Цвет'),
+      row(colorField(() => H().color, (v, k) => updH(k ? 'holeColor' : null, h => h.color = v))),
+      warnField(() => { const n = badHoles(H(), allHoles()).size; return n ? `${n} отверстий попадают на карманы (обведены красным).` : ''; }, true),
+      el('p', { class: 'hint' }, 'В каждой части: четыре по углам, каждая следующая пара — по очереди на длинные стороны, затем на короткие, с равным шагом.'),
+    ] : null));
+}
+function splitSection(o, O, upd) {
+  const list = o.splits;
+  const parts = el('div', { class: 'info', style: 'white-space:pre-line' });
+  bind(parts, () => partsOf(O()).map(r => `${r.n}: ${fmtLen(r.w)} × ${fmtLen(r.h)} ${unitLabel()}${fitsSheet(r) ? '' : ' — больше листа!'}`).join('\n'), 'textContent');
+  return sec('Раздел на части', el('fieldset', { disabled: o.locked },
+    el('div', { class: 'btns', style: 'margin-bottom:8px' },
+      B('scissors', 'Добавить линию', addSplit, { cls: 'btn' }),
+      el('button', { type: 'button', class: 'btn', onclick: splitBySheets, title: `Разделить так, чтобы каждая часть помещалась на лист ${SHEET[0]} × ${SHEET[1]} мм` }, 'По листам ПВХ')),
+    list.map((l, i) => row(
+      el('span', { class: 'cap', style: 'margin:0;min-width:16px' }, String(i + 1)),
+      lenField(l.axis === 'v' ? '↔ X' : '↕ Y', () => O().splits.find(x => x.id === l.id)?.pos ?? 0,
+        (v, k) => upd(k, x => { const s_ = x.splits.find(y => y.id === l.id); if (s_) s_.pos = clamp(v, 1, (s_.axis === 'v' ? x.w : x.h) - 1); }),
+        { min: 1, max: 100000, title: l.axis === 'v' ? 'Вертикальная линия: расстояние от левого края' : 'Горизонтальная линия: расстояние от верхнего края' }),
+      B('rotate', '', () => rotateSplit(l.id), { cls: 'btn', title: 'Повернуть на 90°' }),
+      B('trash', '', () => removeSplit(l.id), { cls: 'btn', title: 'Убрать линию' }))),
+    list.length ? [
+      cap('Части'), parts,
+      row(lenField('Белое поле', () => O().partMargin, (v, k) => upd(k, x => x.partMargin = v), { min: 0, max: 500, title: 'Белое поле по периметру каждой части при экспорте' })),
+      el('p', { class: 'hint' }, 'Линии делят подложку и всё, что на ней. На холсте тяните линию мышью, ⟳ — повернуть на 90°, ✕ — убрать. Экспорт сохраняет каждую часть отдельным файлом с белым полем.'),
+    ] : el('p', { class: 'hint' }, 'Для составного стенда: линия раздела делит подложку, печать и отверстия на части. Её можно двигать мышью и поворачивать.')));
 }
 function buildHoles(o) {
   const [O, upd] = ctx(o), L = o.locked;
@@ -2032,6 +2167,10 @@ stage.addEventListener('pointerdown', e => {
   if (e.button === 1 || e.button === 2 || (e.button === 0 && spaceDown)) { e.preventDefault(); startPan(e); return; }
   if (e.button !== 0) return;
   const w = toWorld(e), cur = selIds.length === 1 && sel && byId(sel), base0 = { sx: e.clientX, sy: e.clientY, sw: w, moved: false };
+  const spA = e.target.closest && e.target.closest('[data-split-act]');
+  if (spA) { const id = spA.dataset.splitId; if (spA.dataset.splitAct === 'rotate') rotateSplit(id); else removeSplit(id); return; }
+  const spL = e.target.closest && e.target.closest('[data-split]');
+  if (spL) { const l = base().splits.find(x => x.id === spL.dataset.split); if (l) { drag = { ...base0, type: 'split', sid: l.id, start: l.pos }; return; } }
   const h = e.target.closest && e.target.closest('[data-handle]');
   const startMarquee = clickId => {
     if (e.pointerType === 'touch') { if (clickId !== undefined) select(clickId); startPan(e); return; } // на сенсоре палец двигает холст
@@ -2079,6 +2218,14 @@ stage.addEventListener('pointermove', e => {
   }
   if (!drag) return;
   if (drag.type === 'pan') { view.x = drag.vx + e.clientX - drag.sx; view.y = drag.vy + e.clientY - drag.sy; invalidate('view'); return; }
+  if (drag.type === 'split') {
+    if (!drag.moved) { if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 3) return; commit(); drag.moved = true; }
+    const b = base(), l = b.splits.find(x => x.id === drag.sid); if (!l) { drag = null; return; }
+    const v = l.axis === 'v', L = v ? b.w : b.h; let p = drag.start + (v ? w.x - drag.sw.x : w.y - drag.sw.y);
+    if (!(e.ctrlKey || e.metaKey)) { const t = snapTargets([]), sn = snapAxis(p, 0, v ? t.xs : t.ys, 8 / view.z, [0]); p = sn.d != null ? p + sn.delta : Math.round(p); }
+    l.pos = r2(clamp(p, 10, L - 10)); hud.textContent = `${v ? 'X' : 'Y'} ${fmtLen(l.pos)} ${unitLabel()}`;
+    invalidate('scene', 'overlay', 'props'); return;
+  }
   if (drag.type === 'marquee') {
     if (!drag.moved) { if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return; drag.moved = true; }
     drag.cur = w; const r = normRect(drag.sw, w);
@@ -2290,12 +2437,13 @@ function sidesTxt(o) {
   const sd = visualSides(o), on = CW.filter(k => sd[k]).length, off = ['t', 'b', 'l', 'r'].filter(k => !sd[k]);
   return `${on} стор.` + (off.length ? `, открыт ${off.map(k => SIDE_NAMES[k]).join(', ')}` : ', закрыт');
 }
+/* печать: при разделе каждая часть печатается с белым полем по периметру */
+const printAreaOf = (b, parts) => parts.length > 1 ? parts.reduce((t, r) => t + (r.w + 2 * b.partMargin) * (r.h + 2 * b.partMargin), 0) / 1e6 : b.w * b.h / 1e6;
 function specSections() {
   const b = base(), P = doc.objects.filter(o => o.type === 'pocket' && o.visible), T = doc.objects.filter(o => o.type === 'text' && o.visible && o.text.trim());
-  const S = doc.objects.filter(o => o.type === 'shape' && o.visible), H = holesObj(), holes = H && H.visible ? holePoints(H, b) : [];
-  const fits = (b.w <= SHEET[0] && b.h <= SHEET[1]) || (b.w <= SHEET[1] && b.h <= SHEET[0]);
-  const sheets = fits ? 1 : Math.min(Math.ceil(b.w / SHEET[0]) * Math.ceil(b.h / SHEET[1]), Math.ceil(b.w / SHEET[1]) * Math.ceil(b.h / SHEET[0]));
-  const area = b.w * b.h / 1e6;
+  const S = doc.objects.filter(o => o.type === 'shape' && o.visible), H = holesCfg(), holes = allHoles();
+  const parts = partsOf(b), split = parts.length > 1, sheets = parts.reduce((t, r) => t + sheetsFor(r), 0), fits = !split && sheets === 1;
+  const area = b.w * b.h / 1e6, printArea = printAreaOf(b, parts);
   const decor = [b.image && 'фоновое изображение', (b.fillType !== 'solid' || b.fill !== '#ffffff') && 'цветной фон', S.length && `слоёв: ${S.length}`, T.length && `надписей: ${T.length}`].filter(Boolean);
   const secs = [];
   secs.push({ title: 'Стенд', head: ['Параметр', 'Значение'], rows: [
@@ -2304,8 +2452,14 @@ function specSections() {
     ['Площадь, м²', nf(area, 2)],
     ['Основа', `ПВХ белый ${b.thickness} мм`],
     [`Листов ПВХ ${SHEET[0]} × ${SHEET[1]}`, fits ? '1' : `${sheets} (стенд составной)`],
-    ['Печать на основу', decor.length ? `${nf(area, 2)} м² (${decor.join(', ')})` : 'нет'],
+    ['Печать на основу', decor.length ? `${nf(printArea, 2)} м² (${decor.join(', ')}${split && b.partMargin ? `, с белым полем ${mmTxt(b.partMargin)} мм` : ''})` : 'нет'],
   ] });
+  if (split) {
+    const hp = H ? holePoints(H, parts[0]).length : 0;
+    const rows = parts.map(r => [String(r.n), `${mmTxt(r.w)} × ${mmTxt(r.h)}`, nf(r.w * r.h / 1e6, 2), String(hp), String(sheetsFor(r))]);
+    rows.push({ total: true, cells: ['Итого', '', nf(area, 2), String(holes.length), String(sheets)] });
+    secs.push({ title: 'Части подложки', head: ['№', 'Размер, мм', 'Площадь, м²', 'Отверстий', 'Листов ПВХ'], rows });
+  }
   if (P.length) {
     const groups = new Map();
     for (const o of P) {
@@ -2359,17 +2513,16 @@ function savePriceBook() { try { localStorage.setItem(PRICE_BOOK_KEY, JSON.strin
 const fmtQty = (q, unit) => { const dim = (UNITS[unit] || ['count'])[0]; return nf(q, ['count', 'sheet'].includes(dim) || unit === 'мм' || unit === 'см²' ? 0 : q < 1 ? 3 : 2); };
 /* материалы проекта: количество в базовой единице (м², м.пог., шт) плюс особые единицы вроде «лист» */
 function estimateItems() {
-  const b = base(), P = doc.objects.filter(o => o.type === 'pocket' && o.visible), H = holesObj(), holes = H && H.visible ? holePoints(H, b).length : 0;
+  const b = base(), P = doc.objects.filter(o => o.type === 'pocket' && o.visible), holes = allHoles().length;
   const S = doc.objects.filter(o => o.type === 'shape' && o.visible), T = doc.objects.filter(o => o.type === 'text' && o.visible && o.text.trim());
-  const area = b.w * b.h / 1e6, fits = (b.w <= SHEET[0] && b.h <= SHEET[1]) || (b.w <= SHEET[1] && b.h <= SHEET[0]);
-  const sheets = fits ? 1 : Math.min(Math.ceil(b.w / SHEET[0]) * Math.ceil(b.h / SHEET[1]), Math.ceil(b.w / SHEET[1]) * Math.ceil(b.h / SHEET[0]));
+  const parts = partsOf(b), area = b.w * b.h / 1e6, sheets = parts.reduce((t, r) => t + sheetsFor(r), 0), printArea = printAreaOf(b, parts);
   const decor = !!(b.image || b.fillType !== 'solid' || b.fill !== '#ffffff' || S.length || T.length);
   const plastic = P.reduce((t, o) => { const g = pocketGeom(o); return t + g.w * g.h; }, 0) / 1e6;
   const tape = new Map();
   for (const o of P) tape.set(o.tape, (tape.get(o.tape) || 0) + tapedLen(o, o.tape) / 1000);
   const items = [
     { key: 'pvc' + b.thickness, name: `ПВХ белый ${b.thickness} мм`, dim: 'area', qty: area, extra: { 'лист': sheets }, waste: true, active: true, baseUnit: 'м²', matName: null },
-    { key: 'print', name: 'Печать на основу', dim: 'area', qty: area, waste: true, active: decor, baseUnit: 'м²' },
+    { key: 'print', name: 'Печать на основу', dim: 'area', qty: printArea, waste: true, active: decor, baseUnit: 'м²' },
     { key: 'plastic', name: 'Прозрачный пластик для карманов', dim: 'area', qty: plastic, waste: true, active: P.length > 0, baseUnit: 'м²', matName: 'Прозрачный пластик для карманов' },
   ];
   if (tape.size) for (const [wd, len] of tape) items.push({ key: 'tape' + wd, name: `Двусторонний скотч ${mmTxt(wd)} мм`, dim: 'len', qty: len, waste: true, active: true, baseUnit: 'м.пог.', matName: `Двусторонний скотч ${mmTxt(wd)} мм` });
@@ -2550,7 +2703,7 @@ window.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal')
 
 /* ================= advanced export ================= */
 const EXPORT_KEY = STORE + ':export';
-const expOpts = (() => { const d = { fmt: 'png', dpi: 150, color: 'srgb', icc: true, alpha: false, jpgQ: 92, tiffComp: 'none', bleed: 0, marks: false };
+const expOpts = (() => { const d = { fmt: 'png', dpi: 150, color: 'srgb', icc: true, alpha: false, jpgQ: 92, tiffComp: 'none', bleed: 0, marks: false, parts: true };
   try { return Object.assign(d, JSON.parse(localStorage.getItem(EXPORT_KEY))); } catch { return d; } })();
 const saveExpOpts = () => { try { localStorage.setItem(EXPORT_KEY, JSON.stringify(expOpts)); } catch {} };
 const EXP_FORMATS = {
@@ -2700,22 +2853,32 @@ async function encodePDF(pix, W, H, spp, { color, icc, g }) {
   push(x); push(`trailer\n<< /Size ${n} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
   return new Blob(parts, { type: 'application/pdf' });
 }
-function zipStore(name, blobBytes) {
-  const nm = new TextEncoder().encode(name), crc = (crc32(blobBytes) ^ 0xFFFFFFFF) >>> 0, n = blobBytes.length, d = new Date();
-  const dosT = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dosD = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
-  const lh = new DataView(new ArrayBuffer(30)); [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, dosT, 2], [12, dosD, 2], [14, crc, 4], [18, n, 4], [22, n, 4], [26, nm.length, 2], [28, 0, 2]].forEach(([o, v, s_]) => s_ === 4 ? lh.setUint32(o, v, true) : lh.setUint16(o, v, true));
-  const ch = new DataView(new ArrayBuffer(46)); [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, dosT, 2], [14, dosD, 2], [16, crc, 4], [20, n, 4], [24, n, 4], [28, nm.length, 2], [42, 0, 4]].forEach(([o, v, s_]) => s_ === 4 ? ch.setUint32(o, v, true) : ch.setUint16(o, v, true));
-  const cdOff = 30 + nm.length + n, cdLen = 46 + nm.length;
-  const end = new DataView(new ArrayBuffer(22)); [[0, 0x06054b50, 4], [8, 1, 2], [10, 1, 2], [12, cdLen, 4], [16, cdOff, 4]].forEach(([o, v, s_]) => s_ === 4 ? end.setUint32(o, v, true) : end.setUint16(o, v, true));
-  return new Blob([lh, nm, blobBytes, ch, nm, end], { type: 'application/zip' });
+/* ZIP без сжатия: файлы печати уже сжаты или должны остаться как есть */
+function zipFiles(files) {
+  const d = new Date(), dosT = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dosD = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  const dv = (n, f) => { const v = new DataView(new ArrayBuffer(n)); f.forEach(([o, x, s_]) => s_ === 4 ? v.setUint32(o, x, true) : v.setUint16(o, x, true)); return v; };
+  const out = [], cd = []; let off = 0, cdLen = 0;
+  for (const { name, bytes } of files) {
+    const nm = new TextEncoder().encode(name), crc = (crc32(bytes) ^ 0xFFFFFFFF) >>> 0, n = bytes.length;
+    out.push(dv(30, [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, dosT, 2], [12, dosD, 2], [14, crc, 4], [18, n, 4], [22, n, 4], [26, nm.length, 2], [28, 0, 2]]), nm, bytes);
+    cd.push(dv(46, [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, dosT, 2], [14, dosD, 2], [16, crc, 4], [20, n, 4], [24, n, 4], [28, nm.length, 2], [42, off, 4]]), nm);
+    off += 30 + nm.length + n; cdLen += 46 + nm.length;
+  }
+  const end = dv(22, [[0, 0x06054b50, 4], [8, files.length, 2], [10, files.length, 2], [12, cdLen, 4], [16, off, 4]]);
+  return new Blob([...out, ...cd, end], { type: 'application/zip' });
 }
+const zipStore = (name, bytes) => zipFiles([{ name, bytes }]);
 /* ---- геометрия и рендер ---- */
-function exportGeom() {
-  const b = base(), bl = Math.max(0, +expOpts.bleed || 0), pad = expOpts.marks ? 10 : 0, mmW = b.w + 2 * (bl + pad), mmH = b.h + 2 * (bl + pad), k = expOpts.dpi / 25.4;
-  return { b, bl, pad, mmW, mmH, k, W: Math.max(1, Math.round(mmW * k)), H: Math.max(1, Math.round(mmH * k)) };
+/* part — прямоугольник части подложки: тогда вокруг неё белое поле base.partMargin (не меньше вылетов и меток) */
+const exportByParts = () => expOpts.parts && partsOf().length > 1;
+function exportGeom(part) {
+  const b = base(), R = part || { x: 0, y: 0, w: b.w, h: b.h }, bl = Math.max(0, +expOpts.bleed || 0), mk = expOpts.marks ? 10 : 0;
+  const off = part ? Math.max(b.partMargin, bl + mk) : bl + mk, pad = off - bl, mmW = R.w + 2 * off, mmH = R.h + 2 * off, k = expOpts.dpi / 25.4;
+  return { b: R, region: R, white: !!part, part, bl, pad, mmW, mmH, k, W: Math.max(1, Math.round(mmW * k)), H: Math.max(1, Math.round(mmH * k)) };
 }
+const exportGeoms = () => exportByParts() ? partsOf().map(exportGeom) : [exportGeom()];
 async function renderExportCanvas(g, transparent) {
-  const svg = exportSVG(g.W, g.H, { bleed: g.bl, pad: g.pad, marks: expOpts.marks, markW: 25.4 / expOpts.dpi * 1.2 });
+  const svg = exportSVG(g.W, g.H, { region: g.region, white: g.white, bleed: g.bl, pad: g.pad, marks: expOpts.marks, markW: 25.4 / expOpts.dpi * 1.2 });
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
   try {
     const img = await loadImg(url); try { await img.decode(); } catch {}
@@ -2726,35 +2889,44 @@ async function renderExportCanvas(g, transparent) {
     return c;
   } finally { URL.revokeObjectURL(url); }
 }
+async function encodeExport(g) {
+  const f = EXP_FORMATS[expOpts.fmt];
+  if (expOpts.fmt === 'svg') return new Blob([exportSVG(0, 0, { region: g.region, white: g.white, bleed: g.bl, pad: g.pad, marks: expOpts.marks, markW: 0.1, mm: true })], { type: 'image/svg+xml' });
+  const color = f.colors.includes(expOpts.color) ? expOpts.color : 'srgb', alpha = !!(f.alpha && expOpts.alpha && color !== 'cmyk' && !g.white);
+  const icc = expOpts.icc && color !== 'cmyk' ? iccProfile(color) : null, iccName = { srgb: 'sRGB IEC61966-2.1', adobe: 'Adobe RGB (1998)', gray: 'Gray Gamma 2.2' }[color];
+  const c = await renderExportCanvas(g, alpha);
+  if (expOpts.fmt === 'jpg') {
+    if (color === 'adobe') { const x = c.getContext('2d'), id = x.getImageData(0, 0, g.W, g.H), { pix } = convertPixels(id.data, g.W * g.H, 'adobe', false);
+      for (let i = 0, j = 0; i < g.W * g.H; i++, j += 4) { id.data[j] = pix[i * 3]; id.data[j + 1] = pix[i * 3 + 1]; id.data[j + 2] = pix[i * 3 + 2]; } x.putImageData(id, 0, 0); }
+    return encodeJPEG(c, expOpts.jpgQ / 100, { icc, dpi: expOpts.dpi });
+  }
+  const rgba = c.getContext('2d').getImageData(0, 0, g.W, g.H).data, { pix, spp } = convertPixels(rgba, g.W * g.H, color, alpha);
+  c.width = c.height = 0; // освобождаем память холста до кодирования
+  if (expOpts.fmt === 'png') return encodePNG(pix, g.W, g.H, spp, { icc, iccName, dpi: expOpts.dpi });
+  if (expOpts.fmt === 'tif') return encodeTIFF(pix, g.W, g.H, spp, { photometric: color === 'cmyk' ? 5 : color === 'gray' ? 1 : 2, alpha, dpi: expOpts.dpi, icc, deflate: expOpts.tiffComp === 'deflate' });
+  return encodePDF(pix, g.W, g.H, spp, { color, icc, g });
+}
 async function runExport() {
-  const f = EXP_FORMATS[expOpts.fmt], g = exportGeom(), name = fileBase() + '.' + f.ext;
-  if (f.raster && g.W * g.H > MAX_PX) return toast('Слишком большое изображение для браузера: уменьшите разрешение');
-  const btn = $('#expGo'); if (btn) { btn.disabled = true; btn.querySelector('span').textContent = 'Готовлю файл…'; }
+  const f = EXP_FORMATS[expOpts.fmt], G = exportGeoms(), many = G.length > 1;
+  if (f.raster && G.some(g => g.W * g.H > MAX_PX)) return toast('Слишком большое изображение для браузера: уменьшите разрешение');
+  const btn = $('#expGo'), lbl = t => { if (btn) btn.querySelector('span').textContent = t; };
+  if (btn) btn.disabled = true; lbl('Готовлю файл…');
   try {
-    let blob;
-    if (expOpts.fmt === 'svg') blob = new Blob([exportSVG(0, 0, { bleed: g.bl, pad: g.pad, marks: expOpts.marks, markW: 0.1, mm: true })], { type: 'image/svg+xml' });
-    else {
-      const color = f.colors.includes(expOpts.color) ? expOpts.color : 'srgb', alpha = !!(f.alpha && expOpts.alpha && color !== 'cmyk');
-      const icc = expOpts.icc && color !== 'cmyk' ? iccProfile(color) : null, iccName = { srgb: 'sRGB IEC61966-2.1', adobe: 'Adobe RGB (1998)', gray: 'Gray Gamma 2.2' }[color];
-      const c = await renderExportCanvas(g, alpha);
-      if (expOpts.fmt === 'jpg') {
-        if (color === 'adobe') { const x = c.getContext('2d'), id = x.getImageData(0, 0, g.W, g.H), { pix } = convertPixels(id.data, g.W * g.H, 'adobe', false);
-          for (let i = 0, j = 0; i < g.W * g.H; i++, j += 4) { id.data[j] = pix[i * 3]; id.data[j + 1] = pix[i * 3 + 1]; id.data[j + 2] = pix[i * 3 + 2]; } x.putImageData(id, 0, 0); }
-        blob = await encodeJPEG(c, expOpts.jpgQ / 100, { icc, dpi: expOpts.dpi });
-      } else {
-        const rgba = c.getContext('2d').getImageData(0, 0, g.W, g.H).data, { pix, spp } = convertPixels(rgba, g.W * g.H, color, alpha);
-        if (expOpts.fmt === 'png') blob = await encodePNG(pix, g.W, g.H, spp, { icc, iccName, dpi: expOpts.dpi });
-        else if (expOpts.fmt === 'tif') blob = await encodeTIFF(pix, g.W, g.H, spp, { photometric: color === 'cmyk' ? 5 : color === 'gray' ? 1 : 2, alpha, dpi: expOpts.dpi, icc, deflate: expOpts.tiffComp === 'deflate' });
-        else blob = await encodePDF(pix, g.W, g.H, spp, { color, icc, g });
-      }
+    if (many) {
+      const files = [];
+      for (const g of G) { lbl(`Часть ${g.part.n} из ${G.length}…`); const blob = await encodeExport(g); files.push({ name: `${fileBase()} — часть ${g.part.n}.${f.ext}`, bytes: new Uint8Array(await blob.arrayBuffer()) }); }
+      const name = fileBase() + ' — части.zip';
+      if (await download(zipFiles(files), name)) toast(`Сохранено: ${name} · ${G.length} файлов с белым полем ${mmTxt(base().partMargin)} мм`, 5000);
+      return;
     }
+    const g = G[0], name = fileBase() + '.' + f.ext, blob = await encodeExport(g);
     let r = await download(blob, name);
     if (r === 'rejected') { // .tif нельзя сохранить из страницы напрямую — отдаём тот же файл внутри ZIP без сжатия
       r = await download(zipStore(name, new Uint8Array(await blob.arrayBuffer())), name + '.zip');
       if (r) toast('Готово: ' + name + ' внутри ZIP — эта страница не разрешает сохранять .tif напрямую', 6000);
     } else if (r) toast(`Сохранено: ${name}` + (f.raster ? ` · ${g.W}×${g.H} px` : ''));
   } catch (e) { console.error(e); toast('Не удалось собрать файл: возможно, не хватило памяти. Попробуйте меньшее разрешение'); }
-  finally { if (btn) { btn.disabled = false; btn.querySelector('span').textContent = 'Экспортировать'; } }
+  finally { if (btn) btn.disabled = false; lbl('Экспортировать'); }
 }
 const fmtBytes = n => n > 1e9 ? nf(n / 1e9, 1) + ' ГБ' : n > 1e6 ? nf(n / 1e6, 0) + ' МБ' : nf(n / 1e3, 0) + ' КБ';
 function openExport() {
@@ -2762,7 +2934,7 @@ function openExport() {
   if (f.colors.length && !f.colors.includes(expOpts.color)) expOpts.color = 'srgb';
   const set = (k, v) => { expOpts[k] = v; saveExpOpts(); openExport(); };
   const seg = (items, cur, on) => el('div', { class: 'seg full' }, items.map(([v, l, t]) => el('button', { type: 'button', class: cur === v ? 'on' : '', title: t || null, onclick: () => on(v) }, l)));
-  const g = exportGeom(), px = g.W * g.H, color = expOpts.color, spp = color === 'cmyk' ? 4 : color === 'gray' ? (expOpts.alpha && f.alpha ? 2 : 1) : (expOpts.alpha && f.alpha ? 4 : 3);
+  const G = exportGeoms(), split = partsOf().length > 1, many = G.length > 1, g = G.reduce((a, x) => x.W * x.H > a.W * a.H ? x : a), px = g.W * g.H, color = expOpts.color, spp = color === 'cmyk' ? 4 : color === 'gray' ? (expOpts.alpha && f.alpha ? 2 : 1) : (expOpts.alpha && f.alpha ? 4 : 3);
   const tooBig = f.raster && px > MAX_PX;
   const dpiIn = el('input', { type: 'text', inputmode: 'numeric', value: String(expOpts.dpi) });
   dpiIn.addEventListener('change', () => { const v = parseInt(dpiIn.value, 10); set('dpi', isFinite(v) ? clamp(v, 25, 1200) : expOpts.dpi); });
@@ -2786,15 +2958,18 @@ function openExport() {
     expOpts.fmt === 'jpg' ? [cap('Качество JPEG'), row(sliderField(() => expOpts.jpgQ, v => { expOpts.jpgQ = v; saveExpOpts(); }, { min: 50, max: 100, def: 92 }))] : null,
     expOpts.fmt === 'tif' ? [cap('Сжатие TIFF'), row(seg([['none', 'Без сжатия'], ['deflate', 'Deflate (ZIP), без потерь']], expOpts.tiffComp, v => set('tiffComp', v)))] : null);
   body.push(
+    split ? [cap('Составной стенд'),
+      row(seg([[true, `Каждая часть отдельно (${partsOf().length})`], [false, 'Весь стенд одним файлом']], expOpts.parts, v => set('parts', v))),
+      el('p', { class: 'hint', style: 'margin:0 0 10px' }, many ? `Каждая часть — отдельный файл с белым полем ${mmTxt(base().partMargin)} мм по периметру (меняется в свойствах подложки). Файлы придут одним ZIP-архивом.` : 'Один файл без разделения — для показа заказчику.')] : null,
     cap('Для печати'),
     el('div', { class: 'grid2' }, el('label', { class: 'nf', title: 'Фон подложки продлевается за край на эту величину' }, el('b', {}, 'Вылеты'), bleedIn, el('i', {}, 'мм')),
       checkField('Метки реза', () => expOpts.marks, v => set('marks', v))),
     el('div', { class: 'info', style: 'margin-top:10px' },
-      `Размер: ${mmTxt(g.mmW)} × ${mmTxt(g.mmH)} мм` + (f.raster ? ` · ${nf(g.W)} × ${nf(g.H)} px · ${nf(px / 1e6, 1)} Мп` : '') +
+      (many ? `Частей: ${G.length} · самая большая ` : 'Размер: ') + `${mmTxt(g.mmW)} × ${mmTxt(g.mmH)} мм` + (f.raster ? ` · ${nf(g.W)} × ${nf(g.H)} px · ${nf(px / 1e6, 1)} Мп` : '') +
       (expOpts.fmt === 'tif' && expOpts.tiffComp === 'none' ? ` · файл ≈ ${fmtBytes(px * spp)}` : '')),
     tooBig ? el('p', { class: 'warn bad' }, `Слишком много пикселей для браузера. Для этого стенда максимум около ${maxDpi} dpi.`) : null,
     !tooBig && f.raster && px > 60e6 ? el('p', { class: 'warn' }, 'Большой файл: сборка может занять до минуты.') : null,
-    expOpts.fmt === 'tif' && window.claude ? el('p', { class: 'hint' }, 'Страница в Claude не разрешает сохранять .tif напрямую, поэтому TIFF придёт внутри ZIP без сжатия. Если открыть этот конструктор как HTML-файл, TIFF сохранится как есть.') : null);
+    expOpts.fmt === 'tif' && window.claude && !many ? el('p', { class: 'hint' }, 'Страница в Claude не разрешает сохранять .tif напрямую, поэтому TIFF придёт внутри ZIP без сжатия. Если открыть этот конструктор как HTML-файл, TIFF сохранится как есть.') : null);
   m.replaceChildren(el('div', { class: 'dlg', role: 'dialog', style: 'width:min(560px,100%)' },
     el('div', { class: 'dlg-h' }, el('span', {}, 'Экспорт: ' + fileBase()), B('', '✕', () => { m.hidden = true; m.replaceChildren(); }, { cls: 'icon', title: 'Закрыть (Esc)' })),
     el('div', { class: 'dlg-b', style: 'padding-top:14px' }, body),
