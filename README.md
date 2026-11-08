@@ -141,6 +141,10 @@ apple-touch-icon.png
 docs/                   скриншоты для README
 ```
 
+## План развития
+
+Что планируется дальше — в [TODO.md](TODO.md).
+
 ## Лицензии
 
 Встроенные шрифты распространяются по лицензии [SIL Open Font License 1.1](https://openfontlicense.org/) и получены через пакеты Fontsource.
