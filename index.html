@@ -338,6 +338,7 @@ kbd{font:11px/1 ui-monospace,monospace;border:1px solid var(--line);border-botto
 #toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,16px);opacity:0;transition:opacity .2s,transform .2s;background:#1f2937;color:#fff;padding:9px 14px;border-radius:10px;pointer-events:none;z-index:10;max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 @media (max-width:1100px){.hide-sm{display:none}}
+.seg button.soon{opacity:.45;font-style:italic}
 </style>
 </head>
 <body>
@@ -2718,6 +2719,7 @@ const ICON = {
   share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
   download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  archive: '<path d="M4 7h16v13H4zM3 3h18v4H3zM10 11h4"/>',
   folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/>',
   file: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',
   image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
@@ -3870,11 +3872,29 @@ function gridMarkup(o, exp) {
 const objMarkup = (o, exp) => o.type === 'qr' ? qrMarkup(o, exp) : o.type === 'pocket' ? pocketMarkup(o, exp) : o.type === 'holes' ? holesMarkup(o, exp) : o.type === 'shape' ? shapeMarkup(o, exp) : o.type === 'text' ? textMarkup(o, exp) : o.type === 'grid' ? gridMarkup(o, exp) : '';
 
 /* ================= export PNG ================= */
+/* ---- метки сборки на основе: Г-метки по углам карманов (лучи внутрь — их закроет скотч),
+   у скошенного уголка срезанный угол без метки; центры отверстий — крестик и окружность ---- */
+function assemblyMarks() {
+  const sw = 0.3, out = [];
+  for (const o of doc.objects) {
+    if (o.type !== 'pocket' || !o.visible) continue;
+    const l = localWH(o), a = Math.min(12, l.w / 3, l.h / 3);
+    const open = ['t', 'b', 'l', 'r'].find(k => !o.sides[k]), cut = (o.notch === 'cornerL' || o.notch === 'cornerR') && open ? CORNER_OF[open][o.notch] : null;
+    const C = { TL: `M0 ${a}V0H${a}`, TR: `M${l.w - a} 0H${l.w}V${a}`, BR: `M${l.w} ${l.h - a}V${l.h}H${l.w - a}`, BL: `M${a} ${l.h}H0V${l.h - a}` };
+    const d = Object.entries(C).filter(([k]) => k !== cut).map(([, v]) => v).join('');
+    out.push(`<g transform="${objTransform(o)}"><path d="${d}" fill="none" stroke="#000" stroke-width="${sw}" stroke-linecap="square"/></g>`);
+  }
+  const h = holesCfg();
+  if (h) for (const p of allHoles()) { const r = h.d / 2, c = r + 4;
+    out.push(`<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="none" stroke="#000" stroke-width="${sw}"/><path d="M${p.x - c} ${p.y}H${p.x + c}M${p.x} ${p.y - c}V${p.y + c}" stroke="#000" stroke-width="${sw}"/>`); }
+  return out.join('');
+}
 function exportSVG(W, H, opts = {}) {
   // opts.region — часть стенда (по умолчанию весь), opts.off — поле вокруг неё (вылеты + метки или белое поле части)
   const b = base(), bl = opts.bleed || 0, R = opts.region || { x: 0, y: 0, w: b.w, h: b.h };
   const off = opts.off != null ? opts.off : bl + (opts.pad || 0), VW = R.w + 2 * off, VH = R.h + 2 * off;
-  const parts = doc.objects.filter(o => o.visible && o.type !== 'grid').map(o => {
+  const baseOnly = opts.content === 'base';
+  const parts = doc.objects.filter(o => o.visible && o.type !== 'grid' && !(baseOnly && o.type === 'pocket')).map(o => {
     if (o.type === 'base') {
       // с вылетами фон подложки продлевается за край на величину вылета
       const i = o.image, href = i && assets[i.asset], c = 'c' + o.id;
@@ -3883,7 +3903,8 @@ function exportSVG(W, H, opts = {}) {
     }
     const t = objTransform(o), tr = t ? ` transform="${t}"` : '';
     return `<g opacity="${o.opacity}"${tr}>${objMarkup(o, true)}</g>`;
-  }).join('') + (doc.grid && doc.grid.on && doc.grid.export && !isClient() ? gridMarkup(doc.grid, true) : '') + holesMarkup(null, true, opts.view || view_.mode);
+  }).join('') + (doc.grid && doc.grid.on && doc.grid.export && !isClient() && !baseOnly ? gridMarkup(doc.grid, true) : '') + (baseOnly ? '' : holesMarkup(null, true, opts.view || view_.mode))
+    + (baseOnly && opts.asmMarks ? assemblyMarks() : '');
   const used = new Set(doc.objects.filter(o => o.type === 'text' && o.visible).map(o => o.font));
   const css = used.size ? `<style>${fontFaceCSS(used)}</style>` : '';
   let marks = '';
@@ -6071,7 +6092,89 @@ function specCSV(secs) {
   for (const s_ of secs) { lines.push(q(s_.title), s_.head.map(q).join(';')); for (const r of s_.rows) lines.push(cellsOf(r).map(q).join(';')); lines.push(''); }
   return '﻿' + lines.join('\r\n');
 }
-async function specPages(secs) {
+/* ================= чертёж для цеха: лист A4 с размерами + листы с таблицами ================= */
+const workPockets = () => doc.objects.filter(o => o.type === 'pocket' && o.visible).sort((a, c) => { const ay = a.y + a.h / 2, cy = c.y + c.h / 2; return Math.abs(ay - cy) > Math.min(a.h, c.h) / 2 ? ay - cy : (a.x + a.w / 2) - (c.x + c.w / 2); });
+const FINISH_TXT = { none: 'без отделки', sticker: 'заглушка-кругляш', white: 'шляпка Ø10 белая', silver: 'шляпка Ø10 «серебро»', gold: 'шляпка Ø10 «золото»' };
+function workSections() {
+  const b = base(), P = workPockets(), h = holesCfg(), holes = allHoles(), secs = [];
+  if (P.length) secs.push({ title: 'Карманы — координаты для сборки, мм (от левого верхнего угла стенда)', num: [4, 5, 6, 7],
+    head: ['№', 'Название', 'Вкладыш', 'Карман Ш × В', 'Слева', 'Сверху', 'Справа', 'Снизу', 'Угол'],
+    rows: P.map((o, i) => { const a = AB(o), t = tiltOf(o), ang = angleOf(o), lw = localWH(o);
+      return [String(i + 1), o.name, formatName(o.iw, o.ih), `${mmTxt(lw.w)} × ${mmTxt(lw.h)}`,
+        t ? mmTxt(o.x + o.w / 2) + ' ц' : mmTxt(a.x), t ? mmTxt(o.y + o.h / 2) + ' ц' : mmTxt(a.y), t ? '—' : mmTxt(b.w - a.x - a.w), t ? '—' : mmTxt(b.h - a.y - a.h), ang ? String(ang).replace('.', ',') + '°' : '—']; }) });
+  if (holes.length) secs.push({ title: 'Отверстия под крепёж — центры, мм', head: ['№', 'X', 'Y', 'Сверло Ø', 'Чем закрыть'],
+    rows: [...holes].sort((a, c) => a.y - c.y || a.x - c.x).map((p, i) => [String(i + 1), mmTxt(p.x), mmTxt(p.y), mmTxt(h.d), FINISH_TXT[h.finish] + (h.finish === 'sticker' ? ` Ø${mmTxt(h.stickerD)}` : '')]) });
+  return secs.concat(specSections().filter(s_ => !/^Расположение карманов|^Отверстия под крепёж/.test(s_.title)));
+}
+async function drawingPage() {
+  const b = base(), land = b.w >= b.h, PW = land ? 1754 : 1240, PH = land ? 1240 : 1754, F = '"Inter Variable", system-ui, sans-serif';
+  try { await Promise.all([document.fonts.load(`400 20px ${F}`, 'Аа'), document.fonts.load(`700 20px ${F}`, 'Аа')]); } catch {}
+  const c = el('canvas'); c.width = PW; c.height = PH; const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH); g.textBaseline = 'middle';
+  const M = 70, TB = 96, padL = 92, padT = 80, padR = 80, padB = 70;
+  const aw = PW - 2 * M - padL - padR, ah = PH - 2 * M - TB - padT - padB, k = Math.min(aw / b.w, ah / b.h);
+  const ox = M + padL + (aw - b.w * k) / 2, oy = M + padT + (ah - b.h * k) / 2, X = x => ox + x * k, Y = y => oy + y * k;
+  const P = workPockets(), h = holesCfg();
+  const txt = (t, x, y, { size = 17, bold = false, color = '#111827', align = 'center', rot = 0 } = {}) => {
+    g.save(); g.translate(x, y); if (rot) g.rotate(rot); g.font = `${bold ? 700 : 400} ${size}px ${F}`; g.fillStyle = color; g.textAlign = align; g.fillText(t, 0, 0); g.restore(); };
+  const line = (x1, y1, x2, y2, w = 1, col = '#374151', dash) => { g.beginPath(); g.setLineDash(dash || []); g.moveTo(x1, y1); g.lineTo(x2, y2); g.strokeStyle = col; g.lineWidth = w; g.stroke(); g.setLineDash([]); };
+  // подложка, линии раздела
+  g.strokeStyle = '#111827'; g.lineWidth = 2.2; g.strokeRect(X(0), Y(0), b.w * k, b.h * k);
+  for (const l of b.splits) l.axis === 'v' ? line(X(l.pos), Y(0) - 10, X(l.pos), Y(b.h) + 10, 1.4, '#ea580c', [10, 6]) : line(X(0) - 10, Y(l.pos), X(b.w) + 10, Y(l.pos), 1.4, '#ea580c', [10, 6]);
+  // карманы с номерами (контур по повороту, срезанный уголок не рисуем отдельно)
+  P.forEach((o, i) => {
+    const pts = cornersOf(o); g.beginPath(); pts.forEach((p, j) => j ? g.lineTo(X(p.x), Y(p.y)) : g.moveTo(X(p.x), Y(p.y))); g.closePath();
+    g.fillStyle = '#f3f6fb'; g.fill(); g.strokeStyle = '#1f2937'; g.lineWidth = 1.4; g.stroke();
+    const cx = X(o.x + o.w / 2), cy = Y(o.y + o.h / 2), r = Math.max(13, Math.min(22, Math.min(o.w, o.h) * k * 0.18));
+    g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fillStyle = '#fff'; g.fill(); g.strokeStyle = '#1f2937'; g.lineWidth = 1.2; g.stroke();
+    txt(String(i + 1), cx, cy + 1, { size: Math.round(r * 1.05), bold: true });
+    txt(formatName(o.iw, o.ih), cx, cy + r + 14, { size: 13, color: '#6b7280' });
+  });
+  // отверстия
+  if (h) for (const p of allHoles()) { const cx = X(p.x), cy = Y(p.y); g.beginPath(); g.arc(cx, cy, Math.max(3, h.d / 2 * k), 0, 7); g.strokeStyle = '#111827'; g.lineWidth = 1.2; g.stroke(); line(cx - 9, cy, cx + 9, cy, 1); line(cx, cy - 9, cx, cy + 9, 1); }
+  // размерные цепочки: отступы от краёв и расстояния между карманами (по неповёрнутым)
+  const chain = (vals, horiz) => {
+    const v = [...new Set(vals.map(x => Math.round(x * 10) / 10))].sort((a, c) => a - c).filter((x, i, A) => !i || x - A[i - 1] > 0.5);
+    const base_ = horiz ? Y(0) - 36 : X(0) - 40;
+    horiz ? line(X(v[0]), base_, X(v[v.length - 1]), base_, 1) : line(base_, Y(v[0]), base_, Y(v[v.length - 1]), 1);
+    v.forEach(x => horiz ? line(X(x), base_ - 7, X(x), base_ + 7, 1.2) : line(base_ - 7, Y(x), base_ + 7, Y(x), 1.2));
+    for (let i = 1; i < v.length; i++) {
+      const d = v[i] - v[i - 1], px = d * k, label = mmTxt(Math.round(d * 10) / 10);
+      g.font = `400 15px ${F}`; const tw = g.measureText(label).width;
+      if (px < tw + 6) continue; // слишком тесно — значение есть в таблице
+      horiz ? txt(label, X((v[i] + v[i - 1]) / 2), base_ - 13, { size: 15 }) : txt(label, base_ - 13, Y((v[i] + v[i - 1]) / 2), { size: 15, rot: -Math.PI / 2 });
+    }
+  };
+  const flat = P.filter(o => !tiltOf(o)).map(AB);
+  chain([0, b.w, ...flat.flatMap(a => [a.x, a.x + a.w])], true);
+  chain([0, b.h, ...flat.flatMap(a => [a.y, a.y + a.h])], false);
+  // габариты
+  const gy = Y(b.h) + 40, gx = X(b.w) + 42;
+  line(X(0), gy, X(b.w), gy, 1.2); line(X(0), gy - 8, X(0), gy + 8, 1.2); line(X(b.w), gy - 8, X(b.w), gy + 8, 1.2);
+  txt(`${mmTxt(b.w)} мм`, X(b.w / 2), gy + 17, { size: 17, bold: true });
+  line(gx, Y(0), gx, Y(b.h), 1.2); line(gx - 8, Y(0), gx + 8, Y(0), 1.2); line(gx - 8, Y(b.h), gx + 8, Y(b.h), 1.2);
+  txt(`${mmTxt(b.h)} мм`, gx + 18, Y(b.h / 2), { size: 17, bold: true, rot: -Math.PI / 2 });
+  // штамп
+  const ty = PH - M - TB + 10; line(M, ty - 10, PW - M, ty - 10, 1.2, '#9ca3af');
+  txt(doc.title || DEFAULT_TITLE, M, ty + 20, { size: 26, bold: true, align: 'left' });
+  txt(`Чертёж стенда · ${mmTxt(b.w)} × ${mmTxt(b.h)} мм · ПВХ ${b.thickness} мм · масштаб ≈ 1:${Math.round(1 / (k * 25.4 / 150))} · ${new Date().toLocaleDateString('ru-RU')}`, M, ty + 56, { size: 16, color: '#4b5563', align: 'left' });
+  txt('Размеры в мм. Номера карманов — как в таблице на следующем листе. «ц» в таблице — координаты центра наклонённого кармана.', PW - M, ty + 56, { size: 14, color: '#6b7280', align: 'right' });
+  if (h) txt(`Отверстия: ${allHoles().length} шт, сверло Ø${mmTxt(h.d)}, ${FINISH_TXT[h.finish]}`, PW - M, ty + 20, { size: 16, color: '#111827', align: 'right' });
+  return c;
+}
+async function exportDrawing(asBlob) {
+  try {
+    if (!asBlob) toast('Собираю чертёж…', 8000);
+    const pages = [await drawingPage(), ...await specPages(workSections(), { noImage: true, subtitle: 'Чертёж стенда — данные для сборки', pageOffset: 1 })];
+    const blob = await makePDF(pages);
+    if (asBlob) return blob;
+    if (await download(blob, fileBase() + ' — чертёж.pdf')) toast('Чертёж сохранён: листов ' + pages.length);
+  } catch (e) { console.error(e); toast('Не удалось собрать чертёж'); }
+}
+/* DXF для ЧПУ — заглушка до разговора с цехом */
+function exportDXF() { toast('DXF для резки появится после обсуждения с цехом: какие контуры и слои нужны станку', 5000); }
+
+async function specPages(secs, opt = {}) {
   const PW = 1240, PH = 1754, M = 86, F = '"Inter Variable", system-ui, sans-serif';
   try { await Promise.all([document.fonts.load(`400 20px ${F}`, 'Аа'), document.fonts.load(`700 20px ${F}`, 'Аа')]); } catch {}
   const pages = []; let c, g, y;
@@ -6079,8 +6182,8 @@ async function specPages(secs) {
   const fit = (t, w) => { t = String(t); if (g.measureText(t).width <= w) return t; while (t.length > 1 && g.measureText(t + '…').width > w) t = t.slice(0, -1); return t + '…'; };
   page();
   g.fillStyle = '#111827'; g.font = `700 38px ${F}`; g.fillText(fit(doc.title || DEFAULT_TITLE, PW - 2 * M), M, y + 18); y += 52;
-  g.fillStyle = '#6b7280'; g.font = `400 20px ${F}`; g.fillText(`Спецификация стенда · ${new Date().toLocaleDateString('ru-RU')}`, M, y + 10); y += 44;
-  try {
+  g.fillStyle = '#6b7280'; g.font = `400 20px ${F}`; g.fillText(`${opt.subtitle || 'Спецификация стенда'} · ${new Date().toLocaleDateString('ru-RU')}`, M, y + 10); y += 44;
+  if (!opt.noImage) try {
     const st = await renderStand(1600), maxW = PW - 2 * M, maxH = 620, k = Math.min(maxW / st.width, maxH / st.height), w = st.width * k, h = st.height * k;
     g.fillStyle = '#e5e7eb'; g.fillRect(M - 1, y - 1, w + 2, h + 2); g.drawImage(st, M, y, w, h); y += h + 40;
   } catch {}
@@ -6114,7 +6217,7 @@ async function specPages(secs) {
     for (const r of s_.rows) drawRow(cellsOf(r), false, !!r.total);
     y += 30;
   }
-  pages.forEach((p_, i) => { const x = p_.getContext('2d'); x.fillStyle = '#9ca3af'; x.font = `400 16px ${F}`; x.textBaseline = 'middle'; x.textAlign = 'right'; x.fillText(`${i + 1} / ${pages.length}`, PW - M, PH - M / 2); });
+  pages.forEach((p_, i) => { const x = p_.getContext('2d'); x.fillStyle = '#9ca3af'; x.font = `400 16px ${F}`; x.textBaseline = 'middle'; x.textAlign = 'right'; x.fillText(`${i + 1 + (opt.pageOffset || 0)} / ${pages.length + (opt.pageOffset || 0)}`, PW - M, PH - M / 2); });
   return pages;
 }
 async function makePDF(pages) {
@@ -6127,8 +6230,9 @@ async function makePDF(pages) {
   obj(2, `<< /Type /Pages /Kids [${pages.map((_, i) => `${3 + i * 3} 0 R`).join(' ')}] /Count ${n} >>`);
   for (let i = 0; i < n; i++) {
     const p_ = 3 + i * 3, jpg = new Uint8Array(await (await canvasBlob(pages[i], 'image/jpeg', 0.92)).arrayBuffer());
-    const cs = `q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`;
-    obj(p_, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${p_ + 2} 0 R >> >> /Contents ${p_ + 1} 0 R >>`);
+    const L = pages[i].width > pages[i].height, pw = L ? PH : PW, ph = L ? PW : PH; // альбомный лист — если картинка шире, чем выше
+    const cs = `q ${pw} 0 0 ${ph} 0 0 cm /Im0 Do Q`;
+    obj(p_, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pw} ${ph}] /Resources << /XObject << /Im0 ${p_ + 2} 0 R >> >> /Contents ${p_ + 1} 0 R >>`);
     obj(p_ + 1, `<< /Length ${cs.length} >>\nstream\n`, cs, '\nendstream');
     obj(p_ + 2, `<< /Type /XObject /Subtype /Image /Width ${pages[i].width} /Height ${pages[i].height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>\nstream\n`, jpg, '\nendstream');
   }
@@ -6213,6 +6317,7 @@ function openSpec() {
       B('copy', 'Копировать', () => copyText(specTSV(specSections()), 'Спецификация скопирована: вставьте в Excel, Google Таблицы или мессенджер'), { cls: 'btn', title: 'Скопировать таблицы в буфер обмена' }),
       B('download', 'Таблица CSV', () => specExport('csv'), { cls: 'btn', title: 'Для Excel и Google Таблиц' }),
       B('file', 'PDF', () => specExport('pdf'), { cls: 'btn', title: 'Лист A4 с картинкой стенда и таблицами' }),
+      B('file', 'Чертёж для цеха', () => exportDrawing(), { cls: 'btn', title: 'PDF A4: чертёж с размерами и координатами, отверстия, спецификация' }),
       B('image', 'PNG', () => specExport('png'), { cls: 'btn primary', title: 'Картинка со спецификацией' }))));
   m.hidden = false;
   m.querySelector('.dlg-b').scrollTop = keepScroll;
@@ -6222,7 +6327,7 @@ window.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal')
 
 /* ================= advanced export ================= */
 const EXPORT_KEY = STORE + ':export';
-const expOpts = (() => { const d = { fmt: 'png', dpi: 150, color: 'srgb', icc: true, alpha: false, jpgQ: 92, tiffComp: 'none', bleed: 0, marks: false, parts: true };
+const expOpts = (() => { const d = { fmt: 'png', dpi: 150, color: 'srgb', icc: true, alpha: false, jpgQ: 92, tiffComp: 'none', bleed: 0, marks: false, parts: true, content: 'full', asmMarks: true };
   try { return Object.assign(d, JSON.parse(localStorage.getItem(EXPORT_KEY))); } catch { return d; } })();
 const saveExpOpts = () => { try { localStorage.setItem(EXPORT_KEY, JSON.stringify(expOpts)); } catch {} };
 const EXP_FORMATS = {
@@ -6233,7 +6338,16 @@ const EXP_FORMATS = {
   svg: { label: 'SVG', ext: 'svg', colors: [], raster: false, note: 'Вектор в миллиметрах, шрифты и картинки встроены. Цветовой профиль не применяется.' },
 };
 const EXP_COLORS = { srgb: 'sRGB IEC61966-2.1', adobe: 'Adobe RGB (1998)', gray: 'Оттенки серого, гамма 2.2', cmyk: 'CMYK — упрощённо, без профиля' };
-const MAX_PX = 150e6;
+const MAX_PX = 150e6; // JPEG собирается целым холстом — дальше браузер не тянет
+const STRIP_MAX_PX = 1.5e9, MAX_SIDE = 32000; // PNG/TIFF/PDF собираются полосами: ограничены только шириной холста и размером файла
+const pxLimit = fmt => fmt === 'jpg' ? MAX_PX : STRIP_MAX_PX;
+const geomTooBig = (g, fmt) => g.W * g.H > pxLimit(fmt) || (fmt !== 'jpg' && g.W > MAX_SIDE);
+/* потоковое сжатие: строки идут в CompressionStream по мере готовности полос */
+function deflater() {
+  const cs = new CompressionStream('deflate'), w = cs.writable.getWriter(), out = []; let size = 0;
+  const reading = (async () => { const r = cs.readable.getReader(); for (;;) { const { value, done } = await r.read(); if (done) break; out.push(value); size += value.length; } })();
+  return { async write(u8) { await w.ready; await w.write(u8); }, async end() { await w.close(); await reading; return { parts: out, size }; } };
+}
 /* ---- двоичные помощники ---- */
 const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
 function crc32(u8, crc = 0xFFFFFFFF) { for (let i = 0; i < u8.length; i++) crc = CRC_T[(crc ^ u8[i]) & 255] ^ (crc >>> 8); return crc; }
@@ -6301,16 +6415,24 @@ function pngChunk(type, data) {
   const t = new Uint8Array(ascii(type)), out = new Uint8Array(12 + data.length), dv = new DataView(out.buffer);
   dv.setUint32(0, data.length); out.set(t, 4); out.set(data, 8); dv.setUint32(8 + data.length, (crc32(data, crc32(t)) ^ 0xFFFFFFFF) >>> 0); return out;
 }
-async function encodePNG(pix, W, H, spp, { icc, iccName, dpi }) {
-  const stride = W * spp, raw = new Uint8Array((stride + 1) * H);
-  for (let y = 0; y < H; y++) { const r = y * (stride + 1), p = y * stride; raw[r] = 1; // фильтр Sub
+function pngFilter(pix, W, h, spp) { // фильтр Sub для каждой строки
+  const stride = W * spp, raw = new Uint8Array((stride + 1) * h);
+  for (let y = 0; y < h; y++) { const r = y * (stride + 1), p = y * stride; raw[r] = 1;
     for (let x = 0; x < stride; x++) raw[r + 1 + x] = (pix[p + x] - (x >= spp ? pix[p + x - spp] : 0)) & 255; }
+  return raw;
+}
+async function encodePNG(pix, W, H, spp, { icc, iccName, dpi, z }) {
   const ihdr = new Uint8Array(13), dv = new DataView(ihdr.buffer); dv.setUint32(0, W); dv.setUint32(4, H);
   ihdr[8] = 8; ihdr[9] = { 1: 0, 2: 4, 3: 2, 4: 6 }[spp];
   const parts = [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), pngChunk('IHDR', ihdr)];
   if (icc) parts.push(pngChunk('iCCP', new Uint8Array([...ascii(iccName.slice(0, 79)), 0, 0, ...await zlibDeflate(icc)])));
   const ppm = Math.round(dpi / 0.0254), phys = new Uint8Array(9), pv = new DataView(phys.buffer); pv.setUint32(0, ppm); pv.setUint32(4, ppm); phys[8] = 1;
-  parts.push(pngChunk('pHYs', phys), pngChunk('IDAT', await zlibDeflate(raw)), pngChunk('IEND', new Uint8Array(0)));
+  parts.push(pngChunk('pHYs', phys));
+  if (z) { // сжатые куски склеиваем в IDAT по ~8 МБ
+    let buf = [], n = 0; const flush = () => { if (!n) return; const u = new Uint8Array(n); let o = 0; for (const b of buf) { u.set(b, o); o += b.length; } parts.push(pngChunk('IDAT', u)); buf = []; n = 0; };
+    for (const b of z.parts) { buf.push(b); n += b.length; if (n >= 8e6) flush(); } flush();
+  } else parts.push(pngChunk('IDAT', await zlibDeflate(pngFilter(pix, W, H, spp))));
+  parts.push(pngChunk('IEND', new Uint8Array(0)));
   return new Blob(parts, { type: 'image/png' });
 }
 async function encodeJPEG(canvas, q, { icc, dpi }) {
@@ -6326,36 +6448,40 @@ async function encodeJPEG(canvas, q, { icc, dpi }) {
   const first = keep.length && u8[keep[0].byteOffset - u8.byteOffset + 1] === 0xE0 ? [keep.shift()] : [];
   return new Blob([u8.subarray(0, 2), ...first, ...app2, ...keep, u8.subarray(p)], { type: 'image/jpeg' });
 }
-async function encodeTIFF(pix, W, H, spp, { photometric, alpha, dpi, icc, deflate }) {
-  const data = deflate ? await zlibDeflate(pix) : pix;
+async function encodeTIFF(pix, W, H, spp, { photometric, alpha, dpi, icc, deflate, strips, rps }) {
+  if (!strips) { const d = deflate ? await zlibDeflate(pix) : pix; strips = [{ part: d, size: d.length }]; rps = H; }
+  const n = strips.length;
   const soft = [...ascii('Stand designer'), 0];
   const E = []; // [tag, type, count, values|bytes]
   E.push([256, 4, 1, [W]], [257, 4, 1, [H]], [258, 3, spp, new Array(spp).fill(8)], [259, 3, 1, [deflate ? 8 : 1]], [262, 3, 1, [photometric]],
-    [273, 4, 1, [0]], [277, 3, 1, [spp]], [278, 4, 1, [H]], [279, 4, 1, [data.length]], [282, 5, 1, [dpi, 1]], [283, 5, 1, [dpi, 1]],
+    [273, 4, n, new Array(n).fill(0)], [277, 3, 1, [spp]], [278, 4, 1, [rps]], [279, 4, n, strips.map(x => x.size)], [282, 5, 1, [dpi, 1]], [283, 5, 1, [dpi, 1]],
     [284, 3, 1, [1]], [296, 3, 1, [2]], [305, 2, soft.length, soft]);
   if (alpha) E.push([338, 3, 1, [2]]);
   if (icc) E.push([34675, 7, icc.length, icc]);
   const SZ = { 2: 1, 3: 2, 4: 4, 5: 8, 7: 1 }, ifdLen = 2 + E.length * 12 + 4;
   let extra = 8 + ifdLen; const extraParts = [];
+  { // смещения полос: данные лежат в конце файла, после всех длинных значений тегов
+    let at = extra; for (const [, type, count] of E) { const b = SZ[type] * count; if (b > 4) at += b + (b & 1); }
+    const offs = E.find(e => e[0] === 273)[3]; strips.forEach((x, i) => { offs[i] = at; at += x.size; });
+    if (at > 0xFFFFFFFF) throw new Error('TIFF больше 4 ГБ');
+  }
   const head = new Uint8Array(8 + ifdLen), dv = new DataView(head.buffer);
   head.set([0x49, 0x49, 42, 0]); dv.setUint32(4, 8, true); dv.setUint16(8, E.length, true);
-  const pos = {}; // где лежит значение StripOffsets
   E.forEach(([tag, type, count, vals], i) => {
     const o = 10 + i * 12, bytes = SZ[type] * count; dv.setUint16(o, tag, true); dv.setUint16(o + 2, type, true); dv.setUint32(o + 4, count, true);
     const write = (view, at) => { if (type === 2 || type === 7) vals.forEach((v, k) => view.setUint8(at + k, v)); else if (type === 3) vals.forEach((v, k) => view.setUint16(at + 2 * k, v, true)); else vals.forEach((v, k) => view.setUint32(at + 4 * k, v, true)); };
-    if (bytes <= 4) { write(dv, o + 8); if (tag === 273) pos.strip = o + 8; }
+    if (bytes <= 4) write(dv, o + 8);
     else { const buf = new Uint8Array(bytes + (bytes & 1)); write(new DataView(buf.buffer), 0); dv.setUint32(o + 8, extra, true); extraParts.push(buf); extra += buf.length; }
   });
   dv.setUint32(8 + ifdLen - 4, 0, true);
-  dv.setUint32(pos.strip, extra, true); // данные изображения — в конце файла
-  return new Blob([head, ...extraParts, data], { type: 'image/tiff' });
+  return new Blob([head, ...extraParts, ...strips.map(x => x.part)], { type: 'image/tiff' });
 }
-async function encodePDF(pix, W, H, spp, { color, icc, g }) {
+async function encodePDF(pix, W, H, spp, { color, icc, g, z }) {
   const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
   const push = x => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); len += b.length; };
   const obj = (id, ...body) => { offs[id] = len; push(`${id} 0 obj\n`); body.forEach(push); push('\nendobj\n'); };
   const pt = mm => r2(mm * 72 / 25.4), PW = pt(g.mmW), PH = pt(g.mmH), off = g.bl + g.pad;
-  const data = await zlibDeflate(pix);
+  if (!z) { const d = await zlibDeflate(pix); z = { parts: [d], size: d.length }; }
   let cs = color === 'cmyk' ? '/DeviceCMYK' : color === 'gray' ? '/DeviceGray' : '/DeviceRGB';
   const useIcc = icc && (color === 'srgb' || color === 'adobe' || color === 'gray');
   push('%PDF-1.6\n%\xE2\xE3\xCF\xD3\n');
@@ -6365,7 +6491,7 @@ async function encodePDF(pix, W, H, spp, { color, icc, g }) {
   obj(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /TrimBox ${trim} /BleedBox ${bleedBox} /Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>`);
   const c = `q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`; obj(4, `<< /Length ${c.length} >>\nstream\n`, c, '\nendstream');
   if (useIcc) cs = '[/ICCBased 6 0 R]';
-  obj(5, `<< /Type /XObject /Subtype /Image /Width ${W} /Height ${H} /ColorSpace ${cs} /BitsPerComponent 8 /Filter /FlateDecode /Length ${data.length} >>\nstream\n`, data, '\nendstream');
+  obj(5, `<< /Type /XObject /Subtype /Image /Width ${W} /Height ${H} /ColorSpace ${cs} /BitsPerComponent 8 /Filter /FlateDecode /Length ${z.size} >>\nstream\n`, ...z.parts, '\nendstream');
   let n = 6;
   if (useIcc) { obj(6, `<< /N ${color === 'gray' ? 1 : 3} /Length ${icc.length} >>\nstream\n`, icc, '\nendstream'); n = 7; }
   const xref = len; let x = `xref\n0 ${n}\n0000000000 65535 f \n`; for (let i = 1; i < n; i++) x += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
@@ -6373,13 +6499,18 @@ async function encodePDF(pix, W, H, spp, { color, icc, g }) {
   return new Blob(parts, { type: 'application/pdf' });
 }
 /* ZIP без сжатия: файлы печати уже сжаты или должны остаться как есть */
-function zipFiles(files) {
+function zipFiles(files) { return zipCore(files.map(({ name, bytes }) => ({ name, crc: (crc32(bytes) ^ 0xFFFFFFFF) >>> 0, size: bytes.length, part: bytes }))); }
+async function blobCRC(blob) { let c = 0xFFFFFFFF; for (let o = 0; o < blob.size; o += 16e6) c = crc32(new Uint8Array(await blob.slice(o, o + 16e6).arrayBuffer()), c); return (c ^ 0xFFFFFFFF) >>> 0; }
+/* ZIP из Blob-ов: контрольная сумма считается кусками, файл целиком в память не грузится */
+async function zipBlobs(files) { const E = []; for (const { name, blob } of files) E.push({ name, crc: await blobCRC(blob), size: blob.size, part: blob }); return zipCore(E); }
+function zipCore(files) {
+  if (files.reduce((a, f_) => a + f_.size + 100, 0) > 0xFFFFFFFF) throw new Error('ZIP больше 4 ГБ');
   const d = new Date(), dosT = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dosD = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
   const dv = (n, f) => { const v = new DataView(new ArrayBuffer(n)); f.forEach(([o, x, s_]) => s_ === 4 ? v.setUint32(o, x, true) : v.setUint16(o, x, true)); return v; };
   const out = [], cd = []; let off = 0, cdLen = 0;
-  for (const { name, bytes } of files) {
-    const nm = new TextEncoder().encode(name), crc = (crc32(bytes) ^ 0xFFFFFFFF) >>> 0, n = bytes.length;
-    out.push(dv(30, [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, dosT, 2], [12, dosD, 2], [14, crc, 4], [18, n, 4], [22, n, 4], [26, nm.length, 2], [28, 0, 2]]), nm, bytes);
+  for (const { name, crc, size: n, part } of files) {
+    const nm = new TextEncoder().encode(name);
+    out.push(dv(30, [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, dosT, 2], [12, dosD, 2], [14, crc, 4], [18, n, 4], [22, n, 4], [26, nm.length, 2], [28, 0, 2]]), nm, part);
     cd.push(dv(46, [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, dosT, 2], [14, dosD, 2], [16, crc, 4], [20, n, 4], [24, n, 4], [28, nm.length, 2], [42, off, 4]]), nm);
     off += 30 + nm.length + n; cdLen += 46 + nm.length;
   }
@@ -6397,7 +6528,7 @@ function exportGeom(part) {
 }
 const exportGeoms = () => exportByParts() ? partsOf().map(exportGeom) : [exportGeom()];
 async function renderExportCanvas(g, transparent) {
-  const svg = exportSVG(g.W, g.H, { region: g.region, white: g.white, bleed: g.bl, pad: g.pad, marks: expOpts.marks, markW: 25.4 / expOpts.dpi * 1.2 });
+  const svg = exportSVG(g.W, g.H, { region: g.region, white: g.white, bleed: g.bl, pad: g.pad, marks: expOpts.marks, markW: 25.4 / expOpts.dpi * 1.2, content: expOpts.content, asmMarks: expOpts.asmMarks });
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
   try {
     const img = await loadImg(url); try { await img.decode(); } catch {}
@@ -6408,37 +6539,70 @@ async function renderExportCanvas(g, transparent) {
     return c;
   } finally { URL.revokeObjectURL(url); }
 }
-async function encodeExport(g) {
+/* полосами: один SVG, у каждой полосы свой viewBox; холст не больше ~24 Мп */
+async function renderStrips(g, transparent, onStrip, lbl) {
+  const svg = exportSVG(g.W, g.H, { region: g.region, white: g.white, bleed: g.bl, pad: g.pad, marks: expOpts.marks, markW: 25.4 / expOpts.dpi * 1.2, content: expOpts.content, asmMarks: expOpts.asmMarks });
+  const head = svg.match(/^<svg\b[^>]*>/)[0], [vx, vy, vw, vh] = head.match(/viewBox="([^"]+)"/)[1].split(/[\s,]+/).map(Number);
+  const SH = Math.max(1, Math.min(g.H, Math.floor(24e6 / g.W))), n = Math.ceil(g.H / SH), rest = svg.slice(head.length);
+  const c = el('canvas'), x = c.getContext('2d', { willReadFrequently: true });
+  try {
+    for (let i = 0; i < n; i++) {
+      const y0 = i * SH, h = Math.min(SH, g.H - y0);
+      if (n > 1 && lbl) lbl(`Полоса ${i + 1} из ${n}…`);
+      const top = head.replace(/\sheight="[^"]*"/, ` height="${h}"`).replace(/viewBox="[^"]*"/, `viewBox="${vx} ${vy + vh * y0 / g.H} ${vw} ${vh * h / g.H}" preserveAspectRatio="none"`);
+      const url = URL.createObjectURL(new Blob([top, rest], { type: 'image/svg+xml' }));
+      try {
+        const img = await loadImg(url); try { await img.decode(); } catch {}
+        await new Promise(r => setTimeout(r, i ? 30 : 150));
+        c.width = g.W; c.height = h; x.clearRect(0, 0, g.W, h);
+        if (!transparent) { x.fillStyle = '#fff'; x.fillRect(0, 0, g.W, h); }
+        x.drawImage(img, 0, 0, g.W, h);
+        await onStrip(x.getImageData(0, 0, g.W, h).data, y0, h);
+      } finally { URL.revokeObjectURL(url); }
+    }
+  } finally { c.width = c.height = 0; }
+}
+async function encodeExport(g, lbl) {
   const f = EXP_FORMATS[expOpts.fmt];
-  if (expOpts.fmt === 'svg') return new Blob([exportSVG(0, 0, { region: g.region, white: g.white, bleed: g.bl, pad: g.pad, marks: expOpts.marks, markW: 0.1, mm: true })], { type: 'image/svg+xml' });
+  if (expOpts.fmt === 'svg') return new Blob([exportSVG(0, 0, { region: g.region, white: g.white, bleed: g.bl, pad: g.pad, marks: expOpts.marks, markW: 0.1, mm: true, content: expOpts.content, asmMarks: expOpts.asmMarks })], { type: 'image/svg+xml' });
   const color = f.colors.includes(expOpts.color) ? expOpts.color : 'srgb', alpha = !!(f.alpha && expOpts.alpha && color !== 'cmyk' && !g.white);
   const icc = expOpts.icc && color !== 'cmyk' ? iccProfile(color) : null, iccName = { srgb: 'sRGB IEC61966-2.1', adobe: 'Adobe RGB (1998)', gray: 'Gray Gamma 2.2' }[color];
+  if (expOpts.fmt !== 'jpg') { // PNG / TIFF / PDF — полосами, без одного огромного холста
+    const fmt = expOpts.fmt, tdef = fmt === 'tif' && expOpts.tiffComp === 'deflate', df = fmt === 'tif' ? null : deflater(), strips = []; let spp = 3, rps = 0;
+    await renderStrips(g, alpha, async (rgba, y0, h) => {
+      const r = convertPixels(rgba, g.W * h, color, alpha); spp = r.spp; if (!rps) rps = h;
+      if (fmt === 'png') await df.write(pngFilter(r.pix, g.W, h, spp));
+      else if (fmt === 'pdf') await df.write(r.pix);
+      else { const d = tdef ? await zlibDeflate(r.pix) : r.pix; strips.push({ part: new Blob([d]), size: d.length }); }
+    }, lbl);
+    if (lbl) lbl('Сжимаю…');
+    if (fmt === 'tif') return encodeTIFF(null, g.W, g.H, spp, { photometric: color === 'cmyk' ? 5 : color === 'gray' ? 1 : 2, alpha, dpi: expOpts.dpi, icc, deflate: tdef, strips, rps });
+    const z = await df.end();
+    if (fmt === 'png') return encodePNG(null, g.W, g.H, spp, { icc, iccName, dpi: expOpts.dpi, z });
+    return encodePDF(null, g.W, g.H, spp, { color, icc, g, z });
+  }
   const c = await renderExportCanvas(g, alpha);
-  if (expOpts.fmt === 'jpg') {
+  {
     if (color === 'adobe') { const x = c.getContext('2d'), id = x.getImageData(0, 0, g.W, g.H), { pix } = convertPixels(id.data, g.W * g.H, 'adobe', false);
       for (let i = 0, j = 0; i < g.W * g.H; i++, j += 4) { id.data[j] = pix[i * 3]; id.data[j + 1] = pix[i * 3 + 1]; id.data[j + 2] = pix[i * 3 + 2]; } x.putImageData(id, 0, 0); }
     return encodeJPEG(c, expOpts.jpgQ / 100, { icc, dpi: expOpts.dpi });
   }
-  const rgba = c.getContext('2d').getImageData(0, 0, g.W, g.H).data, { pix, spp } = convertPixels(rgba, g.W * g.H, color, alpha);
-  c.width = c.height = 0; // освобождаем память холста до кодирования
-  if (expOpts.fmt === 'png') return encodePNG(pix, g.W, g.H, spp, { icc, iccName, dpi: expOpts.dpi });
-  if (expOpts.fmt === 'tif') return encodeTIFF(pix, g.W, g.H, spp, { photometric: color === 'cmyk' ? 5 : color === 'gray' ? 1 : 2, alpha, dpi: expOpts.dpi, icc, deflate: expOpts.tiffComp === 'deflate' });
-  return encodePDF(pix, g.W, g.H, spp, { color, icc, g });
 }
+const expName = () => fileBase() + (expOpts.content === 'base' ? ' — основа' : '');
 async function runExport() {
   const f = EXP_FORMATS[expOpts.fmt], G = exportGeoms(), many = G.length > 1;
-  if (f.raster && G.some(g => g.W * g.H > MAX_PX)) return toast('Слишком большое изображение для браузера: уменьшите разрешение');
+  if (f.raster && G.some(g => geomTooBig(g, expOpts.fmt))) return toast('Слишком большое изображение для браузера: уменьшите разрешение');
   const btn = $('#expGo'), lbl = t => { if (btn) btn.querySelector('span').textContent = t; };
   if (btn) btn.disabled = true; lbl('Готовлю файл…');
   try {
     if (many) {
       const files = [];
-      for (const g of G) { lbl(`Часть ${g.part.n} из ${G.length}…`); const blob = await encodeExport(g); files.push({ name: `${fileBase()} — часть ${g.part.n}.${f.ext}`, bytes: new Uint8Array(await blob.arrayBuffer()) }); }
-      const name = fileBase() + ' — части.zip';
+      for (const g of G) { lbl(`Часть ${g.part.n} из ${G.length}…`); const blob = await encodeExport(g, t => lbl(`Часть ${g.part.n} из ${G.length}: ${t.toLowerCase()}`)); files.push({ name: `${expName()} — часть ${g.part.n}.${f.ext}`, bytes: new Uint8Array(await blob.arrayBuffer()) }); }
+      const name = expName() + ' — части.zip';
       if (await download(zipFiles(files), name)) toast(`Сохранено: ${name} · ${G.length} файлов с белым полем ${mmTxt(base().partMargin)} мм`, 5000);
       return;
     }
-    const g = G[0], name = fileBase() + '.' + f.ext, blob = await encodeExport(g);
+    const g = G[0], name = expName() + '.' + f.ext, blob = await encodeExport(g, lbl);
     let r = await download(blob, name);
     if (r === 'rejected') { // .tif нельзя сохранить из страницы напрямую — отдаём тот же файл внутри ZIP без сжатия
       r = await download(zipStore(name, new Uint8Array(await blob.arrayBuffer())), name + '.zip');
@@ -6447,6 +6611,28 @@ async function runExport() {
   } catch (e) { console.error(e); toast('Не удалось собрать файл: возможно, не хватило памяти. Попробуйте меньшее разрешение'); }
   finally { if (btn) btn.disabled = false; lbl('Экспортировать'); }
 }
+/* пакет для цеха: файлы печати основы (по частям, с метками сборки по настройке) + чертёж с размерами */
+async function runWorkPack() {
+  const f = EXP_FORMATS[expOpts.fmt], keep = { content: expOpts.content, parts: expOpts.parts };
+  const btn = $('#packGo'), lbl = t => { if (btn) btn.querySelector('span').textContent = t; };
+  const all = [$('#expGo'), btn].filter(Boolean); all.forEach(b_ => b_.disabled = true);
+  try {
+    expOpts.content = 'base'; expOpts.parts = true;
+    const G = exportGeoms();
+    if (f.raster && G.some(g => geomTooBig(g, expOpts.fmt))) return toast('Слишком большое изображение для браузера: уменьшите разрешение');
+    const files = [], base_ = fileBase();
+    for (const g of G) {
+      const tag = G.length > 1 ? ` — часть ${g.part.n}` : '';
+      lbl(G.length > 1 ? `Основа, часть ${g.part.n} из ${G.length}…` : 'Основа…');
+      files.push({ name: `${base_} — основа для печати${tag}.${f.ext}`, blob: await encodeExport(g, t => lbl((G.length > 1 ? `Часть ${g.part.n}: ` : 'Основа: ') + t.toLowerCase())) });
+    }
+    lbl('Чертёж…'); files.push({ name: `${base_} — чертёж.pdf`, blob: await exportDrawing(true) });
+    lbl('Упаковываю…');
+    const name = base_ + ' — для цеха.zip';
+    if (await download(await zipBlobs(files), name)) toast(`Сохранено: ${name} · файлов печати ${G.length} + чертёж`, 5000);
+  } catch (e) { console.error(e); toast('Не удалось собрать пакет: возможно, не хватило памяти. Попробуйте меньшее разрешение'); }
+  finally { Object.assign(expOpts, keep); all.forEach(b_ => b_.disabled = false); lbl('Пакет для цеха'); }
+}
 const fmtBytes = n => n > 1e9 ? nf(n / 1e9, 1) + ' ГБ' : n > 1e6 ? nf(n / 1e6, 0) + ' МБ' : nf(n / 1e3, 0) + ' КБ';
 function openExport() {
   const m = $('#modal'), f = EXP_FORMATS[expOpts.fmt];
@@ -6454,14 +6640,15 @@ function openExport() {
   const set = (k, v) => { expOpts[k] = v; saveExpOpts(); openExport(); };
   const seg = (items, cur, on) => el('div', { class: 'seg full' }, items.map(([v, l, t]) => el('button', { type: 'button', class: cur === v ? 'on' : '', title: t || null, onclick: () => on(v) }, l)));
   const G = exportGeoms(), split = partsOf().length > 1, many = G.length > 1, g = G.reduce((a, x) => x.W * x.H > a.W * a.H ? x : a), px = g.W * g.H, color = expOpts.color, spp = color === 'cmyk' ? 4 : color === 'gray' ? (expOpts.alpha && f.alpha ? 2 : 1) : (expOpts.alpha && f.alpha ? 4 : 3);
-  const tooBig = f.raster && px > MAX_PX;
+  const tooBig = f.raster && geomTooBig(g, expOpts.fmt);
   const dpiIn = el('input', { type: 'text', inputmode: 'numeric', value: String(expOpts.dpi) });
   dpiIn.addEventListener('change', () => { const v = parseInt(dpiIn.value, 10); set('dpi', isFinite(v) ? clamp(v, 25, 1200) : expOpts.dpi); });
   const bleedIn = el('input', { type: 'text', inputmode: 'decimal', value: String(expOpts.bleed).replace('.', ',') });
   bleedIn.addEventListener('change', () => { const v = parseNum(bleedIn.value); set('bleed', v == null ? 0 : clamp(v, 0, 50)); });
-  const maxDpi = Math.floor(Math.sqrt(MAX_PX / (g.mmW * g.mmH)) * 25.4);
+  const maxDpi = Math.floor(Math.min(Math.sqrt(pxLimit(expOpts.fmt) / (g.mmW * g.mmH)), expOpts.fmt === 'jpg' ? 1e9 : MAX_SIDE / g.mmW) * 25.4);
   const body = [
-    cap('Формат'), row(seg(Object.entries(EXP_FORMATS).map(([k, v]) => [k, v.label]), expOpts.fmt, v => set('fmt', v))),
+    cap('Формат'), row((() => { const s_ = seg(Object.entries(EXP_FORMATS).map(([k, v]) => [k, v.label]), expOpts.fmt, v => set('fmt', v));
+      s_.append(el('button', { type: 'button', class: 'soon', title: 'DXF для резки на ЧПУ — скоро, после обсуждения с цехом', onclick: exportDXF }, 'DXF')); return s_; })()),
     el('p', { class: 'hint', style: 'margin:-2px 0 12px' }, f.note),
   ];
   if (f.raster) body.push(
@@ -6477,23 +6664,30 @@ function openExport() {
     expOpts.fmt === 'jpg' ? [cap('Качество JPEG'), row(sliderField(() => expOpts.jpgQ, v => { expOpts.jpgQ = v; saveExpOpts(); }, { min: 50, max: 100, def: 92 }))] : null,
     expOpts.fmt === 'tif' ? [cap('Сжатие TIFF'), row(seg([['none', 'Без сжатия'], ['deflate', 'Deflate (ZIP), без потерь']], expOpts.tiffComp, v => set('tiffComp', v)))] : null);
   body.push(
+    cap('Что экспортировать'),
+    row(seg([['full', 'Макет целиком'], ['base', 'Основа для печати']], expOpts.content, v => set('content', v))),
+    expOpts.content === 'base' ? [
+      row(checkField('Печатать метки на основе', () => expOpts.asmMarks, v => set('asmMarks', v))),
+      el('p', { class: 'hint', style: 'margin:0 0 10px' }, 'Основа — то, что печатается на ПВХ: фон, слои, тексты, QR. Карманы и вкладыши не входят. Метки: Г-образные по углам карманов (у скошенного уголка срезанный угол без метки) — их закроет скотч; центры отверстий — крестик и окружность для сверления.')]
+      : el('p', { class: 'hint', style: 'margin:0 0 10px' }, isClient() ? 'Вид «Клиент»: отверстия на картинке — как на готовом стенде (шляпки, заглушки не видны), без сетки.' : 'Вид «Производство»: на картинке отмечены центры отверстий. Для макета заказчику переключите вид на «Клиент» (V).'),
     split ? [cap('Составной стенд'),
       row(seg([[true, `Каждая часть отдельно (${partsOf().length})`], [false, 'Весь стенд одним файлом']], expOpts.parts, v => set('parts', v))),
       el('p', { class: 'hint', style: 'margin:0 0 10px' }, many ? `Каждая часть — отдельный файл с белым полем ${mmTxt(base().partMargin)} мм по периметру (меняется в свойствах подложки). Файлы придут одним ZIP-архивом.` : 'Один файл без разделения — для показа заказчику.')] : null,
-    el('p', { class: 'hint', style: 'margin:0 0 8px' }, isClient() ? 'Вид «Клиент»: отверстия на картинке — как на готовом стенде (шляпки, заглушки не видны), без сетки.' : 'Вид «Производство»: на картинке отмечены центры отверстий. Для макета заказчику переключите вид на «Клиент» (V).'),
     cap('Для печати'),
     el('div', { class: 'grid2' }, el('label', { class: 'nf', title: 'Фон подложки продлевается за край на эту величину' }, el('b', {}, 'Вылеты'), bleedIn, el('i', {}, 'мм')),
       checkField('Метки реза', () => expOpts.marks, v => set('marks', v))),
     el('div', { class: 'info', style: 'margin-top:10px' },
       (many ? `Частей: ${G.length} · самая большая ` : 'Размер: ') + `${mmTxt(g.mmW)} × ${mmTxt(g.mmH)} мм` + (f.raster ? ` · ${nf(g.W)} × ${nf(g.H)} px · ${nf(px / 1e6, 1)} Мп` : '') +
       (expOpts.fmt === 'tif' && expOpts.tiffComp === 'none' ? ` · файл ≈ ${fmtBytes(px * spp)}` : '')),
-    tooBig ? el('p', { class: 'warn bad' }, `Слишком много пикселей для браузера. Для этого стенда максимум около ${maxDpi} dpi.`) : null,
-    !tooBig && f.raster && px > 60e6 ? el('p', { class: 'warn' }, 'Большой файл: сборка может занять до минуты.') : null,
+    tooBig ? el('p', { class: 'warn bad' }, `Слишком много пикселей для браузера. Для этого стенда максимум около ${maxDpi} dpi` + (expOpts.fmt === 'jpg' ? ' в JPEG — PNG, TIFF и PDF собираются полосами и потянут больше.' : '.')) : null,
+    !tooBig && f.raster && px > 60e6 ? el('p', { class: 'warn' }, 'Большой файл: собирается полосами, это может занять несколько минут. Вкладку не закрывайте.') : null,
     expOpts.fmt === 'tif' && window.claude && !many ? el('p', { class: 'hint' }, 'Страница в Claude не разрешает сохранять .tif напрямую, поэтому TIFF придёт внутри ZIP без сжатия. Если открыть этот конструктор как HTML-файл, TIFF сохранится как есть.') : null);
   m.replaceChildren(el('div', { class: 'dlg', role: 'dialog', style: 'width:min(560px,100%)' },
     el('div', { class: 'dlg-h' }, el('span', {}, 'Экспорт: ' + fileBase()), B('', '✕', () => { m.hidden = true; m.replaceChildren(); }, { cls: 'icon', title: 'Закрыть (Esc)' })),
     el('div', { class: 'dlg-b', style: 'padding-top:14px' }, body),
-    el('div', { class: 'dlg-f' }, B('download', 'Экспортировать', runExport, { cls: 'btn primary', id: 'expGo', disabled: tooBig }))));
+    el('div', { class: 'dlg-f' },
+      f.raster || expOpts.fmt === 'svg' ? B('archive', 'Пакет для цеха', runWorkPack, { cls: 'btn', id: 'packGo', title: 'ZIP: основа для печати (по частям, с метками сборки — по галочке выше) в этом формате и разрешении + чертёж A4 с размерами, координатами карманов и спецификацией' }) : null,
+      B('download', 'Экспортировать', runExport, { cls: 'btn primary', id: 'expGo', disabled: tooBig }))));
   m.hidden = false;
   m.onclick = e => { if (e.target === m) { m.hidden = true; m.replaceChildren(); } };
 }
@@ -7089,6 +7283,12 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-08j', date: '8 ноября 2026', items: [
+    'Экспорт → «Что экспортировать»: «Основа для печати» — только то, что печатается на ПВХ, без карманов. Галочка «Печатать метки на основе» добавляет Г-образные уголки под карманы (у кармана с вырезом в углу — три уголка) и крестики центров отверстий.',
+    'Чертёж для цеха: PDF A4 — лист с размерами стенда, цепочками отступов и зазоров, номерами карманов и отверстиями (лист сам поворачивается, чтобы чертёж был крупнее), дальше — таблицы координат карманов, отверстий (чем закрыть) и спецификация. Кнопка — в окне спецификации.',
+    'Кнопка «Пакет для цеха» в окне экспорта: ZIP с основой для печати (по частям, если стенд составной) и чертежом.',
+    'PNG, TIFF и PDF собираются полосами — 300 dpi и выше теперь проходят и для больших стендов. JPEG по-прежнему ограничен памятью браузера.',
+    'DXF для резки — пока заглушка: сделаем после разговора с цехом.'] },
   { v: '2026-11-08i', date: '8 ноября 2026', items: [
     'Переключатель «Производство / Клиент» в верхней панели (клавиша V). В виде для клиента нет линий раздела, подписей карманов, сетки и размеров — стенд выглядит как готовый.',
     'Отверстия в виде для клиента — по отделке: открытые — тёмные, заглушки не видны, шляпки — шляпки. В производственном виде — центры сверления с крестиком, пунктиром — чем их закроют.',
