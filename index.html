@@ -339,6 +339,7 @@ kbd{font:11px/1 ui-monospace,monospace;border:1px solid var(--line);border-botto
 #toast.show{opacity:1;transform:translate(-50%,0)}
 @media (max-width:1100px){.hide-sm{display:none}}
 .seg button.soon{opacity:.45;font-style:italic}
+.row select.fs-sel{flex:0 0 auto;width:auto}
 </style>
 </head>
 <body>
@@ -3608,7 +3609,7 @@ function pocketMarkup(o, exp) {
       `<text x="${-vw / 2 + pad}" y="${vh / 2 - pad}" font-size="${fs}" font-weight="600" text-anchor="start">${esc(formatName(o.iw, o.ih))}</text>`;
     if (withName) { // название — в полтора раза крупнее формата; первое слово на первой строке, остальное — на второй; не влезает по ширине — шрифт уменьшается
       const words = String(o.name).trim().split(/\s+/), lines = words.length > 1 ? [words[0], words.slice(1).join(' ')] : words;
-      let nfs = fs * 1.5; const maxW = vw - 2 * pad, widest = Math.max(...lines.map(l_ => textW(l_, 600))) * nfs;
+      let nfs = o.nameFs || fs * 1.5; const maxW = vw - 2 * pad, widest = Math.max(...lines.map(l_ => textW(l_, 600))) * nfs;
       if (widest > maxW) nfs *= maxW / widest;
       const lh = nfs * 1.15, y0 = -(lines.length - 1) * lh / 2;
       m += `<text text-anchor="middle" dominant-baseline="central" font-size="${nfs}" font-weight="600">` +
@@ -4743,7 +4744,12 @@ function buildPocket(o) {
   return [
     sec('Карман',
       el('fieldset', { disabled: L },
-        row(textField(() => O().name, v => upd(null, x => x.name = v), 'Карман')),
+        (() => { // кегль названия: «Авто» — от размера кармана; дальше название всё равно ужимается, если не влезает по ширине
+          const fs_ = el('select', { title: 'Размер шрифта названия на кармане', class: 'fs-sel' }, el('option', { value: '' }, 'Авто'),
+            ...[6, 8, 10, 12, 15, 20, 25, 30, 40, 50, 60, 80].map(v => el('option', { value: String(v) }, v + ' мм')));
+          bind(fs_, () => String(O().nameFs || '')); fs_.addEventListener('change', () => upd(null, x => x.nameFs = +fs_.value || 0));
+          return row(textField(() => O().name, v => upd(null, x => x.name = v), 'Карман'), fs_);
+        })(),
         row(checkField('Отображать имя на кармане', () => O().showName, v => upd(null, x => x.showName = v))),
         cap('Формат вкладыша'),
         row(fmtSel, flipButton(o.id), rotButton(o.id)),
@@ -5772,7 +5778,7 @@ async function menuPaste(at) {
 
 /* ---- стиль: перенос настроек между элементами одного типа ---- */
 const STYLE_KEYS = {
-  pocket: ['tape', 'tapeColor', 'gap', 'notch', 'notchSize', 'showName', 'film', 'filmW'],
+  pocket: ['tape', 'tapeColor', 'gap', 'notch', 'notchSize', 'showName', 'nameFs', 'film', 'filmW'],
   qr: ['color', 'bg', 'bgOn', 'ecl', 'margin'],
   shape: ['fillType', 'fill', 'fill2', 'angle', 'fillOpacity', 'radius', 'opacity'],
   text: ['font', 'size', 'weight', 'italic', 'underline', 'strike', 'caps', 'align', 'lh', 'ls', 'skew', 'color', 'colorOpacity', 'strokeW', 'strokeColor', 'shadow'],
@@ -7300,7 +7306,7 @@ const WHATS_NEW = [
     'Кнопка «Пакет для цеха» в окне экспорта: ZIP с основой для печати (по частям, если стенд составной) и чертежом.',
     'PNG, TIFF и PDF собираются полосами — 300 dpi и выше теперь проходят и для больших стендов. JPEG по-прежнему ограничен памятью браузера.',
     'DXF для резки — пока заглушка: сделаем после разговора с цехом.',
-    'Подписи пустых карманов: название — крупно по центру (в полтора раза больше формата, длинное слово ужимается, второе слово — на новую строку), формат «А4» — мелко в левом нижнем углу.'] },
+    'Подписи пустых карманов: название — крупно по центру (в полтора раза больше формата, длинное слово ужимается, второе слово — на новую строку), формат «А4» — мелко в левом нижнем углу. Рядом с названием в свойствах — размер шрифта: «Авто» или в мм (пригодится для узких карманов-подписей).'] },
   { v: '2026-11-08i', date: '8 ноября 2026', items: [
     'Переключатель «Производство / Клиент» в верхней панели (клавиша V). В виде для клиента нет линий раздела, подписей карманов, сетки и размеров — стенд выглядит как готовый.',
     'Отверстия в виде для клиента — по отделке: открытые — тёмные, заглушки не видны, шляпки — шляпки. В производственном виде — центры сверления с крестиком, пунктиром — чем их закроют.',
