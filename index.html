@@ -3593,17 +3593,28 @@ function plasticPath(o, w, h) {
     l: `M0 0H${w}V${h}H0V${cy + r}A${r} ${r} 0 0 0 0 ${cy - r}Z`,
   }[side];
 }
+let textCtx; // ширина строки при кегле 1 — чтобы название кармана помещалось
+function textW(t, weight = 400) { textCtx ||= document.createElement('canvas').getContext('2d'); textCtx.font = `${weight} 100px system-ui, sans-serif`; return textCtx.measureText(t).width / 100; }
 function pocketMarkup(o, exp) {
   const g = pocketGeom(o), t = o.tape, s = o.sides, w = g.w, h = g.h, vs = exp ? '' : ' vector-effect="non-scaling-stroke"';
   let m = '';
   const href = o.image && assets[o.image.asset];
   if (href) m += `<image href="${href}"${exp ? ` xlink:href="${href}"` : ''} x="${g.ix}" y="${g.iy}" width="${o.iw}" height="${o.ih}" preserveAspectRatio="xMidYMid slice" opacity="${o.image.opacity}"/>`;
   else if (!exp && !isClient()) {
-    const fs = Math.min(o.iw, o.ih) * 0.16, nameFs = fs * 0.42, withName = o.showName && o.name;
-    const cf = (o.rot ? ` rotate(${-o.rot})` : '') + (o.flip ? ' scale(-1 1)' : ''); // подпись всегда читается прямо
-    m += `<g transform="translate(${w / 2} ${h / 2})${cf}" fill="#6b7280" fill-opacity=".55" font-family="system-ui,sans-serif" text-anchor="middle" dominant-baseline="central">` +
-      `<text y="${withName ? -nameFs * 0.7 : 0}" font-size="${fs}" font-weight="600">${esc(formatName(o.iw, o.ih))}</text>` +
-      (withName ? `<text y="${fs * 0.55 + nameFs * 0.3}" font-size="${nameFs}" font-weight="500">${esc(o.name)}</text>` : '') + '</g>';
+    const q = o.rot % 180, vw = q ? o.ih : o.iw, vh = q ? o.iw : o.ih, mn = Math.min(vw, vh); // размеры так, как карман виден на экране
+    const fs = mn * 0.075, pad = mn * 0.06, withName = o.showName && o.name;
+    const cf = (o.rot ? ` rotate(${-o.rot})` : '') + (o.flip ? ' scale(-1 1)' : ''); // подписи всегда читаются прямо
+    m += `<g transform="translate(${w / 2} ${h / 2})${cf}" fill="#6b7280" fill-opacity=".55" font-family="system-ui,sans-serif">` +
+      `<text x="${-vw / 2 + pad}" y="${vh / 2 - pad}" font-size="${fs}" font-weight="600" text-anchor="start">${esc(formatName(o.iw, o.ih))}</text>`;
+    if (withName) { // название — в полтора раза крупнее формата; первое слово на первой строке, остальное — на второй; не влезает по ширине — шрифт уменьшается
+      const words = String(o.name).trim().split(/\s+/), lines = words.length > 1 ? [words[0], words.slice(1).join(' ')] : words;
+      let nfs = fs * 1.5; const maxW = vw - 2 * pad, widest = Math.max(...lines.map(l_ => textW(l_, 600))) * nfs;
+      if (widest > maxW) nfs *= maxW / widest;
+      const lh = nfs * 1.15, y0 = -(lines.length - 1) * lh / 2;
+      m += `<text text-anchor="middle" dominant-baseline="central" font-size="${nfs}" font-weight="600">` +
+        lines.map((l_, i) => `<tspan x="0" y="${y0 + i * lh}">${esc(l_)}</tspan>`).join('') + '</text>';
+    }
+    m += '</g>';
   }
   const tape = (x, y, tw, th) => `<rect x="${x}" y="${y}" width="${tw}" height="${th}" fill="${o.tapeColor}" fill-opacity=".97" stroke="#000" stroke-opacity=".3" stroke-width="${exp ? 0.3 : 1}"${vs}/>`;
   const d = plasticPath(o, w, h), cid = 'pk-' + o.id; // скотч обрезается по форме пластика (срезанный уголок)
@@ -7288,7 +7299,8 @@ const WHATS_NEW = [
     'Чертёж для цеха: PDF A4 — лист с размерами стенда, цепочками отступов и зазоров, номерами карманов и отверстиями (лист сам поворачивается, чтобы чертёж был крупнее), дальше — таблицы координат карманов, отверстий (чем закрыть) и спецификация. Кнопка — в окне спецификации.',
     'Кнопка «Пакет для цеха» в окне экспорта: ZIP с основой для печати (по частям, если стенд составной) и чертежом.',
     'PNG, TIFF и PDF собираются полосами — 300 dpi и выше теперь проходят и для больших стендов. JPEG по-прежнему ограничен памятью браузера.',
-    'DXF для резки — пока заглушка: сделаем после разговора с цехом.'] },
+    'DXF для резки — пока заглушка: сделаем после разговора с цехом.',
+    'Подписи пустых карманов: название — крупно по центру (в полтора раза больше формата, длинное слово ужимается, второе слово — на новую строку), формат «А4» — мелко в левом нижнем углу.'] },
   { v: '2026-11-08i', date: '8 ноября 2026', items: [
     'Переключатель «Производство / Клиент» в верхней панели (клавиша V). В виде для клиента нет линий раздела, подписей карманов, сетки и размеров — стенд выглядит как готовый.',
     'Отверстия в виде для клиента — по отделке: открытые — тёмные, заглушки не видны, шляпки — шляпки. В производственном виде — центры сверления с крестиком, пунктиром — чем их закроют.',
