@@ -26,6 +26,8 @@ FONTS = [  # подпись, npm-пакет, имя семейства в CSS, �
     ('Russo One', '@fontsource/russo-one', 'Russo One', r'russo-one-(cyrillic|latin)-400-normal'),
 ]
 
+QR_PKG = 'qrcode-generator@2.0.4'
+
 
 def fetch(pkg):
     """Скачивает и распаковывает npm-пакет в кэш, возвращает путь к package/."""
@@ -65,8 +67,11 @@ def main():
     assert src.count('/*FONTS*/') == 1, 'в src/app.html должна быть ровно одна метка /*FONTS*/'
     db, data = font_db()
     js = 'const FONT_DB = ' + json.dumps(db, ensure_ascii=False) + ';\nconst FONT_DATA = ' + json.dumps(data) + ';\n'
+    # QR-коды: qrcode-generator (Kazuhiko Arase, MIT) — встраивается как есть, с лицензией в шапке
+    assert src.count('/*QRCODE*/') == 1, 'в src/app.html должна быть ровно одна метка /*QRCODE*/'
+    qr = open(os.path.join(fetch(QR_PKG), 'dist', 'qrcode.js'), encoding='utf-8').read()
     out = os.path.join(ROOT, 'index.html')
-    open(out, 'w', encoding='utf-8').write(src.replace('/*FONTS*/', js))
+    open(out, 'w', encoding='utf-8').write(src.replace('/*FONTS*/', js).replace('/*QRCODE*/', qr))
     print(f'index.html: {os.path.getsize(out) / 1e6:.1f} МБ', file=sys.stderr)
 
 

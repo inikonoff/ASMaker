@@ -61,6 +61,10 @@ textarea.txt{width:100%;height:auto;min-height:64px;padding:6px 8px;resize:verti
 #modal[hidden]{display:none}
 @media (max-width:1520px){header .tb span{display:none}}
 .acct,.acct-in{flex:none}
+.dims{pointer-events:none}
+.dim-l{stroke:#f97316;stroke-width:1;vector-effect:non-scaling-stroke}
+.dim-bg{fill:#f97316}
+.dim-t{fill:#fff;font-weight:600;font-family:system-ui,sans-serif}
 #ctxMenu{position:fixed;z-index:60;font-size:13px}
 #ctxMenu[hidden]{display:none}
 .cm-list{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.2);padding:5px;min-width:230px}
@@ -254,7 +258,13 @@ aside{background:var(--panel);overflow:auto;min-height:0}
 #rotTip .mut{color:#9ca3af}
 #stage.dragover::after{content:"Отпустите файл: на карман — во вкладыш, на подложку — фоном";position:absolute;inset:12px;border:2px dashed var(--acc);border-radius:14px;display:grid;place-items:center;background:rgba(37,99,235,.06);color:var(--acc);font-weight:600;font-size:15px;pointer-events:none;text-align:center;padding:20px}
 .sec{padding:12px 14px 14px;border-bottom:1px solid var(--line)}
-.sec h3{margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;align-items:center;justify-content:space-between}
+.sec h3{margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;margin-left:-4px}
+.sec h3:hover{color:var(--text)}
+.sec-chev{width:14px;height:14px;display:grid;place-items:center;flex:none;transition:transform .15s}
+.sec-chev svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.sec.closed .sec-chev{transform:rotate(-90deg)}
+.sec.closed{padding-bottom:2px}.sec.closed .sec-b{display:none}
+.sec-t{flex:1}
 fieldset{border:0;margin:0;padding:0;min-width:0}
 fieldset:disabled{opacity:.5}
 .row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
@@ -272,6 +282,12 @@ input.txt:focus,select:focus,.nf:focus-within{outline:2px solid var(--acc-soft);
 .slider input[type=range]{flex:1;accent-color:var(--acc);min-width:0}
 .slider .nf{flex:none;width:64px}
 .color{display:flex;gap:6px;align-items:center;flex:1;min-width:0}
+.colorwrap{flex:1;min-width:0}
+.swatches{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:6px}
+.swatches[hidden]{display:none}
+.sw-l{font-size:11px;color:var(--muted);margin-right:1px}.sw-l:not(:first-child){margin-left:6px}
+.sw-c{width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.15);padding:0;cursor:pointer;flex:none}
+.sw-c:hover{transform:scale(1.15);box-shadow:0 0 0 2px var(--acc-soft)}
 input[type=color]{width:36px;height:30px;padding:2px;border:1px solid var(--line);border-radius:7px;background:var(--input);flex:none;cursor:pointer}
 .color input.txt{text-transform:uppercase;font-variant-numeric:tabular-nums}
 .check{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
@@ -337,6 +353,7 @@ kbd{font:11px/1 ui-monospace,monospace;border:1px solid var(--line);border-botto
 <div id="modal" hidden></div>
 
 <script>/*FONTS*/</script>
+<script>/*QRCODE*/</script>
 <script>
 'use strict';
 /* ================= helpers ================= */
@@ -386,6 +403,7 @@ const ICON = {
   image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
   pocket: '<path d="M5 5v14h14V5"/><path d="M9 5a3 3 0 0 0 6 0"/>',
   layer: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+  qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v.01M14 21h.01M17.5 17.5V21H21v-3.5"/>',
   holes: '<circle cx="6" cy="6" r="2.2"/><circle cx="18" cy="6" r="2.2"/><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="18" r="2.2"/>',
   text: '<path d="M5 7V5h14v2M12 5v14M9 19h6"/>',
   chev: '<path d="M8 10l4 4 4-4"/>',
@@ -445,7 +463,7 @@ const GRID_STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
 
 const common = () => ({ id: uid(), opacity: 1, locked: false, visible: true });
 const fillDefaults = (fill, fill2, type = 'solid') => ({ fillType: type, fill, fill2, angle: 90, fillOpacity: 1 });
-const HOLES_DEFAULT = () => ({ on: false, count: 4, d: 6, inset: 20, color: '#374151' });
+const HOLES_DEFAULT = () => ({ on: false, count: 4, d: 6, inset: 20, color: '#374151', finish: 'none', stickerColor: '#ffffff', stickerD: 20 });
 const makeBase = () => ({ ...common(), type: 'base', name: 'База', x: 0, y: 0, w: 1000, h: 700, thickness: 4, ...fillDefaults('#ffffff', '#dbe4ff'), image: null, holes: HOLES_DEFAULT(), splits: [], partMargin: 50 });
 const makeShape = (kind = 'solid') => ({ ...common(), type: 'shape', name: 'Слой', x: 0, y: 0, w: 300, h: 200, rot: 0, radius: 0, image: null,
   ...fillDefaults(kind === 'grad' ? '#2563eb' : '#f59e0b', '#a5f3fc', kind === 'grad' ? 'linear' : kind === 'empty' ? 'none' : 'solid') });
@@ -453,10 +471,12 @@ const makePocket = () => ({ ...common(), type: 'pocket', name: 'Карман', x
   sides: { t: false, r: true, b: true, l: true }, tape: 10, tapeColor: '#ffffff', gap: 2, notch: 'round', notchSize: 20, showName: true, film: true, filmW: 15, image: null });
 const makeText = () => ({ ...common(), type: 'text', name: 'Текст', x: 0, y: 0, w: 0, h: 0, rot: 0,
   text: 'Заголовок стенда', font: 'Montserrat', size: 60, weight: 700, italic: false, underline: false, strike: false, caps: false,
-  align: 'center', lh: 1.2, ls: 0, skew: 0, color: '#1f2937', colorOpacity: 1, strokeW: 0, strokeColor: '#ffffff', wrap: false, boxW: 600 });
+  align: 'center', lh: 1.2, ls: 0, skew: 0, color: '#1f2937', colorOpacity: 1, strokeW: 0, strokeColor: '#ffffff', wrap: false, boxW: 600,
+  shadow: { on: false, color: '#000000', opacity: 0.5, dx: 2, dy: 3, blur: 2 } });
 const makeGrid = () => ({ ...common(), type: 'grid', name: 'Сетка', x: 0, y: 0, w: 0, h: 0, step: 50, color: '#2563eb', lineOpacity: 0.35, snap: true, export: false });
 const makeHoles = () => ({ ...common(), type: 'holes', name: 'Отверстия', x: 0, y: 0, w: 0, h: 0, count: 4, d: 6, inset: 20, color: '#374151' });
-const MAKERS = { base: makeBase, shape: () => makeShape(), pocket: makePocket, holes: makeHoles, text: makeText, grid: makeGrid }; // holes — только для чтения старых проектов
+const makeQR = () => ({ ...common(), type: 'qr', name: 'QR-код', x: 0, y: 0, w: 120, h: 120, rot: 0, text: 'https://inikonoff.github.io/ASMaker/', color: '#111827', bg: '#ffffff', bgOn: true, ecl: 'M', margin: 2 });
+const MAKERS = { base: makeBase, shape: () => makeShape(), pocket: makePocket, holes: makeHoles, text: makeText, grid: makeGrid, qr: makeQR }; // holes — только для чтения старых проектов
 const DEFAULT_TITLE = 'Конструктор стендов';
 const UNITS = { 'шт': ['count', 1], 'компл.': ['count', 1], 'лист': ['sheet', 1], 'упак.': ['count', 1], 'усл.': ['count', 1], 'ч': ['time', 1],
   'мм': ['len', 0.001], 'см': ['len', 0.01], 'м.пог.': ['len', 1], 'см²': ['area', 1e-4], 'м²': ['area', 1], 'кг': ['mass', 1], 'л': ['vol', 1] };
@@ -529,6 +549,11 @@ function normalizeObj(raw, ids) {
   }
   if (o.type === 'shape' || o.type === 'pocket' || o.type === 'text') o.rot = [0, 90, 180, 270].includes(+o.rot) ? +o.rot : 0;
   if (o.type === 'shape' || o.type === 'pocket') o.flip = !!o.flip;
+  if (o.type === 'qr') {
+    o.text = String(o.text ?? '').slice(0, 1500); o.color = normHex(o.color) || '#111827'; o.bg = normHex(o.bg) || '#ffffff'; o.bgOn = o.bgOn !== false;
+    o.ecl = ['L', 'M', 'Q', 'H'].includes(o.ecl) ? o.ecl : 'M'; o.margin = clamp(Math.round(+o.margin || 0), 0, 8);
+    o.w = o.h = clamp(+o.w || 120, 5, 5000); o.rot = [0, 90, 180, 270].includes(+o.rot) ? +o.rot : 0;
+  }
   if (o.type === 'text') {
     o.text = String(o.text ?? ''); if (typeof o.font !== 'string' || !o.font) o.font = FONT_DB[0].label; // свой шрифт может подгрузиться позже
     o.size = clamp(+o.size || 60, 1, 5000); o.weight = clamp(+o.weight || 400, 100, 900);
@@ -538,6 +563,8 @@ function normalizeObj(raw, ids) {
     o.color = normHex(o.color) || '#1f2937'; o.strokeColor = normHex(o.strokeColor) || '#ffffff';
     o.colorOpacity = isFinite(o.colorOpacity) ? clamp(+o.colorOpacity, 0, 1) : 1; o.strokeW = clamp(+o.strokeW || 0, 0, 100);
     o.boxW = clamp(+o.boxW || 600, 10, 20000);
+    const sh = o.shadow && typeof o.shadow === 'object' ? o.shadow : {};
+    o.shadow = { on: !!sh.on, color: normHex(sh.color) || '#000000', opacity: isFinite(sh.opacity) ? clamp(+sh.opacity, 0, 1) : 0.5, dx: isFinite(sh.dx) ? clamp(+sh.dx, -200, 200) : 2, dy: isFinite(sh.dy) ? clamp(+sh.dy, -200, 200) : 3, blur: isFinite(sh.blur) ? clamp(+sh.blur, 0, 100) : 2 };
     syncDerived(o);
   }
   if (o.type === 'grid') { o.step = clamp(+o.step || 50, 2, 5000); o.color = normHex(o.color) || '#2563eb'; o.lineOpacity = isFinite(o.lineOpacity) ? clamp(+o.lineOpacity, 0, 1) : 0.35; o.snap = o.snap !== false; o.export = !!o.export; }
@@ -566,9 +593,14 @@ function normalizeObj(raw, ids) {
   ids.add(o.id);
   return o;
 }
+/* отделка отверстий: декоративные шляпки — реальный крепёж Ø10 мм; заглушка — кругляш самоклейки в цвет */
+const CAP_D = 10;
+const HOLE_FINISH = { none: 'Без отделки', sticker: 'Заглушка-кругляш (самоклейка)', white: 'Шляпка Ø10 белая', silver: 'Шляпка Ø10 «серебро»', gold: 'Шляпка Ø10 «золото»' };
+const CAP_GRAD = { white: ['#ffffff', '#f3f4f6', '#c9cdd3'], silver: ['#ffffff', '#c7ccd4', '#6b7280'], gold: ['#fff6c8', '#d9a92a', '#7c5a07'] };
 function normHoles(h) {
   h = h && typeof h === 'object' ? h : {};
-  return { on: !!h.on, count: clamp(Math.round((+h.count || 4) / 2) * 2, 4, 60), d: clamp(+h.d || 6, 1, 50), inset: clamp(+h.inset || 20, 0, 1000), color: normHex(h.color) || '#374151' };
+  return { on: !!h.on, count: clamp(Math.round((+h.count || 4) / 2) * 2, 4, 60), d: clamp(+h.d || 6, 1, 50), inset: clamp(+h.inset || 20, 0, 1000), color: normHex(h.color) || '#374151',
+    finish: HOLE_FINISH[h.finish] ? h.finish : 'none', stickerColor: normHex(h.stickerColor) || '#ffffff', stickerD: clamp(+h.stickerD || 20, 8, 60) };
 }
 function normalize(d) {
   if (!d || !Array.isArray(d.objects)) return null;
@@ -616,7 +648,7 @@ function partsOf(b = base()) {
   return out;
 }
 const allHoles = () => { const h = holesCfg(); return h ? partsOf().flatMap(r => holePoints(h, r)) : []; };
-const isBox = o => !!o && (o.type === 'pocket' || o.type === 'shape' || o.type === 'text');
+const isBox = o => !!o && (o.type === 'pocket' || o.type === 'shape' || o.type === 'text' || o.type === 'qr');
 const canFlip = o => !!o && (o.type === 'pocket' || o.type === 'shape');
 const gridCfg = () => doc.grid && doc.grid.on ? doc.grid : null;
 
@@ -928,6 +960,10 @@ function addShape(kind) {
   o.w = Math.round(Math.min(400, b.w * 0.4)); o.h = Math.round(Math.min(300, b.h * 0.4)); placeInView(o);
   mutate(null, () => insertObj(o)); select(o.id);
 }
+function addQR() {
+  const o = makeQR(), n = doc.objects.filter(x => x.type === 'qr').length; o.name = 'QR-код' + (n ? ' ' + (n + 1) : ''); placeInView(o);
+  mutate(null, () => insertObj(o)); select(o.id);
+}
 function addPocket() {
   const o = makePocket(); o.name = nextName('pocket', 'Карман'); syncDerived(o); placeInView(o);
   mutate(null, () => insertObj(o)); select(o.id);
@@ -1230,9 +1266,37 @@ function badHoles(o, pts) {
 function holesMarkup(o, exp) {
   o = o || holesCfg(); if (!o) return '';
   const pts = allHoles(), r = o.d / 2, bad = exp ? new Set() : badHoles(o, pts), vs = exp ? '' : ' vector-effect="non-scaling-stroke"';
+  const ring = i => bad.has(i) ? `<circle cx="${pts[i].x}" cy="${pts[i].y}" r="${Math.max(r, o.finish === 'sticker' ? o.stickerD / 2 : o.finish !== 'none' ? CAP_D / 2 : r) + 3}" fill="none" stroke="#e11d48" stroke-width="2"${vs}/>` : '';
+  if (o.finish === 'sticker') // кругляш в цвет самоклейки; на белом почти не виден — на холсте обводим пунктиром
+    return pts.map((p, i) => `<circle cx="${p.x}" cy="${p.y}" r="${o.stickerD / 2}" fill="${o.stickerColor}"${exp ? '' : ` stroke="#9ca3af" stroke-width="1" stroke-dasharray="3 2"${vs}`}/>` + ring(i)).join('');
+  if (CAP_GRAD[o.finish]) { // шляпка: объём — радиальный градиент с бликом
+    const [a, b, c] = CAP_GRAD[o.finish], gid = 'cap-' + o.finish + (exp ? 'x' : '');
+    return `<defs><radialGradient id="${gid}" cx=".5" cy=".5" r=".55" fx=".36" fy=".3"><stop offset="0" stop-color="${a}"/><stop offset=".55" stop-color="${b}"/><stop offset="1" stop-color="${c}"/></radialGradient></defs>` +
+      pts.map((p, i) => `<circle cx="${p.x}" cy="${p.y}" r="${CAP_D / 2}" fill="url(#${gid})" stroke="rgba(0,0,0,.25)" stroke-width="${exp ? 0.2 : 0.8}"${vs}/>` + ring(i)).join('');
+  }
   return pts.map((p, i) =>
     `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${o.color}" fill-opacity=".85" stroke="#fff" stroke-opacity=".7" stroke-width="${exp ? 0.4 : 1}"${vs}/>` +
     (bad.has(i) ? `<circle cx="${p.x}" cy="${p.y}" r="${r + 3}" fill="none" stroke="#e11d48" stroke-width="2"${vs}/>` : '')).join('');
+}
+/* ---- QR-код: модули склеиваются в полосы по строкам, чтобы файл был компактным ---- */
+const qrCache = new Map();
+function qrMatrix(text, ecl) {
+  const key = ecl + '|' + text; if (qrCache.has(key)) return qrCache.get(key);
+  let m = null;
+  try { qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8']; const q = qrcode(0, ecl); q.addData(text, 'Byte'); q.make();
+    const n = q.getModuleCount(); m = { n, on: (r, c) => q.isDark(r, c) }; } catch { m = null; } // слишком длинный текст
+  if (qrCache.size > 50) qrCache.clear(); qrCache.set(key, m); return m;
+}
+function qrMarkup(o, exp) {
+  const s_ = o.w, m = o.text ? qrMatrix(o.text, o.ecl) : null;
+  let out = o.bgOn ? `<rect width="${s_}" height="${s_}" fill="${o.bg}"/>` : (exp ? '' : `<rect width="${s_}" height="${s_}" fill="transparent"/>`);
+  if (!m) return out + (exp ? '' : `<rect width="${s_}" height="${s_}" fill="none" stroke="#e11d48" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/><text x="${s_ / 2}" y="${s_ / 2}" font-size="${s_ * 0.09}" text-anchor="middle" dominant-baseline="central" fill="#e11d48" font-family="system-ui,sans-serif">${o.text ? 'слишком длинно' : 'нет текста'}</text>`);
+  const cell = s_ / (m.n + 2 * o.margin), off = o.margin * cell; let d = '';
+  for (let r = 0; r < m.n; r++) for (let c = 0; c < m.n; c++) {
+    if (!m.on(r, c)) continue; let e = c; while (e + 1 < m.n && m.on(r, e + 1)) e++;
+    d += `M${r2(off + c * cell)} ${r2(off + r * cell)}h${r2((e - c + 1) * cell)}v${r2(cell)}h${r2(-(e - c + 1) * cell)}z`; c = e;
+  }
+  return out + `<path d="${d}" fill="${o.color}" shape-rendering="crispEdges"/>`;
 }
 const FIT_PAR = { cover: 'xMidYMid slice', contain: 'xMidYMid meet', stretch: 'none' };
 function shapeMarkup(o, exp) {
@@ -1297,8 +1361,10 @@ function textMarkup(o, exp) {
   const deco = [o.underline && 'underline', o.strike && 'line-through'].filter(Boolean).join(' ');
   const stroke = o.strokeW > 0 ? ` stroke="${o.strokeColor}" stroke-width="${o.strokeW}" stroke-linejoin="round" paint-order="stroke"` : '';
   const sk = o.skew ? ` transform="translate(${r2(L.w / 2)} ${r2(L.h / 2)}) skewX(${-o.skew}) translate(${r2(-L.w / 2)} ${r2(-L.h / 2)})"` : '';
-  return (exp ? '' : `<rect width="${L.w}" height="${L.h}" fill="transparent"/>`) +
-    `<g${sk}><text font-family="'${f.css}', sans-serif" font-size="${o.size}" font-weight="${fontWeight(o)}" font-style="${o.italic ? 'italic' : 'normal'}"` +
+  const sh = o.shadow && o.shadow.on ? o.shadow : null, fid = 'tsh-' + o.id + (exp ? 'x' : '');
+  const shDef = sh ? `<defs><filter id="${fid}" x="-50%" y="-50%" width="200%" height="200%" filterUnits="objectBoundingBox"><feDropShadow dx="${sh.dx}" dy="${sh.dy}" stdDeviation="${sh.blur / 2}" flood-color="${sh.color}" flood-opacity="${sh.opacity}"/></filter></defs>` : '';
+  return (exp ? '' : `<rect width="${L.w}" height="${L.h}" fill="transparent"/>`) + shDef +
+    `<g${sk}${sh ? ` filter="url(#${fid})"` : ''}><text font-family="'${f.css}', sans-serif" font-size="${o.size}" font-weight="${fontWeight(o)}" font-style="${o.italic ? 'italic' : 'normal'}"` +
     ` letter-spacing="${r2(o.ls * o.size)}" text-anchor="${anchor}" fill="${o.color}" fill-opacity="${o.colorOpacity}"${stroke}${deco ? ` text-decoration="${deco}"` : ''} style="white-space:pre">${spans}</text></g>`;
 }
 function fontFaceCSS(labels) {
@@ -1429,7 +1495,7 @@ function gridMarkup(o, exp) {
   for (let y = s; y < b.h - 0.01; y += s) d += `M0 ${r2(y)}H${b.w}`;
   return `<path d="${d}" fill="none" stroke="${o.color}" stroke-opacity="${o.lineOpacity}" stroke-width="${exp ? Math.max(0.4, Math.max(b.w, b.h) / 2500) : 1}"${exp ? '' : ' vector-effect="non-scaling-stroke"'}/>`;
 }
-const objMarkup = (o, exp) => o.type === 'pocket' ? pocketMarkup(o, exp) : o.type === 'holes' ? holesMarkup(o, exp) : o.type === 'shape' ? shapeMarkup(o, exp) : o.type === 'text' ? textMarkup(o, exp) : o.type === 'grid' ? gridMarkup(o, exp) : '';
+const objMarkup = (o, exp) => o.type === 'qr' ? qrMarkup(o, exp) : o.type === 'pocket' ? pocketMarkup(o, exp) : o.type === 'holes' ? holesMarkup(o, exp) : o.type === 'shape' ? shapeMarkup(o, exp) : o.type === 'text' ? textMarkup(o, exp) : o.type === 'grid' ? gridMarkup(o, exp) : '';
 
 /* ================= export PNG ================= */
 function exportSVG(W, H, opts = {}) {
@@ -1613,6 +1679,40 @@ function splitOverlay(kids, b, z) {
     }
   }
 }
+/* ---- размеры и расстояния: от выделенного элемента до ближайших соседей или краёв подложки ---- */
+const showDims = (() => { try { return { on: JSON.parse(localStorage.getItem(STORE + ':dims')) === true }; } catch { return { on: false }; } })();
+function dimsOverlay(kids, o, z) {
+  const b = base(), others = doc.objects.filter(x => x !== o && isBox(x) && x.visible);
+  const ov = (a1, a2, b1, b2) => a1 < b2 - 0.01 && b1 < a2 - 0.01;
+  const near = (dir) => { // ближайшее препятствие в направлении: сосед, перекрывающийся по другой оси, или край подложки
+    let best = null;
+    for (const x of others) {
+      if (dir === 'l' || dir === 'r') { if (!ov(o.y, o.y + o.h, x.y, x.y + x.h)) continue; const d = dir === 'l' ? o.x - (x.x + x.w) : x.x - (o.x + o.w); if (d >= -0.01 && (!best || d < best.d)) best = { d, x }; }
+      else { if (!ov(o.x, o.x + o.w, x.x, x.x + x.w)) continue; const d = dir === 't' ? o.y - (x.y + x.h) : x.y - (o.y + o.h); if (d >= -0.01 && (!best || d < best.d)) best = { d, x }; }
+    }
+    const edge = { l: o.x, r: b.w - o.x - o.w, t: o.y, b: b.h - o.y - o.h }[dir];
+    return best && best.d <= edge ? best : { d: edge, x: null };
+  };
+  const g = sv('g', { class: 'dims' }), fs = 11 / z, tick = 4 / z;
+  const line = (x1, y1, x2, y2, label, lx, ly) => {
+    g.append(sv('line', { x1, y1, x2, y2, class: 'dim-l' }));
+    const vert = x1 === x2;
+    g.append(sv('line', { x1: vert ? x1 - tick : x1, y1: vert ? y1 : y1 - tick, x2: vert ? x1 + tick : x1, y2: vert ? y1 : y1 + tick, class: 'dim-l' }),
+      sv('line', { x1: vert ? x2 - tick : x2, y1: vert ? y2 : y2 - tick, x2: vert ? x2 + tick : x2, y2: vert ? y2 : y2 + tick, class: 'dim-l' }));
+    const t = svText(label, lx, ly, fs, 'dim-t', 'middle'); t.setAttribute('dominant-baseline', 'central');
+    const pad = 3 / z, w_ = label.length * fs * 0.58 + pad * 2, h_ = fs + pad * 2;
+    g.append(sv('rect', { x: lx - w_ / 2, y: ly - h_ / 2, width: w_, height: h_, rx: 3 / z, class: 'dim-bg' }), t);
+  };
+  const cy = o.y + o.h / 2, cx = o.x + o.w / 2, txt = d => fmtLen(Math.round(d * 10) / 10);
+  for (const dir of ['l', 'r', 't', 'b']) {
+    const n = near(dir); if (n.d < 0.5) continue;
+    if (dir === 'l') line(o.x - n.d, cy, o.x, cy, txt(n.d), o.x - n.d / 2, cy - 9 / z);
+    if (dir === 'r') line(o.x + o.w, cy, o.x + o.w + n.d, cy, txt(n.d), o.x + o.w + n.d / 2, cy - 9 / z);
+    if (dir === 't') line(cx, o.y - n.d, cx, o.y, txt(n.d), cx + 4 / z + txt(n.d).length * fs * 0.3, o.y - n.d / 2);
+    if (dir === 'b') line(cx, o.y + o.h, cx, o.y + o.h + n.d, txt(n.d), cx + 4 / z + txt(n.d).length * fs * 0.3, o.y + o.h + n.d / 2);
+  }
+  kids.push(g);
+}
 function renderOverlay() {
   const z = view.z, kids = [], b = base();
   if (b && b.visible) {
@@ -1622,6 +1722,7 @@ function renderOverlay() {
   }
   if (b && b.visible && b.splits.length) splitOverlay(kids, b, z);
   const o = selIds.length === 1 && sel && byId(sel);
+  if (showDims.on && o && isBox(o) && o.visible) dimsOverlay(kids, o, z);
   if (selIds.length > 1) {
     const list = selected().filter(x => x.visible && x.type !== 'holes' && x.type !== 'grid');
     for (const x of list) kids.push(sv('rect', { class: 'sel-outline' + (x.locked ? ' locked' : ''), x: x.x, y: x.y, width: x.w, height: x.h }));
@@ -1688,7 +1789,10 @@ function renderGridPop() {
     el('div', { class: 'cap', style: 'margin-top:10px' }, 'Цвет и прозрачность линий'),
     el('div', { class: 'gstep' }, col, op),
     ch('Привязка к линиям сетки', 'snap'), ch('Показывать в экспорте', 'export'),
-    el('p', { class: 'hint', style: 'margin:8px 0 0' }, 'Сетка не мешает кликам. Ctrl при перетаскивании — без привязки.'));
+    el('p', { class: 'hint', style: 'margin:8px 0 0' }, 'Сетка не мешает кликам. Ctrl при перетаскивании — без привязки.'),
+    el('h5', { style: 'margin-top:12px' }, 'Отображение'),
+    el('label', { class: 'gchk' }, (() => { const i = el('input', { type: 'checkbox' }); i.checked = showDims.on; i.onchange = () => { showDims.on = i.checked; try { localStorage.setItem(STORE + ':dims', JSON.stringify(i.checked)); } catch {} invalidate('overlay'); renderGridBtn(); }; return i; })(), 'Показывать размеры и расстояния'),
+    el('p', { class: 'hint', style: 'margin:4px 0 0' }, 'У выделенного элемента — расстояния до соседей и краёв подложки, в том числе при перетаскивании. Клавиша D.'));
 }
 topBar.append(
   el('div', { class: 'brand' }, el('i'), el('span', { class: 'title', id: 'docTitle', title: 'Нажмите, чтобы переименовать проект. Так будет называться сохраняемый файл', onclick: renameTitle })),
@@ -1744,7 +1848,8 @@ function setUnit(u) { if (unit === u) return; unit = u; nodes.forEach(n => n.sig
 const layerMenu = el('div', { class: 'menu', hidden: true },
   el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('solid'); } }, el('span', { class: 'grad', style: 'background:#f59e0b' }), 'Заливка'),
   el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('grad'); } }, el('span', { class: 'grad', style: 'background:linear-gradient(90deg,#2563eb,#a5f3fc)' }), 'Градиент'),
-  el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('empty'); } }, el('span', { class: 'grad', html: ic('empty'), style: 'color:#9ca3af' }), 'Пустой — для своей картинки'));
+  el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('empty'); } }, el('span', { class: 'grad', html: ic('empty'), style: 'color:#9ca3af' }), 'Пустой — для своей картинки'),
+  el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addQR(); } }, el('span', { class: 'grad', html: ic('qr'), style: 'color:#111827' }), 'QR-код'));
 $('#layersFoot').append(layerMenu,
   el('div', { class: 'grid' },
     B('layer', 'Слой', e => { e.stopPropagation(); layerMenu.hidden = !layerMenu.hidden; }, { cls: 'btn', title: 'Добавить слой с заливкой', after: ic('chev') }),
@@ -1755,6 +1860,7 @@ document.addEventListener('pointerdown', e => { if (!layerMenu.hidden && !layerM
 
 let renaming = false, dragLayer = null;
 function swatch(o) {
+  if (o.type === 'qr') return el('span', { class: 'sw ico', html: ic('qr') });
   if (o.type === 'text') { const f = fontDef(o.font); return el('span', { class: 'sw txt', style: `font-family:"${f.css}";font-weight:700;color:${o.color}` }, 'Аа'); }
   if (o.type === 'grid') return el('span', { class: 'sw ico', html: ic('grid') });
   if (o.type === 'pocket' || o.type === 'holes') {
@@ -1769,6 +1875,7 @@ function swatch(o) {
   return sw;
 }
 function layerTag(o) {
+  if (o.type === 'qr') return 'QR';
   if (o.type === 'base') return 'фон';
   if (o.type === 'pocket') return formatName(o.iw, o.ih);
   if (o.type === 'holes') return o.count + ' шт';
@@ -1857,10 +1964,10 @@ function bindFn(read, apply) { const b = { read, apply, last: read() }; bindings
 function renderProps() {
   const o = sel && byId(sel);
   const multi = selIds.length > 1;
-  const sig = multi ? 'multi|' + selIds.join() + unit : o ? [o.id, o.type, o.locked, o.fillType, o.image ? o.image.asset : '-', unit, o.font, o.wrap, o.type === 'pocket' ? o.notch : '', o.type === 'base' ? o.holes.on + o.splits.map(l => l.id + l.axis).join() : ''].join('|') : 'none';
+  const sig = multi ? 'multi|' + selIds.join() + unit : o ? [o.id, o.type, o.locked, o.fillType, o.image ? o.image.asset : '-', unit, o.font, o.wrap, o.type === 'pocket' ? o.notch : '', o.type === 'base' ? o.holes.on + o.holes.finish + o.splits.map(l => l.id + l.axis).join() : '', o.type === 'text' ? o.shadow.on : ''].join('|') : 'none';
   if (sig !== propsSig) {
     propsSig = sig; bindings = [];
-    const build = { base: buildBase, shape: buildShape, pocket: buildPocket, holes: buildHoles, text: buildText, grid: buildGrid }[o && o.type];
+    const build = { base: buildBase, shape: buildShape, pocket: buildPocket, holes: buildHoles, text: buildText, grid: buildGrid, qr: buildQR }[o && o.type];
     propsEl.replaceChildren(...(multi ? buildMulti() : build ? build(o) : buildEmpty()));
   } else {
     for (const b of bindings) {
@@ -1870,7 +1977,19 @@ function renderProps() {
     }
   }
 }
-const sec = (title, ...kids) => el('section', { class: 'sec' }, el('h3', {}, title), ...kids);
+/* разделы свойств сворачиваются; состояние запоминается по названию раздела */
+const SEC_KEY = STORE + ':secs';
+const SEC_CLOSED = new Set(['Рамка', 'Выемка под палец', 'Вкладыш', 'Массив карманов', 'Слой', 'Абзац', 'Тень']);
+const secState = (() => { try { return JSON.parse(localStorage.getItem(SEC_KEY)) || {}; } catch { return {}; } })();
+const sec = (title, ...kids) => {
+  const key = String(title).replace(/[:·].*$/, '').trim(), closed = key in secState ? secState[key] : SEC_CLOSED.has(key);
+  const s_ = el('section', { class: 'sec' + (closed ? ' closed' : '') });
+  const h = el('h3', { class: 'sec-h', tabindex: 0, title: 'Свернуть или развернуть' }, el('span', { class: 'sec-chev', html: '<svg viewBox="0 0 24 24"><path d="M8 10l4 4 4-4"/></svg>' }), el('span', { class: 'sec-t' }, title));
+  const toggle = () => { secState[key] = s_.classList.toggle('closed'); try { localStorage.setItem(SEC_KEY, JSON.stringify(secState)); } catch {} };
+  h.addEventListener('click', toggle); h.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+  s_.append(h, el('div', { class: 'sec-b' }, ...kids));
+  return s_;
+};
 const row = (...kids) => el('div', { class: 'row' }, ...kids);
 const cap = t => el('div', { class: 'cap' }, t);
 
@@ -1913,7 +2032,45 @@ function colorField(get, set) {
   const pip = B('pipette', '', async () => { const v = await pickColor(); if (v) set(v, null); },
     { title: window.EyeDropper ? 'Пипетка: взять цвет с экрана' : 'Пипетка работает в Chrome и Edge', cls: 'btn' });
   const cp = B('copy', '', () => copyText(get().toUpperCase(), `Цвет ${get().toUpperCase()} скопирован — вставьте его в поле цвета другого элемента`), { title: 'Копировать цвет', cls: 'btn' });
-  return el('div', { class: 'color' }, c, t, cp, pip);
+  const box = el('div', { class: 'color' }, c, t, cp, pip);
+  if (!colorHints.on) return box;
+  const sw = el('div', { class: 'swatches' });
+  bindFn(() => get() + '|' + projectColors().join(), () => {
+    const cur = get().toLowerCase(), mk = (hex, title) => el('button', { type: 'button', class: 'sw-c', style: `background:${hex}`, title: `${title} · ${hex.toUpperCase()}`, onclick: () => set(hex, null) });
+    const proj = projectColors().filter(h => h !== cur).slice(0, 6), harm = harmony(cur);
+    sw.replaceChildren(...(proj.length ? [el('span', { class: 'sw-l' }, 'в проекте'), ...proj.map(h => mk(h, 'Цвет из проекта'))] : []),
+      ...(harm.length ? [el('span', { class: 'sw-l' }, 'к цвету'), ...harm.map(([h, t_]) => mk(h, t_))] : []));
+    sw.hidden = !sw.childElementCount;
+  });
+  return el('div', { class: 'colorwrap' }, box, sw);
+}
+/* ---- подсказки цветов: цвета проекта и сочетания по кругу (дополнительный, соседние, триада) ---- */
+const colorHints = (() => { try { return { on: JSON.parse(localStorage.getItem(STORE + ':colorHints')) !== false }; } catch { return { on: true }; } })();
+function projectColors() {
+  const set_ = new Map(), add = h => { h = normHex(h); if (h) set_.set(h, (set_.get(h) || 0) + 1); };
+  for (const o of doc.objects) {
+    if (o.type === 'shape' && o.fillType !== 'none') { add(o.fill); if (o.fillType !== 'solid') add(o.fill2); }
+    if (o.type === 'pocket') add(o.tapeColor);
+    if (o.type === 'text') { add(o.color); if (o.strokeW > 0) add(o.strokeColor); }
+  }
+  return [...set_.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
+}
+function hexToHsl(h) {
+  const n = parseInt(h.slice(1), 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+  if (mx === mn) return [0, 0, l];
+  const d = mx - mn, s_ = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+  const hh = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [hh * 60, s_, l];
+}
+function hslToHex(h, s_, l) {
+  h = ((h % 360) + 360) % 360; const k = n => (n + h / 30) % 12, a = s_ * Math.min(l, 1 - l);
+  const f = n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))));
+  return '#' + [f(0), f(8), f(4)].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+function harmony(hex) {
+  const [h, s_, l] = hexToHsl(hex); if (s_ < 0.12 || l < 0.06 || l > 0.96) return []; // для белого, чёрного и серых сочетания по кругу не работают
+  const L = clamp(l, 0.35, 0.65), S = Math.max(s_, 0.45);
+  return [[hslToHex(h + 180, S, L), 'Дополнительный (контраст)'], [hslToHex(h - 30, S, L), 'Соседний'], [hslToHex(h + 30, S, L), 'Соседний'], [hslToHex(h + 120, S, L), 'Триада'], [hslToHex(h - 120, S, L), 'Триада']];
 }
 function checkField(label, get, set) {
   const c = el('input', { type: 'checkbox' }); bind(c, get, 'checked');
@@ -2136,16 +2293,20 @@ function buildPocket(o) {
           el('button', { type: 'button', class: 'btn', onclick: () => upd(null, x => { x.x = (base().w - x.w) / 2; }) }, 'По центру ↔'),
           el('button', { type: 'button', class: 'btn', onclick: () => upd(null, x => { x.y = (base().h - x.h) / 2; }) }, 'По центру ↕')),
         warn)),
-    sec('Двусторонний скотч',
+    sec('Проклейка',
       el('fieldset', { disabled: L },
         sidesField(O, upd),
         el('div', { class: 'grid2', style: 'margin-top:8px' },
-          lenField('Лента', () => O().tape, (v, k) => upd(k, x => x.tape = v), { min: 1, max: 60, title: 'Ширина ленты скотча' }),
-          lenField('Зазор', () => O().gap, (v, k) => upd(k, x => x.gap = v), { min: 0, max: 30, title: 'Запас между вкладышем и скотчем' })),
-        row(lenField('Ширина самоклейки', () => O().filmW, (v, k) => upd(k, x => x.filmW = v), { min: 1, max: 100, title: 'Ширина цветной самоклейки по периметру кармана — для площади в спецификации' })),
+          lenField('Лента', () => O().tape, (v, k) => upd(k, x => x.tape = v), { min: 1, max: 60, title: 'Ширина ленты двустороннего скотча' }),
+          lenField('Зазор', () => O().gap, (v, k) => upd(k, x => x.gap = v), { min: 0, max: 30, title: 'Запас между вкладышем и скотчем' })))),
+    sec('Рамка',
+      el('fieldset', { disabled: L },
         cap('Цвет рамки'),
         row(colorField(() => O().tapeColor, (v, k) => upd(k ? 'tapeColor' : null, x => x.tapeColor = v))),
-        cap('Выемка под палец (на открытой стороне)'),
+        row(lenField('Ширина самоклейки', () => O().filmW, (v, k) => upd(k, x => x.filmW = v), { min: 1, max: 100, title: 'Ширина цветной самоклейки по периметру кармана — для площади в спецификации' })))),
+    sec('Выемка под палец',
+      el('fieldset', { disabled: L },
+        cap('На открытой стороне'),
         (() => {
           const sel_ = el('select', { title: 'Форма выемки под палец' },
             el('option', { value: 'none' }, 'Без выемки'), el('option', { value: 'round' }, 'Полукруглая по центру'),
@@ -2201,7 +2362,7 @@ function buildText(o) {
     bindFn(() => O().align === v, on => b.classList.toggle('on', on)); return b;
   }));
   return [
-    sec('Текст',
+    sec('Текст и шрифт',
       el('fieldset', { disabled: L },
         row(ta),
         row(fsel, wsel),
@@ -2217,8 +2378,10 @@ function buildText(o) {
           toggleBtn('<u>Ч</u>', 'Подчёркнутый', () => O().underline, v => upd(null, x => x.underline = v)),
           toggleBtn('<s>З</s>', 'Зачёркнутый', () => O().strike, v => upd(null, x => x.strike = v)),
           toggleBtn('АА', 'Все прописные', () => O().caps, v => upd(null, x => x.caps = v)))),
+        cap('Наклон'), row(sliderField(() => O().skew, (v, k) => upd(k, x => x.skew = v), { min: -30, max: 30, key: 'skew', suffix: '°', def: 0 })))),
+    sec('Абзац',
+      el('fieldset', { disabled: L },
         row(alignSeg),
-        cap('Наклон'), row(sliderField(() => O().skew, (v, k) => upd(k, x => x.skew = v), { min: -30, max: 30, key: 'skew', suffix: '°', def: 0 })),
         cap('Межстрочный интервал'), row(sliderField(() => O().lh * 100, (v, k) => upd(k, x => x.lh = v / 100), { min: 70, max: 300, key: 'lh', def: 120 })),
         cap('Межбуквенный интервал'), row(sliderField(() => O().ls * 100, (v, k) => upd(k, x => x.ls = v / 100), { min: -10, max: 100, key: 'ls', def: 0 })),
         row(checkField('Переносить строки по ширине', () => O().wrap, v => upd(null, x => { if (v) x.boxW = Math.round(textLayout({ ...x, wrap: false, skew: 0 }).tw); x.wrap = v; }))),
@@ -2230,12 +2393,54 @@ function buildText(o) {
         cap('Обводка'),
         row(colorField(() => O().strokeColor, (v, k) => upd(k ? 'scolor' : null, x => x.strokeColor = v))),
         row(lenField('Толщина', () => O().strokeW, (v, k) => upd(k, x => x.strokeW = v), { min: 0, max: 100, title: '0 — без обводки' })))),
+    sec('Тень',
+      el('fieldset', { disabled: L },
+        row(checkField('Тень у текста', () => O().shadow.on, v => upd(null, x => x.shadow.on = v))),
+        o.shadow.on ? [
+          row(colorField(() => O().shadow.color, (v, k) => upd(k ? 'shcolor' : null, x => x.shadow.color = v))),
+          cap('Непрозрачность'), row(sliderField(() => O().shadow.opacity * 100, (v, k) => upd(k, x => x.shadow.opacity = v / 100), { key: 'shOp', def: 50 })),
+          el('div', { class: 'grid2' },
+            lenField('Сдвиг →', () => O().shadow.dx, (v, k) => upd(k, x => x.shadow.dx = v), { min: -200, max: 200 }),
+            lenField('Сдвиг ↓', () => O().shadow.dy, (v, k) => upd(k, x => x.shadow.dy = v), { min: -200, max: 200 })),
+          row(lenField('Размытие', () => O().shadow.blur, (v, k) => upd(k, x => x.shadow.blur = v), { min: 0, max: 100, title: '0 — чёткая тень' }))] : null)),
     sec('Положение',
       el('fieldset', { disabled: L },
         posGrid(O, upd),
         el('div', { class: 'btns' },
           el('button', { type: 'button', class: 'btn', onclick: () => upd(null, x => { x.x = (base().w - x.w) / 2; }) }, 'По центру ↔'),
           rotButton(o.id, 'Повернуть')))),
+    layerSection(o, O, upd),
+  ];
+}
+function buildQR(o) {
+  const [O, upd] = ctx(o), L = o.locked;
+  const ta = el('textarea', { class: 'txt', rows: 2, spellcheck: 'false', placeholder: 'Ссылка, телефон, текст…' }); bind(ta, () => O().text);
+  ta.addEventListener('input', () => upd('qrtext:' + o.id, x => x.text = ta.value));
+  const ecl = el('select', { title: 'Чем выше, тем больше QR выдерживает грязь и царапины, но тем мельче модули' },
+    [['L', 'Надёжность L — 7%'], ['M', 'Надёжность M — 15%'], ['Q', 'Надёжность Q — 25%'], ['H', 'Надёжность H — 30%']].map(([v, l]) => el('option', { value: v }, l)));
+  bind(ecl, () => O().ecl); ecl.addEventListener('change', () => upd(null, x => x.ecl = ecl.value));
+  const info = el('div', { class: 'info' });
+  bind(info, () => { const x = O(), m = x.text && qrMatrix(x.text, x.ecl); if (!m) return x.text ? 'Слишком длинный текст для QR — сократите' : 'Введите ссылку или текст';
+    const mod = x.w / (m.n + 2 * x.margin); return `${m.n} × ${m.n} модулей · модуль ${fmtLen(Math.round(mod * 10) / 10)} ${unitLabel()} · читается примерно с ${(x.w * 10 / 1000).toFixed(1).replace('.', ',')} м`; }, 'textContent');
+  const warn = warnField(() => { const x = O(), m = x.text && qrMatrix(x.text, x.ecl); if (!m) return ''; const mod = x.w / (m.n + 2 * x.margin);
+    return mod < 0.5 ? 'Модуль меньше 0,5 мм — после печати QR может не считываться. Увеличьте размер или сократите текст.' : x.w < 20 ? 'QR меньше 20 мм читается плохо.' : ''; });
+  return [
+    sec('QR-код',
+      el('fieldset', { disabled: L },
+        row(textField(() => O().name, v => upd(null, x => x.name = v), 'QR-код')),
+        cap('Содержимое'), row(ta),
+        row(ecl),
+        row(lenField('Размер', () => O().w, (v, k) => upd(k, x => { const cx = x.x + x.w / 2, cy = x.y + x.h / 2; x.w = x.h = v; x.x = r2(cx - v / 2); x.y = r2(cy - v / 2); }), { min: 5, max: 5000, title: 'Сторона квадрата' })),
+        info, warn,
+        el('p', { class: 'hint', style: 'margin-top:0' }, 'Правило: сторона QR — примерно в 10 раз меньше расстояния, с которого его сканируют.'))),
+    sec('Цвет',
+      el('fieldset', { disabled: L },
+        cap('Модули'), row(colorField(() => O().color, (v, k) => upd(k ? 'qrcolor' : null, x => x.color = v))),
+        row(checkField('Подложка под QR', () => O().bgOn, v => upd(null, x => x.bgOn = v))),
+        row(colorField(() => O().bg, (v, k) => upd(k ? 'qrbg' : null, x => x.bg = v))),
+        el('div', { class: 'grid2' }, intField('Поле', () => O().margin, v => upd(null, x => x.margin = v), 0, 8, 'мод.'), el('span')),
+        el('p', { class: 'hint', style: 'margin-top:0' }, 'Тёмные модули на светлом фоне — иначе многие телефоны не прочитают код.'))),
+    sec('Положение', el('fieldset', { disabled: L }, posGrid(O, upd), el('div', { class: 'btns' }, rotButton(o.id, 'Повернуть')))),
     layerSection(o, O, upd),
   ];
 }
@@ -2281,8 +2486,16 @@ function holesSection(o, O, upd) {
       el('div', { class: 'grid2' },
         lenField('Ø', () => H().d, (v, k) => updH(k, h => h.d = v), { min: 1, max: 50, title: 'Диаметр отверстия' }),
         insetSelect(H, updH)),
-      cap('Цвет'),
+      cap('Цвет на макете'),
       row(colorField(() => H().color, (v, k) => updH(k ? 'holeColor' : null, h => h.color = v))),
+      cap('Отделка'),
+      row((() => { const s_ = el('select', { title: 'Чем закрыто отверстие на готовом стенде' }, Object.entries(HOLE_FINISH).map(([v, l]) => el('option', { value: v }, l)));
+        bind(s_, () => H().finish); s_.addEventListener('change', () => updH(null, h => h.finish = s_.value)); return s_; })()),
+      o.holes.finish === 'sticker' ? [
+        el('div', { class: 'grid2' }, lenField('Ø', () => H().stickerD, (v, k) => updH(k, h => h.stickerD = v), { min: 8, max: 60, title: 'Диаметр кругляша' }), el('span')),
+        cap('Цвет заглушки — в цвет самоклейки'),
+        row(colorField(() => H().stickerColor, (v, k) => updH(k ? 'stickerColor' : null, h => h.stickerColor = v)))] : null,
+      el('p', { class: 'hint', style: 'margin-top:0' }, { none: 'Отверстие остаётся открытым.', sticker: 'Отверстие заклеивается кругляшом — на готовом стенде его почти не видно.', white: 'Декоративная шляпка крепежа Ø10 мм.', silver: 'Декоративная шляпка крепежа Ø10 мм.', gold: 'Декоративная шляпка крепежа Ø10 мм.' }[o.holes.finish]),
       warnField(() => { const n = badHoles(H(), allHoles()).size; return n ? `${n} отверстий попадают на карманы (обведены красным).` : ''; }, true),
       el('p', { class: 'hint' }, 'В каждой части: четыре по углам, каждая следующая пара — по очереди на длинные стороны, затем на короткие, с равным шагом.'),
     ] : null));
@@ -2651,6 +2864,8 @@ stage.addEventListener('pointermove', e => {
       const f = Math.max(nw / s.w, nh / s.h);
       o.size = r2(clamp(s.size * f, 1, 5000)); if (o.wrap) o.boxW = r2(s.boxW * f);
       syncDerived(o); nw = o.w; nh = o.h;
+    } else if (o.type === 'qr') { // QR всегда квадратный
+      const side = Math.max(5, Math.round(mx && my ? Math.max(nw, nh) : mx ? nw : nh)); o.w = o.h = side; nw = nh = side;
     } else if (o.type === 'pocket') {
       const g = pocketGeom({ ...o, iw: 0, ih: 0 }), q = o.rot % 180, lw = q ? nh : nw, lh = q ? nw : nh;
       o.iw = Math.max(10, Math.round(lw - g.w)); o.ih = Math.max(10, Math.round(lh - g.h)); syncDerived(o); nw = o.w; nh = o.h;
@@ -2809,10 +3024,11 @@ async function menuPaste(at) {
 /* ---- стиль: перенос настроек между элементами одного типа ---- */
 const STYLE_KEYS = {
   pocket: ['tape', 'tapeColor', 'gap', 'notch', 'notchSize', 'showName', 'film', 'filmW'],
+  qr: ['color', 'bg', 'bgOn', 'ecl', 'margin'],
   shape: ['fillType', 'fill', 'fill2', 'angle', 'fillOpacity', 'radius', 'opacity'],
-  text: ['font', 'size', 'weight', 'italic', 'underline', 'strike', 'caps', 'align', 'lh', 'ls', 'skew', 'color', 'colorOpacity', 'strokeW', 'strokeColor'],
+  text: ['font', 'size', 'weight', 'italic', 'underline', 'strike', 'caps', 'align', 'lh', 'ls', 'skew', 'color', 'colorOpacity', 'strokeW', 'strokeColor', 'shadow'],
 };
-const STYLE_TXT = { pocket: 'рамка, проклейка, выемка', shape: 'заливка и скругление', text: 'шрифт, размер, цвет' };
+const STYLE_TXT = { pocket: 'рамка, проклейка, выемка', shape: 'заливка и скругление', text: 'шрифт, размер, цвет', qr: 'цвета и надёжность' };
 let styleClip = null;
 function copyStyle() {
   const o = selected().find(x => STYLE_KEYS[x.type]); if (!o) return toast('Выберите карман, слой или текст');
@@ -2824,7 +3040,7 @@ function copyStyle() {
 function pasteStyle() {
   if (!styleClip) return toast('Сначала скопируйте стиль');
   const list = selected().filter(o => o.type === styleClip.type && !o.locked);
-  if (!list.length) return toast(`Стиль ${{ pocket: 'кармана', shape: 'слоя', text: 'текста' }[styleClip.type]} вставляется только в такой же элемент`);
+  if (!list.length) return toast(`Стиль ${{ pocket: 'кармана', shape: 'слоя', text: 'текста', qr: 'QR-кода' }[styleClip.type]} вставляется только в такой же элемент`);
   mutate(null, () => {
     for (const o of list) {
       const x = byId(o.id), { vsides, ...st } = styleClip.st;
@@ -2877,7 +3093,7 @@ function elementMenu() {
     { label: 'Дублировать', kbd: 'Ctrl+D', act: duplicateSel, edit: true },
     '-',
     one && STYLE_KEYS[o.type] ? { label: 'Копировать стиль', kbd: 'Ctrl+Alt+C', act: copyStyle } : null,
-    { label: styleClip ? `Вставить стиль (${{ pocket: 'кармана', shape: 'слоя', text: 'текста' }[styleClip.type]})` : 'Вставить стиль', kbd: 'Ctrl+Alt+V', act: pasteStyle, edit: true, disabled: !sameStyle },
+    { label: styleClip ? `Вставить стиль (${{ pocket: 'кармана', shape: 'слоя', text: 'текста', qr: 'QR-кода' }[styleClip.type]})` : 'Вставить стиль', kbd: 'Ctrl+Alt+V', act: pasteStyle, edit: true, disabled: !sameStyle },
     '-',
     { label: 'Порядок', sub: [
       { label: 'На передний план', act: () => orderSel('front'), edit: true },
@@ -2908,6 +3124,7 @@ function canvasMenu(w) {
       { label: 'Слой «Заливка»', act: () => addHere(at, () => addShape('solid')), edit: true },
       { label: 'Слой «Градиент»', act: () => addHere(at, () => addShape('grad')), edit: true },
       { label: 'Пустой слой', act: () => addHere(at, () => addShape('empty')), edit: true },
+      { label: 'QR-код', icon: 'qr', act: () => addHere(at, addQR), edit: true },
       { label: 'Картинку…', icon: 'image', act: () => chooseImage(null), edit: true }] },
     inside ? { label: 'Линия раздела здесь', icon: 'scissors', sub: [
       { label: `Вертикальная · X ${fmtLen(Math.round(w.x))} ${unitLabel()}`, act: () => splitHere(w, 'v'), edit: true },
@@ -2956,6 +3173,7 @@ window.addEventListener('keydown', e => {
   if (mod && e.code === 'KeyA') { e.preventDefault(); setSel(doc.objects.filter(o => isBox(o) && o.visible && !o.locked).map(o => o.id)); return; }
   if (mod && e.altKey && e.code === 'KeyC') { e.preventDefault(); copyStyle(); return; }
   if (mod && e.altKey && e.code === 'KeyV') { e.preventDefault(); pasteStyle(); return; }
+  if (!mod && !e.altKey && e.code === 'KeyD' && !e.shiftKey) { e.preventDefault(); showDims.on = !showDims.on; try { localStorage.setItem(STORE + ':dims', JSON.stringify(showDims.on)); } catch {} invalidate('overlay'); toast(showDims.on ? 'Размеры и расстояния показаны (D)' : 'Размеры и расстояния скрыты (D)'); return; }
   if (!mod && !e.altKey && e.code === 'KeyG') { e.preventDefault(); setGrid(g => g.on = !g.on); return; }
   if (mod && (e.code === 'Equal' || e.code === 'NumpadAdd')) { e.preventDefault(); zoomBy(1.25); return; }
   if (mod && (e.code === 'Minus' || e.code === 'NumpadSubtract')) { e.preventDefault(); zoomBy(1 / 1.25); return; }
@@ -3036,6 +3254,7 @@ function specSections() {
     if (film.len) { const r = [FILM_NAME, `${fmtQty(film.len, 'м.пог.')} м · ${fmtQty(film.area, 'м²')} м²`]; r.film = film; mat.push(r); }
   }
   if (holes.length) mat.push([`Отверстия Ø ${mmTxt(H.d)} мм`, `${holes.length} шт`]);
+  if (holes.length && H.finish && H.finish !== 'none') mat.push([H.finish === 'sticker' ? `Заглушки-кругляши Ø ${mmTxt(H.stickerD)} мм` : `Декоративные шляпки Ø ${CAP_D} мм, ${{ white: 'белые', silver: '«серебро»', gold: '«золото»' }[H.finish]}`, `${holes.length} шт`]);
   if (mat.length) {
     const wst = doc.pricing.waste;
     if (wst > 0) {
@@ -3085,6 +3304,9 @@ function estimateItems() {
   const film = filmTotals(P);
   items.push({ key: 'film', name: FILM_NAME, dim: 'len', qty: film.len, extra: { 'м²': film.area, 'см²': film.area * 1e4 }, waste: true, active: film.len > 0, baseUnit: 'м²' });
   items.push({ key: 'holes', name: 'Отверстия под крепёж', dim: 'count', qty: holes, waste: false, active: holes > 0, baseUnit: 'шт' });
+  const hf = holesCfg() && holesCfg().finish;
+  if (hf === 'sticker') items.push({ key: 'holeStickers', name: 'Заглушки-кругляши на отверстия', dim: 'count', qty: holes, waste: false, active: holes > 0, baseUnit: 'шт' });
+  else if (CAP_GRAD[hf]) items.push({ key: 'caps_' + hf, name: `Декоративные шляпки Ø${CAP_D} мм, ${{ white: 'белые', silver: '«серебро»', gold: '«золото»' }[hf]}`, dim: 'count', qty: holes, waste: false, active: holes > 0, baseUnit: 'шт' });
   items.push({ key: 'pocketWork', name: 'Изготовление и монтаж карманов', dim: 'count', qty: P.length, waste: false, active: P.length > 0, baseUnit: 'шт' });
   return items;
 }
@@ -3139,10 +3361,17 @@ async function specPages(secs) {
     const ncol = s_.head.length, all = [s_.head, ...s_.rows.map(cellsOf)];
     const want = Array.from({ length: ncol }, (_, i) => Math.min(520, Math.max(...all.map(r => g.measureText(String(r[i] ?? '')).width)) + 24));
     const tot = want.reduce((a, b2) => a + b2, 0), scale = (PW - 2 * M) / tot, cw = want.map(w => w * scale);
-    if (y + 46 + RH * 2 > PH - M) page();
+    // таблица не рвётся без нужды: если целиком влезает на чистый лист — переносим её туда целиком;
+    // длинная делится, но не раньше чем после 3 строк, а на новом листе повторяется шапка
+    const need = 38 + RH * (1 + s_.rows.length), room = PH - M - y, full = PH - 2 * M;
+    if (need > room && (need <= full || room < 38 + RH * 4)) page();
     g.fillStyle = '#111827'; g.font = `700 22px ${F}`; g.fillText(s_.title, M, y + 14); y += 38;
     const drawRow = (cells, head, total) => {
-      if (y + RH > PH - M) { page(); }
+      if (y + RH > PH - M) {
+        page();
+        g.fillStyle = '#6b7280'; g.font = `400 18px ${F}`; g.fillText(s_.title + ' (продолжение)', M, y + 12); y += 32;
+        if (!head) drawRow(s_.head, true);
+      }
       g.fillStyle = head ? '#f3f4f6' : total ? '#fafafa' : '#ffffff'; g.fillRect(M, y, PW - 2 * M, RH);
       g.strokeStyle = '#e5e7eb'; g.lineWidth = 1; g.strokeRect(M + .5, y + .5, PW - 2 * M - 1, RH - 1);
       let x = M;
@@ -4130,6 +4359,13 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-08e', date: '8 ноября 2026', items: [
+    'QR-код: «Слой → QR-код» или правой кнопкой «Добавить здесь». Кириллица, цвета, надёжность; подсказка, с какого расстояния он читается.',
+    'Размеры и расстояния (клавиша D или в настройках сетки): от выделенного элемента до соседей и краёв подложки.',
+    'Отделка отверстий: заглушка-кругляш в цвет самоклейки или декоративная шляпка Ø10 мм — белая, «серебро», «золото». Попадает в смету.',
+    'Свойства разложены по сворачиваемым разделам, состояние запоминается. У кармана — «Проклейка», «Рамка», «Выемка под палец».',
+    'Под полями цвета — цвета проекта и подходящие сочетания (отключаются в меню темы). У текста появилась тень.',
+    'PDF спецификации: таблица переносится на новый лист целиком, а длинная — с повтором шапки.'] },
   { v: '2026-11-08d', date: '8 ноября 2026', items: [
     'Контекстное меню на правую кнопку: копировать, вставить, дублировать, порядок слоёв, повернуть, отразить, заблокировать, скрыть, переименовать, удалить. Протяжка правой по-прежнему двигает холст.',
     'По пустому месту: «Вставить сюда», «Добавить здесь» (карман, текст, слой, картинка) и «Линия раздела здесь» — ровно по курсору.',
@@ -4198,7 +4434,8 @@ themeLevel.addEventListener('dblclick', () => { theme.level = 50; themeLevel.val
 const themePop = el('div', { class: 'pop', hidden: true }, el('h5', {}, 'Тема'), row(themeSeg), el('h5', { style: 'margin-top:12px' }, 'Насыщенность тёмной темы'), themeLevel,
   el('div', { class: 'cap', style: 'display:flex;justify-content:space-between;margin-top:2px' }, el('span', {}, 'графит'), el('span', {}, 'почти чёрный')));
 document.body.append(themePop);
-themePop.append(el('button', { type: 'button', class: 'linkbtn', style: 'margin-top:12px', onclick: () => { themePop.hidden = true; openWhatsNew(); } }, 'Что нового в ASMaker'));
+themePop.append(el('label', { class: 'gchk', style: 'margin-top:12px' }, (() => { const i = el('input', { type: 'checkbox' }); i.checked = colorHints.on; i.onchange = () => { colorHints.on = i.checked; try { localStorage.setItem(STORE + ':colorHints', JSON.stringify(i.checked)); } catch {} propsSig = null; invalidate('props'); }; return i; })(), 'Подсказывать цвета'),
+  el('button', { type: 'button', class: 'linkbtn', style: 'margin-top:8px', onclick: () => { themePop.hidden = true; openWhatsNew(); } }, 'Что нового в ASMaker'));
 document.addEventListener('pointerdown', e => { if (!themePop.hidden && !themePop.contains(e.target) && !$('#themeBtn').contains(e.target)) themePop.hidden = true; });
 renderThemeSeg(); applyTheme();
 
