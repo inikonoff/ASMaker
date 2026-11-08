@@ -61,6 +61,17 @@ textarea.txt{width:100%;height:auto;min-height:64px;padding:6px 8px;resize:verti
 #modal[hidden]{display:none}
 @media (max-width:1520px){header .tb span{display:none}}
 .acct,.acct-in{flex:none}
+.gridbtn{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-left:6px;height:30px;flex:none}
+.gridbtn button{border:0;border-radius:0;background:var(--input);color:var(--text);display:flex;align-items:center;gap:6px;padding:0 9px;font:inherit;cursor:pointer;height:100%}
+.gridbtn button:hover{background:var(--hover)}
+.gridbtn .gmore{padding:0 5px;border-left:1px solid var(--line)}
+.gridbtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.gridbtn.on .gtog{background:var(--acc-soft);color:var(--acc)}
+.gchk{display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer}
+.gstep{display:flex;gap:4px;align-items:center}
+.gstep input[type=text]{width:64px;height:30px;border:1px solid var(--line);border-radius:6px;padding:0 6px;background:var(--input);color:var(--text);font:inherit}
+.gstep input[type=color]{width:38px;height:30px;padding:0 2px;border:1px solid var(--line);border-radius:6px;background:var(--input)}
+.gstep .btn{height:30px;padding:0 7px;font-size:12px}.gstep .btn.on{background:var(--acc-soft);color:var(--acc);border-color:var(--acc)}
 .acct{border:0;background:none;padding:2px;border-radius:99px;position:relative;cursor:pointer;margin-left:4px;display:flex}
 .acct .dot,.acct-st .dot{position:absolute;right:0;bottom:0;width:9px;height:9px;border-radius:50%;border:2px solid var(--panel);background:#9ca3af}
 .acct-in svg{width:16px;height:16px}
@@ -446,7 +457,10 @@ function normPricing(p) {
     custom: (Array.isArray(p.custom) ? p.custom : []).filter(c => c && typeof c === 'object').map(c => ({ id: String(c.id || uid()), name: String(c.name || ''), qty: num(c.qty), unit: UNITS[c.unit] ? c.unit : 'шт', price: num(c.price) })),
   };
 }
-const newDoc = () => ({ version: 3, title: DEFAULT_TITLE, pricing: normPricing(), objects: [makeBase()] });
+const GRID_DEFAULT = () => ({ on: false, step: 50, color: '#2563eb', lineOpacity: 0.35, snap: true, export: false });
+function normGrid(g) { const d = GRID_DEFAULT(); if (!g || typeof g !== 'object') return d;
+  return { on: !!g.on, step: clamp(+g.step || 50, 2, 5000), color: normHex(g.color) || d.color, lineOpacity: isFinite(g.lineOpacity) ? clamp(+g.lineOpacity, 0, 1) : d.lineOpacity, snap: g.snap !== false, export: !!g.export }; }
+const newDoc = () => ({ version: 5, title: DEFAULT_TITLE, pricing: normPricing(), grid: GRID_DEFAULT(), objects: [makeBase()] });
 
 function pocketGeom(o) {
   const s = o.sides, t = o.tape, g = o.gap, L = s.l ? t : 0, R = s.r ? t : 0, T = s.t ? t : 0, Bo = s.b ? t : 0;
@@ -550,11 +564,26 @@ function normalize(d) {
   const [b] = out.splice(bi, 1);
   const rest = out.filter(o => o.type !== 'base');
   const single = t => { const i = rest.findIndex(o => o.type === t); return (o, j) => o.type !== t || j === i; }; // по одному слою отверстий и сетки
-  const sg = single('grid');
+  // старые проекты: элемент «Сетка» становится настройкой документа (кнопка «Сетка» в верхней панели)
+  const oldGrid = rest.find(o => o.type === 'grid');
+  const grid = d.grid ? normGrid(d.grid) : oldGrid ? normGrid({ ...oldGrid, on: oldGrid.visible }) : GRID_DEFAULT();
+  // подложка — всегда белый лист ПВХ: прежние цвет и фоновая картинка становятся слоями над ней
+  const under = [];
+  if (b.fillType !== 'solid' || (b.fill || '#ffffff') !== '#ffffff') {
+    const f = makeShape(b.fillType === 'solid' ? 'solid' : 'grad');
+    Object.assign(f, { name: 'Фон', x: 0, y: 0, w: b.w, h: b.h, fillType: b.fillType, fill: b.fill, fill2: b.fill2, angle: b.angle, fillOpacity: b.fillOpacity });
+    under.push(f);
+  }
+  if (b.image) {
+    const i = b.image, f = makeShape('empty');
+    Object.assign(f, { name: 'Фоновое изображение', x: i.x, y: i.y, w: i.w, h: i.h, image: { asset: i.asset, opacity: i.opacity, fit: 'stretch', ar: i.w / i.h } });
+    under.push(f);
+  }
+  Object.assign(b, { fillType: 'solid', fill: '#ffffff', fillOpacity: 1, image: null });
   // старые проекты: слой «Отверстия» переезжает в свойства подложки
   const oldHoles = rest.find(o => o.type === 'holes');
   if (oldHoles && !(d.objects.find(o => o && o.type === 'base') || {}).holes) b.holes = normHoles({ ...oldHoles, on: oldHoles.visible });
-  return { version: 4, title: String(d.title || DEFAULT_TITLE).slice(0, 120), pricing: normPricing(d.pricing), objects: [b, ...rest.filter((o, j) => o.type !== 'holes' && sg(o, j))] };
+  return { version: 5, title: String(d.title || DEFAULT_TITLE).slice(0, 120), pricing: normPricing(d.pricing), grid, objects: [b, ...under, ...rest.filter(o => o.type !== 'holes' && o.type !== 'grid')] };
 }
 
 let doc = newDoc(), assets = {}, unit = 'mm', sel = null, selIds = [];
@@ -576,7 +605,7 @@ function partsOf(b = base()) {
 const allHoles = () => { const h = holesCfg(); return h ? partsOf().flatMap(r => holePoints(h, r)) : []; };
 const isBox = o => !!o && (o.type === 'pocket' || o.type === 'shape' || o.type === 'text');
 const canFlip = o => !!o && (o.type === 'pocket' || o.type === 'shape');
-const gridObj = () => doc.objects.find(o => o.type === 'grid');
+const gridCfg = () => doc.grid && doc.grid.on ? doc.grid : null;
 
 /* units */
 const U = () => unit === 'cm' ? 10 : 1;
@@ -893,10 +922,7 @@ function addText() {
   const o = makeText(); o.name = nextName('text', 'Текст'); syncDerived(o); placeInView(o);
   mutate(null, () => insertObj(o)); select(o.id); focusText();
 }
-function addGrid() {
-  const g = gridObj(); if (g) { select(g.id); toast('Сетка уже есть: настройки справа'); return; }
-  const o = makeGrid(); mutate(null, () => insertObj(o)); select(o.id);
-}
+function setGrid(fn) { mutate(null, () => { doc.grid = normGrid({ ...doc.grid }); fn(doc.grid); }); renderGridBtn(); }
 function focusText() { setTimeout(() => { const t = $('#textArea'); if (t) { t.focus(); t.select(); } }, 60); }
 function addHoles() {
   const b = base(); if (b.locked) return toast('Подложка заблокирована');
@@ -1068,8 +1094,18 @@ let imageTarget = null;
 function chooseImage(targetId) { imageTarget = targetId; $('#imageInput').click(); }
 async function importImage(file, targetId) {
   if (!file || !/^image\//.test(file.type)) return toast('Нужен файл изображения');
-  const t = (targetId && byId(targetId)) || base();
-  if (t.locked) return toast('Слой «' + t.name + '» заблокирован');
+  if (readOnly) return roToast();
+  let t = targetId && byId(targetId);
+  if (t && t.type === 'base') t = null;
+  if (t && t.locked) return toast('Слой «' + t.name + '» заблокирован');
+  if (!t) { // новый слой «Пустой» с картинкой, вписанный в подложку
+    try {
+      const data0 = await readDataURL(file), img0 = await loadImg(data0), ar = (img0.naturalWidth || 1) / (img0.naturalHeight || 1), b = base();
+      const o = makeShape('empty'); o.name = 'Изображение ' + (doc.objects.filter(x => x.type === 'shape' && /^Изображение/.test(x.name)).length + 1);
+      o.w = Math.round(Math.min(b.w, b.h * ar)); o.h = Math.round(o.w / ar); o.x = Math.round((b.w - o.w) / 2); o.y = Math.round((b.h - o.h) / 2);
+      mutate(null, () => insertObj(o)); t = o;
+    } catch { return toast('Не удалось прочитать изображение'); }
+  }
   try {
     let data = await readDataURL(file);
     const img = await loadImg(data);
@@ -1087,7 +1123,7 @@ async function importImage(file, targetId) {
     mutate(null, () => {
       const x = byId(t.id), prev = x.image;
       if (x.type === 'pocket') { x.image = { asset: id, opacity: prev ? prev.opacity : 1 }; return; }
-      if (x.type === 'shape') { x.image = { asset: id, opacity: prev ? prev.opacity : 1, fit: prev ? prev.fit : 'cover', ar: ar0 }; return; }
+      if (x.type === 'shape') { x.image = { asset: id, opacity: prev ? prev.opacity : 1, fit: prev ? prev.fit : x.name.startsWith('Изображение') ? 'stretch' : 'cover', ar: ar0 }; return; }
       x.image = { asset: id, x: 0, y: 0, w: 1, h: 1, ar: w / h, opacity: prev ? prev.opacity : 1, lockRatio: true };
       placeImage(x, 'fill');
     });
@@ -1386,7 +1422,7 @@ function exportSVG(W, H, opts = {}) {
   // opts.region — часть стенда (по умолчанию весь), opts.off — поле вокруг неё (вылеты + метки или белое поле части)
   const b = base(), bl = opts.bleed || 0, R = opts.region || { x: 0, y: 0, w: b.w, h: b.h };
   const off = opts.off != null ? opts.off : bl + (opts.pad || 0), VW = R.w + 2 * off, VH = R.h + 2 * off;
-  const parts = doc.objects.filter(o => o.visible && (o.type !== 'grid' || o.export)).map(o => {
+  const parts = doc.objects.filter(o => o.visible && o.type !== 'grid').map(o => {
     if (o.type === 'base') {
       // с вылетами фон подложки продлевается за край на величину вылета
       const i = o.image, href = i && assets[i.asset], c = 'c' + o.id;
@@ -1395,7 +1431,7 @@ function exportSVG(W, H, opts = {}) {
     }
     const t = objTransform(o), tr = t ? ` transform="${t}"` : '';
     return `<g opacity="${o.opacity}"${tr}>${objMarkup(o, true)}</g>`;
-  }).join('') + holesMarkup(null, true);
+  }).join('') + (doc.grid && doc.grid.on && doc.grid.export ? gridMarkup(doc.grid, true) : '') + holesMarkup(null, true);
   const used = new Set(doc.objects.filter(o => o.type === 'text' && o.visible).map(o => o.font));
   const css = used.size ? `<style>${fontFaceCSS(used)}</style>` : '';
   let marks = '';
@@ -1439,7 +1475,7 @@ defs.insertAdjacentHTML('beforeend', GLARE);
 const nodes = new Map();
 let raf = 0; const dirty = new Set();
 function invalidate(...parts) { parts.forEach(p => dirty.add(p)); if (!raf) raf = requestAnimationFrame(flush); }
-function changed() { invalidate('scene', 'overlay', 'layers', 'props'); scheduleSave(); }
+function changed() { invalidate('scene', 'overlay', 'layers', 'props'); scheduleSave(); if (typeof renderGridBtn === 'function') renderGridBtn(); }
 function flush() {
   raf = 0; const d = new Set(dirty); dirty.clear(); const all = d.has('all');
   if (all || d.has('scene')) renderScene();
@@ -1486,14 +1522,21 @@ function objSig(o) {
   if (o.type === 'holes') { const b = base(); s += b.w + 'x' + b.h + doc.objects.filter(k => k.type === 'pocket' && k.visible).map(k => [k.x, k.y, k.w, k.h].join(',')).join(';'); }
   return s;
 }
+const b0g = () => base();
 function renderScene() {
   const seen = new Set();
   doc.objects.forEach((o, idx) => {
     seen.add(o.id);
     let n = nodes.get(o.id);
-    if (n && n.type !== o.type) { n.g.remove(); n.clip && n.clip.remove(); n = null; }
-    if (!n) { n = o.type === 'base' ? createBaseNode(o) : { type: o.type, g: sv('g', { 'data-id': o.id }), sig: null }; nodes.set(o.id, n); }
-    if (scene.children[idx] !== n.g) scene.insertBefore(n.g, scene.children[idx] || null);
+    if (n && n.type !== o.type) { (n.wrap || n.g).remove(); n.clip && n.clip.remove(); n = null; }
+    if (!n) {
+      n = o.type === 'base' ? createBaseNode(o) : { type: o.type, g: sv('g', { 'data-id': o.id }), sig: null };
+      if (o.type === 'shape' || o.type === 'text') { n.wrap = sv('g'); n.wrap.append(n.g); } // печать за краем листа не видна
+      nodes.set(o.id, n);
+    }
+    const top_ = n.wrap || n.g;
+    if (n.wrap) n.wrap.setAttribute('clip-path', `url(#clip-${doc.objects[0].id})`);
+    if (scene.children[idx] !== top_) scene.insertBefore(top_, scene.children[idx] || null);
     setA(n.g, { opacity: o.opacity, display: o.visible ? null : 'none' });
     if (o.type === 'base') { updateBaseNode(n, o); return; }
     setA(n.g, { transform: objTransform(o) });
@@ -1502,6 +1545,13 @@ function renderScene() {
     n.g.classList.toggle('pick', o.type === 'holes');
     if (o.type === 'grid') n.g.setAttribute('pointer-events', 'none');
   });
+  // сетка — поверх слоёв, не ловит клики
+  let gn = nodes.get('__grid');
+  if (!gn) { gn = { type: '__grid', g: sv('g', { 'pointer-events': 'none' }), sig: null }; nodes.set('__grid', gn); }
+  seen.add('__grid');
+  scene.appendChild(gn.g);
+  const gc = gridCfg(), gsig = gc ? JSON.stringify([gc, b0g().w, b0g().h]) : '';
+  if (gsig !== gn.sig) { gn.sig = gsig; gn.g.innerHTML = gc ? gridMarkup(gc, false) : ''; }
   // отверстия под крепёж — всегда поверх всех слоёв, по каждой части подложки
   let hn = nodes.get('__holes');
   if (!hn) { hn = { type: '__holes', g: sv('g', { 'pointer-events': 'none' }), sig: null }; nodes.set('__holes', hn); }
@@ -1509,7 +1559,7 @@ function renderScene() {
   if (scene.lastChild !== hn.g) scene.appendChild(hn.g);
   const hc = holesCfg(), b0 = base(), hsig = hc ? JSON.stringify([hc, b0.w, b0.h, b0.splits, doc.objects.filter(k => k.type === 'pocket' && k.visible).map(k => [k.x, k.y, k.w, k.h])]) : '';
   if (hsig !== hn.sig) { hn.sig = hsig; hn.g.innerHTML = hc ? holesMarkup(hc, false) : ''; }
-  for (const [id, n] of nodes) if (!seen.has(id)) { n.g.remove(); n.clip && n.clip.remove(); nodes.delete(id); }
+  for (const [id, n] of nodes) if (!seen.has(id)) { (n.wrap || n.g).remove(); n.clip && n.clip.remove(); nodes.delete(id); }
 }
 function renderShadow() {
   const b = base();
@@ -1597,6 +1647,35 @@ function renderOverlay() {
 /* ================= top bar ================= */
 const topBar = $('#top');
 const unitBtns = {};
+/* ---- сетка: кнопка в верхней панели — клик включает/выключает, стрелка открывает настройки ---- */
+const gridTog = el('button', { type: 'button', class: 'gtog', title: 'Сетка: показать или скрыть (G)', onclick: () => setGrid(g => g.on = !g.on) });
+const gridMore = el('button', { type: 'button', class: 'gmore', title: 'Настройки сетки', html: '<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg>' });
+const gridBtn = el('div', { class: 'gridbtn' }, gridTog, gridMore);
+const gridPop = el('div', { class: 'pop', hidden: true, style: 'width:270px' });
+document.body.append(gridPop);
+gridMore.addEventListener('click', e => { e.stopPropagation(); gridPop.hidden = !gridPop.hidden; if (!gridPop.hidden) { const r = gridBtn.getBoundingClientRect(); gridPop.style.left = Math.max(8, r.left) + 'px'; gridPop.style.right = 'auto'; renderGridPop(); } });
+document.addEventListener('pointerdown', e => { if (!gridPop.hidden && !gridPop.contains(e.target) && !gridBtn.contains(e.target)) gridPop.hidden = true; });
+function renderGridBtn() {
+  const g = doc.grid || GRID_DEFAULT();
+  gridTog.innerHTML = ic('grid') + `<span>Сетка${g.on ? ' · ' + fmtLen(g.step) : ''}</span>`;
+  gridBtn.classList.toggle('on', g.on);
+  if (!gridPop.hidden) renderGridPop();
+}
+function renderGridPop() {
+  const g = doc.grid, ch = (label, k) => { const i = el('input', { type: 'checkbox' }); i.checked = g[k]; i.onchange = () => setGrid(x => x[k] = i.checked); return el('label', { class: 'gchk' }, i, label); };
+  const step = el('input', { type: 'text', inputmode: 'decimal', value: fmtLen(g.step) });
+  step.addEventListener('change', () => { const v = parseNum(step.value); if (v != null) setGrid(x => x.step = clamp(unit === 'cm' ? v * 10 : v, 2, 5000)); });
+  const col = el('input', { type: 'color', value: g.color }); col.addEventListener('change', () => setGrid(x => x.color = col.value));
+  const op = el('input', { type: 'range', min: 5, max: 100, value: Math.round(g.lineOpacity * 100), style: 'flex:1;accent-color:var(--acc)' });
+  op.addEventListener('change', () => setGrid(x => x.lineOpacity = op.value / 100));
+  gridPop.replaceChildren(el('h5', {}, 'Сетка'), ch('Показать сетку', 'on'),
+    el('div', { class: 'cap', style: 'margin-top:10px' }, 'Клетка, ' + unitLabel()),
+    el('div', { class: 'gstep' }, step, ...[10, 25, 50, 100].map(v => el('button', { type: 'button', class: 'btn' + (g.step === v ? ' on' : ''), onclick: () => setGrid(x => { x.step = v; x.on = true; }) }, fmtLen(v)))),
+    el('div', { class: 'cap', style: 'margin-top:10px' }, 'Цвет и прозрачность линий'),
+    el('div', { class: 'gstep' }, col, op),
+    ch('Привязка к линиям сетки', 'snap'), ch('Показывать в экспорте', 'export'),
+    el('p', { class: 'hint', style: 'margin:8px 0 0' }, 'Сетка не мешает кликам. Ctrl при перетаскивании — без привязки.'));
+}
 topBar.append(
   el('div', { class: 'brand' }, el('i'), el('span', { class: 'title', id: 'docTitle', title: 'Нажмите, чтобы переименовать проект. Так будет называться сохраняемый файл', onclick: renameTitle })),
   B('library', 'Проекты', openLibrary, { title: 'Мои проекты: все стенды в этом браузере (Ctrl+Shift+O)' }),
@@ -1611,6 +1690,7 @@ topBar.append(
   el('div', { class: 'seg', title: 'Единицы измерения' },
     unitBtns.mm = el('button', { type: 'button', onclick: () => setUnit('mm') }, 'мм'),
     unitBtns.cm = el('button', { type: 'button', onclick: () => setUnit('cm') }, 'см')),
+  gridBtn,
   el('div', { class: 'sep' }),
   B('minus', '', () => zoomBy(1 / 1.25), { title: 'Отдалить (−)' }),
   el('button', { type: 'button', id: 'zoomPct', title: '100% — реальный размер. Клик — показать целиком (0)', onclick: fit }),
@@ -1656,9 +1736,8 @@ $('#layersFoot').append(layerMenu,
     B('layer', 'Слой', e => { e.stopPropagation(); layerMenu.hidden = !layerMenu.hidden; }, { cls: 'btn', title: 'Добавить слой с заливкой', after: ic('chev') }),
     B('pocket', 'Карман', addPocket, { cls: 'btn', title: 'Добавить карман' }),
     B('text', 'Текст', addText, { cls: 'btn', title: 'Добавить текст' }),
-    B('grid', 'Сетка', addGrid, { cls: 'btn', title: 'Сетка для разметки и привязки' }),
     B('holes', 'Отверстия', addHoles, { cls: 'btn', title: 'Отверстия под крепёж — в свойствах подложки' }),
-    B('scissors', 'Раздел', addSplit, { cls: 'btn', title: 'Разделить подложку на части линией' })));
+    B('scissors', 'Раздел', addSplit, { cls: 'btn wide', title: 'Разделить подложку на части линией' })));
 document.addEventListener('pointerdown', e => { if (!layerMenu.hidden && !layerMenu.contains(e.target)) layerMenu.hidden = true; });
 
 let renaming = false, dragLayer = null;
@@ -1921,9 +2000,8 @@ function buildBase(o) {
           lenField('Ш', () => O().w, (v, k) => upd(k, x => x.w = v), { min: 10, max: 20000 }),
           lenField('В', () => O().h, (v, k) => upd(k, x => x.h = v), { min: 10, max: 20000 })),
         row(thick),
+        el('p', { class: 'hint', style: 'margin:0 0 8px' }, 'Подложка — белый лист ПВХ. Фон и картинки — слоями: «Слой» внизу панели слоёв или перетащите картинку на холст.'),
         warnField(() => { const x = O(), big = partsOf(x).filter(r => !fitsSheet(r)); return !big.length ? '' : x.splits.length ? `Части ${big.map(r => r.n).join(', ')} больше листа ПВХ ${SHEET[0]} × ${SHEET[1]} мм.` : `Больше стандартного листа ПВХ ${SHEET[0]} × ${SHEET[1]} мм: разделите стенд на части (раздел ниже).`; }))),
-    fillSection(o, O, upd),
-    sec('Фоновое изображение', el('fieldset', { disabled: L }, imgSec)),
     holesSection(o, O, upd),
     splitSection(o, O, upd),
     layerSection(o, O, upd),
@@ -2374,8 +2452,8 @@ function snapTargets(except) {
 function snapAxis(pos, size, list, thr, offs = [0, size / 2, size]) {
   let best = null;
   for (const off of offs) for (const t of list) { const d = Math.abs(pos + off - t); if (d < thr && (!best || d < best.d)) best = { d, delta: t - (pos + off), line: t }; }
-  const gr = gridObj();
-  if (gr && gr.visible && gr.snap) for (const off of offs) { // линии элемента «Сетка»
+  const gr = gridCfg();
+  if (gr && gr.snap) for (const off of offs) { // линии сетки
     const g = Math.round((pos + off) / gr.step) * gr.step, d = Math.abs(pos + off - g);
     if (d < thr && (!best || d < best.d - 0.01)) best = { d, delta: g - (pos + off), line: null };
   }
@@ -2663,6 +2741,7 @@ window.addEventListener('keydown', e => {
   if (mod && e.code === 'KeyY') { e.preventDefault(); redo(); return; }
   if (mod && e.code === 'KeyD') { e.preventDefault(); duplicateSel(); return; }
   if (mod && e.code === 'KeyA') { e.preventDefault(); setSel(doc.objects.filter(o => isBox(o) && o.visible && !o.locked).map(o => o.id)); return; }
+  if (!mod && !e.altKey && e.code === 'KeyG') { e.preventDefault(); setGrid(g => g.on = !g.on); return; }
   if (mod && (e.code === 'Equal' || e.code === 'NumpadAdd')) { e.preventDefault(); zoomBy(1.25); return; }
   if (mod && (e.code === 'Minus' || e.code === 'NumpadSubtract')) { e.preventDefault(); zoomBy(1 / 1.25); return; }
   if (mod) return;
@@ -3828,6 +3907,11 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-08c', date: '8 ноября 2026', items: [
+    'Подложка теперь всегда белый лист ПВХ. Цвет и фоновая картинка из старых проектов стали отдельными слоями «Фон» и «Фоновое изображение» — ничего не потерялось.',
+    'Картинка, перетащенная на холст или вставленная из буфера, становится новым слоем, вписанным в подложку.',
+    'Всё, что выходит за край подложки, на холсте не видно — как и при печати.',
+    'Сетка переехала из слоёв в верхнюю панель, рядом с мм/см. Клик включает и выключает, стрелка — настройки. Клавиша G.'] },
   { v: '2026-11-08b', date: '8 ноября 2026', items: [
     'Вход через Google: проекты сохраняются на Google Диск и появляются на других ваших устройствах.',
     'Совместная работа: «Поделиться» создаёт общую копию проекта, соавтор получает письмо от Google. Роли — редактор или читатель.',
