@@ -61,6 +61,19 @@ textarea.txt{width:100%;height:auto;min-height:64px;padding:6px 8px;resize:verti
 #modal[hidden]{display:none}
 @media (max-width:1520px){header .tb span{display:none}}
 .acct,.acct-in{flex:none}
+#ctxMenu{position:fixed;z-index:60;font-size:13px}
+#ctxMenu[hidden]{display:none}
+.cm-list{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.2);padding:5px;min-width:230px}
+.cm-item{position:relative;display:flex;align-items:center;gap:8px;width:100%;height:30px;padding:0 8px;border:0;background:none;color:var(--text);font:inherit;text-align:left;border-radius:6px;cursor:pointer;white-space:nowrap}
+.cm-item:hover:not(.off),.cm-item:focus-visible{background:var(--hover);outline:none}
+.cm-item.off{opacity:.4;cursor:default}
+.cm-item.danger{color:var(--bad)}
+.cm-ic{width:16px;height:16px;display:grid;place-items:center;flex:none}.cm-ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.cm-l{flex:1}.cm-k{color:var(--muted);font-size:11.5px;margin-left:18px}
+.cm-sep{height:1px;background:var(--line);margin:4px 6px}
+.cm-item > .cm-list{display:none;position:absolute;left:calc(100% + 2px);top:-6px}
+#ctxMenu.flip .cm-item > .cm-list{left:auto;right:calc(100% + 2px)}
+.cm-item.has-sub:hover > .cm-list,.cm-item.has-sub:focus-within > .cm-list{display:block}
 .gridbtn{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-left:6px;height:30px;flex:none}
 .gridbtn button{border:0;border-radius:0;background:var(--input);color:var(--text);display:flex;align-items:center;gap:6px;padding:0 9px;font:inherit;cursor:pointer;height:100%}
 .gridbtn button:hover{background:var(--hover)}
@@ -899,8 +912,9 @@ async function pickProjectFile() {
 }
 
 function visibleCenter() { const r = stage.getBoundingClientRect(); return { x: (r.width / 2 - view.x) / view.z, y: (r.height / 2 - view.y) / view.z }; }
+let placeAt = null; // точка «добавить здесь» из контекстного меню
 function placeInView(o) {
-  const b = base(), c = visibleCenter();
+  const b = base(), c = placeAt || visibleCenter();
   const cx = b.w < o.w ? b.w / 2 : clamp(c.x, o.w / 2, b.w - o.w / 2), cy = b.h < o.h ? b.h / 2 : clamp(c.y, o.h / 2, b.h - o.h / 2);
   o.x = Math.round(cx - o.w / 2); o.y = Math.round(cy - o.h / 2);
 }
@@ -1776,7 +1790,7 @@ function renderLayers() {
       { title: o.visible ? 'Скрыть' : 'Показать', cls: o.visible ? '' : 'off' });
     const lk = B(o.locked ? 'lock' : 'unlock', '', e => { e.stopPropagation(); mutate(null, () => { const x = byId(o.id); x.locked = !x.locked; }); },
       { title: o.locked ? 'Разблокировать' : 'Заблокировать', cls: o.locked ? 'on' : 'off' });
-    const row = el('div', { class: 'layer' + (selIds.includes(o.id) ? ' sel' : '') + (o.visible ? '' : ' hidden'), onclick: e => layerClick(e, o.id), draggable: o.type !== 'base' ? 'true' : null },
+    const row = el('div', { class: 'layer' + (selIds.includes(o.id) ? ' sel' : '') + (o.visible ? '' : ' hidden'), onclick: e => layerClick(e, o.id), draggable: o.type !== 'base' ? 'true' : null, 'data-lid': o.id },
       eye, swatch(o), nm, el('span', { class: 'tag' }, layerTag(o)), lk);
     row.addEventListener('dragstart', e => { dragLayer = o.id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/x-layer', o.id); row.classList.add('dragging'); });
     row.addEventListener('dragend', () => { dragLayer = null; row.classList.remove('dragging'); list.querySelectorAll('.drop-above,.drop-below').forEach(r => r.classList.remove('drop-above', 'drop-below')); });
@@ -2356,7 +2370,8 @@ function buildEmpty() {
     el('dl', { class: 'keys' },
       el('dt', {}, 'Колесо'), el('dd', {}, 'масштаб'),
       el('dt', {}, k('Alt'), ' + колесо'), el('dd', {}, 'точный масштаб, шаг 1%'),
-      el('dt', {}, k('Пробел'), ' + мышь'), el('dd', {}, 'двигать холст (также средняя или правая кнопка мыши)'),
+      el('dt', {}, 'Правая кнопка'), el('dd', {}, 'клик — меню действий, протяжка — двигать холст'),
+      el('dt', {}, k('Пробел'), ' + мышь'), el('dd', {}, 'двигать холст (также средняя кнопка мыши)'),
       el('dt', {}, 'Рамка мышью'), el('dd', {}, 'выделить несколько элементов'),
       el('dt', {}, k('R'), ' / ', k('Shift', 'R')), el('dd', {}, 'повернуть на 90° по / против часовой'),
       el('dt', {}, k('Shift', 'H')), el('dd', {}, 'отразить по горизонтали'),
@@ -2365,6 +2380,8 @@ function buildEmpty() {
       el('dt', {}, k('Ctrl', 'Z')), el('dd', {}, 'отменить'),
       el('dt', {}, k('Ctrl', 'Shift', 'Z')), el('dd', {}, 'повторить'),
       el('dt', {}, k('Ctrl', 'D')), el('dd', {}, 'дублировать'),
+      el('dt', {}, k('Ctrl', 'Alt', 'C'), ' / ', k('V')), el('dd', {}, 'копировать / вставить стиль'),
+      el('dt', {}, k('G')), el('dd', {}, 'сетка вкл/выкл'),
       el('dt', {}, k('Ctrl', 'C'), ' / ', k('Ctrl', 'X'), ' / ', k('Ctrl', 'V')), el('dd', {}, 'копировать / вырезать / вставить (и в другой вкладке)'),
       el('dt', {}, k('Ctrl'), ' или ', k('Alt'), ' + перетаскивание'), el('dd', {}, 'быстрый дубликат'),
       el('dt', {}, k('Shift'), ' + клик'), el('dd', {}, 'добавить / убрать из выделения'),
@@ -2418,7 +2435,7 @@ function hideTip() { clearTimeout(tipT); rotTip.hidden = true; }
 elTools.addEventListener('pointerdown', e => e.stopPropagation());
 elTools.addEventListener('dblclick', e => e.stopPropagation());
 rotBtn.addEventListener('click', e => { hideTip(); rotateObj(hoverId, e.ctrlKey || e.metaKey ? -1 : 1); });
-rotBtn.addEventListener('contextmenu', e => { e.preventDefault(); hideTip(); rotateObj(hoverId, -1); }); // Ctrl+клик на Mac и правая кнопка
+elTools.addEventListener('contextmenu', e => { e.preventDefault(); hideTip(); if (hoverId && !selIds.includes(hoverId)) select(hoverId); flush(); openMenu(e.clientX, e.clientY, elementMenu()); }); // правая кнопка на кнопках элемента — то же меню
 flipBtn.addEventListener('click', () => { hideTip(); flipObj(hoverId); });
 for (const [btn, key] of [[rotBtn, 'rot'], [flipBtn, 'flip']]) {
   btn.addEventListener('pointerenter', () => {
@@ -2509,7 +2526,7 @@ stage.addEventListener('pointerdown', e => {
     if (drag && drag.moved) changed();
     drag = null; return;
   }
-  if (e.button === 1 || e.button === 2 || (e.button === 0 && spaceDown) || (e.button === 0 && readOnly)) { e.preventDefault(); startPan(e); return; }
+  if (e.button === 1 || e.button === 2 || (e.button === 0 && spaceDown) || (e.button === 0 && readOnly)) { e.preventDefault(); startPan(e); if (e.button === 2) drag.ctx = true; return; }
   if (e.button !== 0) return;
   const w = toWorld(e), cur = selIds.length === 1 && sel && byId(sel), base0 = { sx: e.clientX, sy: e.clientY, sw: w, moved: false };
   const spA = e.target.closest && e.target.closest('[data-split-act]');
@@ -2649,6 +2666,9 @@ stage.addEventListener('pointermove', e => {
 function endPointer(e) {
   pointers.delete(e.pointerId);
   if (pinch) { if (pointers.size < 2) pinch = null; return; }
+  if (drag && drag.type === 'pan' && drag.ctx && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 5 && e.type === 'pointerup') {
+    drag = null; stage.classList.remove('panning'); stageMenu(e); return;
+  }
   if (drag) {
     if (drag.type === 'marquee') { if (!drag.moved && drag.clickId !== undefined) select(drag.clickId); }
     else if (drag.moved) changed();
@@ -2671,7 +2691,7 @@ stage.addEventListener('wheel', e => {
   zoomAt(view.z * Math.exp(-e.deltaY * k * (e.ctrlKey ? 0.01 : 0.0018)), e.clientX, e.clientY);
 }, { passive: false });
 stage.addEventListener('auxclick', e => e.preventDefault());
-stage.addEventListener('contextmenu', e => { if (!elTools.contains(e.target)) e.preventDefault(); });
+stage.addEventListener('contextmenu', e => e.preventDefault());
 stage.addEventListener('dblclick', e => {
   const hit = e.target.closest && e.target.closest('[data-id]'), o = hit && byId(hit.dataset.id);
   if (o && o.type === 'text' && !o.locked) { select(o.id); focusText(); }
@@ -2706,7 +2726,7 @@ function copySel(e, cut) {
   toast((cut ? 'Вырезано' : 'Скопировано') + ': ' + pl.objects.length + ' эл. Вставка — Ctrl+V');
   return true;
 }
-async function pasteObjects(pl) {
+async function pasteObjects(pl, at) {
   if (!pl || !Array.isArray(pl.objects) || !pl.objects.length) return;
   if (Array.isArray(pl.fonts) && pl.fonts.length) await loadCustomFonts(pl.fonts);
   Object.assign(assets, pl.assets || {});
@@ -2717,6 +2737,10 @@ async function pasteObjects(pl) {
     o.x = r2(o.x + 20 * pasteN); o.y = r2(o.y + 20 * pasteN); o.locked = false; add.push(o);
   }
   if (!add.length) return;
+  if (at) { // вставка в точку: центр вставленного — под курсором
+    const bx = bboxOf(add), dx = at.x - (bx.x + bx.w / 2), dy = at.y - (bx.y + bx.h / 2);
+    for (const o of add) { o.x = r2(o.x + dx); o.y = r2(o.y + dy); }
+  }
   mutate(null, () => add.forEach(insertObj));
   setSel(add.map(o => o.id));
 }
@@ -2736,6 +2760,187 @@ $('#imageInput').addEventListener('change', e => { const f = e.target.files[0]; 
 $('#fontInput').addEventListener('change', e => { const fs = [...e.target.files]; if (fs.length) addFontFiles(fs); e.target.value = ''; });
 $('#projectInput').addEventListener('change', e => { const f = e.target.files[0]; if (f) openFile(f); e.target.value = ''; });
 
+/* ================= контекстное меню (правая кнопка) =================
+   Правило: в меню только действия, параметры — в панели свойств.
+   Клик правой — меню; протяжка правой, как и раньше, двигает холст. */
+const ctxMenu = el('div', { id: 'ctxMenu', hidden: true, role: 'menu' });
+document.body.append(ctxMenu);
+function closeMenu() { ctxMenu.hidden = true; ctxMenu.replaceChildren(); }
+function menuList(items) {
+  const box = el('div', { class: 'cm-list' });
+  for (const it of items) {
+    if (!it) continue;
+    if (it === '-') { if (box.lastChild && !box.lastChild.classList.contains('cm-sep')) box.append(el('div', { class: 'cm-sep' })); continue; }
+    const off = !!(it.disabled || (it.edit && readOnly));
+    const row = el('div', { class: 'cm-item' + (it.danger ? ' danger' : '') + (it.sub ? ' has-sub' : '') + (off ? ' off' : ''), role: 'menuitem', tabindex: -1, 'aria-disabled': off ? 'true' : null },
+      el('span', { class: 'cm-ic', html: it.icon ? ic(it.icon) : '' }), el('span', { class: 'cm-l' }, it.label), el('span', { class: 'cm-k' }, it.sub ? '›' : it.kbd || ''));
+    if (it.sub) row.append(menuList(it.sub));
+    else row.addEventListener('click', e => { e.stopPropagation(); if (off) return; closeMenu(); it.act(); });
+    box.append(row);
+  }
+  if (box.lastChild && box.lastChild.classList.contains('cm-sep')) box.lastChild.remove();
+  return box;
+}
+function openMenu(x, y, items) {
+  ctxMenu.replaceChildren(menuList(items)); ctxMenu.hidden = false;
+  const r = ctxMenu.getBoundingClientRect(), W = innerWidth, H = innerHeight;
+  ctxMenu.style.left = Math.min(x, W - r.width - 6) + 'px'; ctxMenu.style.top = Math.min(y, H - r.height - 6) + 'px';
+  ctxMenu.classList.toggle('flip', x + r.width + 220 > W); // подменю открываются влево у правого края
+}
+document.addEventListener('pointerdown', e => { if (!ctxMenu.hidden && !ctxMenu.contains(e.target)) closeMenu(); }, true);
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && !ctxMenu.hidden) { e.stopImmediatePropagation(); closeMenu(); } }, true);
+window.addEventListener('blur', closeMenu); window.addEventListener('resize', closeMenu);
+
+/* ---- буфер из меню: тот же формат, что Ctrl+C / Ctrl+V ---- */
+async function menuCopy(cut) {
+  const pl = clipPayload(); if (!pl) return;
+  clipMem = pl; pasteN = 0;
+  try { await navigator.clipboard.writeText(CLIP_PREFIX + JSON.stringify(pl)); } catch {}
+  if (cut) deleteSel();
+  toast((cut ? 'Вырезано' : 'Скопировано') + ': ' + pl.objects.length + ' эл.');
+}
+async function menuPaste(at) {
+  let pl = clipMem;
+  try { const t = await navigator.clipboard.readText(); if (t && t.startsWith(CLIP_PREFIX)) pl = JSON.parse(t.slice(CLIP_PREFIX.length)); } catch {}
+  if (!pl) return toast('Буфер пуст: сначала скопируйте элементы');
+  pasteObjects(pl, at);
+}
+
+/* ---- стиль: перенос настроек между элементами одного типа ---- */
+const STYLE_KEYS = {
+  pocket: ['tape', 'tapeColor', 'gap', 'notch', 'notchSize', 'showName', 'film', 'filmW'],
+  shape: ['fillType', 'fill', 'fill2', 'angle', 'fillOpacity', 'radius', 'opacity'],
+  text: ['font', 'size', 'weight', 'italic', 'underline', 'strike', 'caps', 'align', 'lh', 'ls', 'skew', 'color', 'colorOpacity', 'strokeW', 'strokeColor'],
+};
+const STYLE_TXT = { pocket: 'рамка, проклейка, выемка', shape: 'заливка и скругление', text: 'шрифт, размер, цвет' };
+let styleClip = null;
+function copyStyle() {
+  const o = selected().find(x => STYLE_KEYS[x.type]); if (!o) return toast('Выберите карман, слой или текст');
+  const st = {}; for (const k of STYLE_KEYS[o.type]) st[k] = JSON.parse(JSON.stringify(o[k]));
+  if (o.type === 'pocket') st.vsides = visualSides(o); // стороны — как видны на стенде, независимо от поворота
+  styleClip = { type: o.type, st };
+  toast(`Стиль скопирован (${STYLE_TXT[o.type]}). Вставить — Ctrl+Alt+V или правой кнопкой`);
+}
+function pasteStyle() {
+  if (!styleClip) return toast('Сначала скопируйте стиль');
+  const list = selected().filter(o => o.type === styleClip.type && !o.locked);
+  if (!list.length) return toast(`Стиль ${{ pocket: 'кармана', shape: 'слоя', text: 'текста' }[styleClip.type]} вставляется только в такой же элемент`);
+  mutate(null, () => {
+    for (const o of list) {
+      const x = byId(o.id), { vsides, ...st } = styleClip.st;
+      Object.assign(x, JSON.parse(JSON.stringify(st)));
+      if (vsides) for (const v of CW) x.sides[toLocalSide(v, x.rot || 0, x.flip)] = vsides[v];
+    }
+  });
+  toast(`Стиль вставлен: ${list.length} эл.`);
+}
+
+/* ---- порядок слоёв ---- */
+function orderSel(kind) {
+  const ids = new Set(selected().filter(o => o.type !== 'base').map(o => o.id)); if (!ids.size) return;
+  mutate(null, () => {
+    const a = doc.objects, b = a[0], rest = a.slice(1), mv = rest.filter(o => ids.has(o.id)), other = rest.filter(o => !ids.has(o.id));
+    if (kind === 'front') doc.objects = [b, ...other, ...mv];
+    else if (kind === 'back') doc.objects = [b, ...mv, ...other];
+    else {
+      const r = rest.slice(), up = kind === 'up';
+      const idx = up ? [...r.keys()].reverse() : [...r.keys()];
+      for (const i of idx) { const j = up ? i + 1 : i - 1; if (ids.has(r[i].id) && j >= 0 && j < r.length && !ids.has(r[j].id)) [r[i], r[j]] = [r[j], r[i]]; }
+      doc.objects = [b, ...r];
+    }
+  });
+}
+function rotateSel(dir) { const ids = selected().filter(isBox).map(o => o.id); ids.forEach(id => rotateObj(id, dir)); if (ids.length > 1) setSel(ids); }
+function flipSel() { const ids = selected().filter(canFlip).map(o => o.id); ids.forEach(id => flipObj(id)); if (ids.length > 1) setSel(ids); }
+function setFlag(k, v) { const ids = new Set(selected().filter(o => o.type !== 'base' || k === 'locked').map(o => o.id)); mutate(null, () => doc.objects.forEach(o => { if (ids.has(o.id)) o[k] = v; })); }
+function renameSel() {
+  const o = selected()[0]; if (!o) return;
+  if (!panes.L) { panes.L = true; try { localStorage.setItem(PANES_KEY, JSON.stringify(panes)); } catch {} renderPanes(); }
+  flush(); const row = $('#layerList').querySelector(`[data-lid="${o.id}"] .nm`); if (row) startRename(o.id, row);
+}
+const addHere = (w, fn) => { placeAt = w; fn(); placeAt = null; };
+function splitHere(w, axis) {
+  const b = base(); if (b.locked) return toast('Подложка заблокирована');
+  const L = axis === 'v' ? b.w : b.h, pos = Math.round(axis === 'v' ? w.x : w.y);
+  if (pos < 10 || pos > L - 10) return toast('Линия раздела должна пройти по подложке');
+  mutate(null, () => base().splits.push({ id: uid(), axis, pos })); select(b.id);
+}
+
+/* ---- наборы пунктов ---- */
+function elementMenu() {
+  const L = selected().filter(isBox), o = L[0], one = L.length === 1, unlocked = L.filter(x => !x.locked), sameStyle = styleClip && L.some(x => x.type === styleClip.type);
+  const allLocked = L.every(x => x.locked), allHidden = L.every(x => !x.visible);
+  return [
+    { label: 'Копировать', kbd: 'Ctrl+C', icon: 'copy', act: () => menuCopy(false) },
+    { label: 'Вырезать', kbd: 'Ctrl+X', act: () => menuCopy(true), edit: true, disabled: !unlocked.length },
+    { label: 'Вставить', kbd: 'Ctrl+V', act: () => menuPaste(), edit: true },
+    { label: 'Дублировать', kbd: 'Ctrl+D', act: duplicateSel, edit: true },
+    '-',
+    one && STYLE_KEYS[o.type] ? { label: 'Копировать стиль', kbd: 'Ctrl+Alt+C', act: copyStyle } : null,
+    { label: styleClip ? `Вставить стиль (${{ pocket: 'кармана', shape: 'слоя', text: 'текста' }[styleClip.type]})` : 'Вставить стиль', kbd: 'Ctrl+Alt+V', act: pasteStyle, edit: true, disabled: !sameStyle },
+    '-',
+    { label: 'Порядок', sub: [
+      { label: 'На передний план', act: () => orderSel('front'), edit: true },
+      { label: 'Выше', act: () => orderSel('up'), edit: true },
+      { label: 'Ниже', act: () => orderSel('down'), edit: true },
+      { label: 'На задний план', act: () => orderSel('back'), edit: true }] },
+    L.length > 1 ? { label: 'Выровнять', sub: ALIGN.map(([k, i, t]) => ({ label: t, icon: i, act: () => alignSel(k), edit: true })) } : null,
+    L.length > 1 ? { label: 'Расставить сеткой', act: arrangeGrid, edit: true } : null,
+    { label: 'Повернуть по часовой', kbd: 'R', icon: 'rotate', act: () => rotateSel(1), edit: true, disabled: !unlocked.length },
+    { label: 'Повернуть против часовой', kbd: 'Shift+R', act: () => rotateSel(-1), edit: true, disabled: !unlocked.length },
+    L.some(canFlip) ? { label: 'Отразить по горизонтали', kbd: 'Shift+H', icon: 'flip', act: flipSel, edit: true, disabled: !unlocked.length } : null,
+    '-',
+    { label: allLocked ? 'Разблокировать' : 'Заблокировать', icon: allLocked ? 'unlock' : 'lock', act: () => setFlag('locked', !allLocked), edit: true },
+    { label: allHidden ? 'Показать' : 'Скрыть', icon: allHidden ? 'eye' : 'eyeOff', act: () => setFlag('visible', allHidden), edit: true },
+    one ? { label: 'Переименовать', act: renameSel, edit: true } : null,
+    '-',
+    { label: 'Удалить', kbd: 'Del', icon: 'trash', danger: true, act: deleteSel, edit: true, disabled: !unlocked.length },
+  ];
+}
+function canvasMenu(w) {
+  const b = base(), inside = w && w.x >= 0 && w.y >= 0 && w.x <= b.w && w.y <= b.h, at = inside ? w : null;
+  return [
+    { label: inside ? 'Вставить сюда' : 'Вставить', kbd: 'Ctrl+V', act: () => menuPaste(at), edit: true },
+    '-',
+    { label: inside ? 'Добавить здесь' : 'Добавить', sub: [
+      { label: 'Карман', act: () => addHere(at, addPocket), edit: true },
+      { label: 'Текст', act: () => addHere(at, addText), edit: true },
+      { label: 'Слой «Заливка»', act: () => addHere(at, () => addShape('solid')), edit: true },
+      { label: 'Слой «Градиент»', act: () => addHere(at, () => addShape('grad')), edit: true },
+      { label: 'Пустой слой', act: () => addHere(at, () => addShape('empty')), edit: true },
+      { label: 'Картинку…', icon: 'image', act: () => chooseImage(null), edit: true }] },
+    inside ? { label: 'Линия раздела здесь', icon: 'scissors', sub: [
+      { label: `Вертикальная · X ${fmtLen(Math.round(w.x))} ${unitLabel()}`, act: () => splitHere(w, 'v'), edit: true },
+      { label: `Горизонтальная · Y ${fmtLen(Math.round(w.y))} ${unitLabel()}`, act: () => splitHere(w, 'h'), edit: true }] } : null,
+    '-',
+    { label: 'Выделить всё', kbd: 'Ctrl+A', act: () => setSel(doc.objects.filter(o => isBox(o) && o.visible && !o.locked).map(o => o.id)) },
+    { label: 'Показать целиком', kbd: '0', icon: 'fit', act: fit },
+    { label: doc.grid && doc.grid.on ? 'Скрыть сетку' : 'Показать сетку', kbd: 'G', icon: 'grid', act: () => setGrid(g => g.on = !g.on) },
+    { label: 'Свойства подложки', act: () => select(b.id) },
+  ];
+}
+function splitMenu(id) {
+  return [{ label: 'Повернуть на 90°', icon: 'rotate', act: () => rotateSplit(id), edit: true }, { label: 'Убрать линию раздела', icon: 'trash', danger: true, act: () => removeSplit(id), edit: true }];
+}
+function stageMenu(e) {
+  const hits = document.elementsFromPoint(e.clientX, e.clientY);
+  const sp = hits.map(n => n.closest && n.closest('[data-split]')).find(Boolean);
+  if (sp) return openMenu(e.clientX, e.clientY, splitMenu(sp.dataset.split));
+  const hitEl = hits.map(n => n.closest && n.closest('#scene [data-id]')).find(n => n && isBox(byId(n.dataset.id)));
+  if (hitEl) {
+    const id = hitEl.dataset.id; if (!selIds.includes(id)) select(id);
+    flush(); return openMenu(e.clientX, e.clientY, elementMenu());
+  }
+  openMenu(e.clientX, e.clientY, canvasMenu(toWorld(e)));
+}
+$('#layerList').addEventListener('contextmenu', e => {
+  const row = e.target.closest('[data-lid]'); if (!row) return;
+  e.preventDefault(); const o = byId(row.dataset.lid); if (!o) return;
+  if (o.type === 'base') { select(o.id); return openMenu(e.clientX, e.clientY, canvasMenu(null)); }
+  if (!selIds.includes(o.id)) select(o.id);
+  flush(); openMenu(e.clientX, e.clientY, elementMenu());
+});
+
 /* ================= keyboard ================= */
 window.addEventListener('keydown', e => {
   const t = e.target, typing = /INPUT|TEXTAREA|SELECT/.test(t.tagName) || t.isContentEditable;
@@ -2749,6 +2954,8 @@ window.addEventListener('keydown', e => {
   if (mod && e.code === 'KeyY') { e.preventDefault(); redo(); return; }
   if (mod && e.code === 'KeyD') { e.preventDefault(); duplicateSel(); return; }
   if (mod && e.code === 'KeyA') { e.preventDefault(); setSel(doc.objects.filter(o => isBox(o) && o.visible && !o.locked).map(o => o.id)); return; }
+  if (mod && e.altKey && e.code === 'KeyC') { e.preventDefault(); copyStyle(); return; }
+  if (mod && e.altKey && e.code === 'KeyV') { e.preventDefault(); pasteStyle(); return; }
   if (!mod && !e.altKey && e.code === 'KeyG') { e.preventDefault(); setGrid(g => g.on = !g.on); return; }
   if (mod && (e.code === 'Equal' || e.code === 'NumpadAdd')) { e.preventDefault(); zoomBy(1.25); return; }
   if (mod && (e.code === 'Minus' || e.code === 'NumpadSubtract')) { e.preventDefault(); zoomBy(1 / 1.25); return; }
@@ -3923,6 +4130,11 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-08d', date: '8 ноября 2026', items: [
+    'Контекстное меню на правую кнопку: копировать, вставить, дублировать, порядок слоёв, повернуть, отразить, заблокировать, скрыть, переименовать, удалить. Протяжка правой по-прежнему двигает холст.',
+    'По пустому месту: «Вставить сюда», «Добавить здесь» (карман, текст, слой, картинка) и «Линия раздела здесь» — ровно по курсору.',
+    '«Копировать стиль / Вставить стиль» (Ctrl+Alt+C / Ctrl+Alt+V): у кармана — рамка, проклейка и выемка, у слоя — заливка, у текста — шрифт, размер и цвет.',
+    'Кнопки «Копировать»: цвет в свойствах, спецификация целиком, ссылка на общий проект.'] },
   { v: '2026-11-08c', date: '8 ноября 2026', items: [
     'Подложка теперь всегда белый лист ПВХ. Цвет и фоновая картинка из старых проектов стали отдельными слоями «Фон» и «Фоновое изображение» — ничего не потерялось.',
     'Картинка, перетащенная на холст или вставленная из буфера, становится новым слоем, вписанным в подложку.',
