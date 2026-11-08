@@ -1886,6 +1886,11 @@ function sliderField(get, set, { min = 0, max = 100, key, suffix = '%', def, inM
   n.addEventListener('keydown', e => { if (e.key === 'Enter') n.blur(); });
   return el('div', { class: 'slider' }, r, el('label', { class: 'nf' }, n, el('i', {}, suffix)));
 }
+async function copyText(t, msg) {
+  try { await navigator.clipboard.writeText(t); }
+  catch { const a = el('textarea', { style: 'position:fixed;opacity:0' }); a.value = t; document.body.append(a); a.select(); try { document.execCommand('copy'); } catch {} a.remove(); }
+  toast(msg || 'Скопировано: ' + t);
+}
 function colorField(get, set) {
   const c = el('input', { type: 'color', title: 'Выбрать цвет' }), t = el('input', { type: 'text', class: 'txt', maxlength: 7 });
   bind(c, get); bind(t, () => get().toUpperCase());
@@ -1894,7 +1899,8 @@ function colorField(get, set) {
   t.addEventListener('keydown', e => { if (e.key === 'Enter') t.blur(); });
   const pip = B('pipette', '', async () => { const v = await pickColor(); if (v) set(v, null); },
     { title: window.EyeDropper ? 'Пипетка: взять цвет с экрана' : 'Пипетка работает в Chrome и Edge', cls: 'btn' });
-  return el('div', { class: 'color' }, c, t, pip);
+  const cp = B('copy', '', () => copyText(get().toUpperCase(), `Цвет ${get().toUpperCase()} скопирован — вставьте его в поле цвета другого элемента`), { title: 'Копировать цвет', cls: 'btn' });
+  return el('div', { class: 'color' }, c, t, cp, pip);
 }
 function checkField(label, get, set) {
   const c = el('input', { type: 'checkbox' }); bind(c, get, 'checked');
@@ -2894,6 +2900,11 @@ function estimateLines() {
   return { lines, total };
 }
 const cellsOf = r => Array.isArray(r) ? r : r.cells;
+function specTSV(secs) {
+  const lines = [`Спецификация\t${doc.title || DEFAULT_TITLE}`, ''];
+  for (const s_ of secs) { lines.push(s_.title, s_.head.join('\t')); for (const r of s_.rows) lines.push(cellsOf(r).join('\t')); lines.push(''); }
+  return lines.join('\n');
+}
 function specCSV(secs) {
   const q = v => /[;"\n]/.test(v) ? '"' + String(v).replace(/"/g, '""') + '"' : v;
   const lines = [`Спецификация;${q(doc.title || DEFAULT_TITLE)}`, `Дата;${new Date().toLocaleDateString('ru-RU')}`, ''];
@@ -3032,6 +3043,7 @@ function openSpec() {
       el('p', { class: 'hint' }, 'Размеры — в миллиметрах. Скотч и самоклейка считаются по проклеенным сторонам каждого кармана, полосы встык (в углах без нахлёста), пластик — по внешнему размеру карманов. Скрытые слои в расчёт не входят.'),
       estimateEditor()),
     el('div', { class: 'dlg-f' },
+      B('copy', 'Копировать', () => copyText(specTSV(specSections()), 'Спецификация скопирована: вставьте в Excel, Google Таблицы или мессенджер'), { cls: 'btn', title: 'Скопировать таблицы в буфер обмена' }),
       B('download', 'Таблица CSV', () => specExport('csv'), { cls: 'btn', title: 'Для Excel и Google Таблиц' }),
       B('file', 'PDF', () => specExport('pdf'), { cls: 'btn', title: 'Лист A4 с картинкой стенда и таблицами' }),
       B('image', 'PNG', () => specExport('png'), { cls: 'btn primary', title: 'Картинка со спецификацией' }))));
@@ -3879,7 +3891,9 @@ async function openMembers(fileId) {
     add.disabled = true; try { await invite(fileId, email, role, (r && r.title) || doc.title); inp.value = ''; toast(`${email} получит письмо от Google`); load(); } catch (e) { toast('Не удалось: ' + e.message, 5000); } add.disabled = false; };
   m.replaceChildren(el('div', { class: 'dlg', role: 'dialog', style: 'width:min(560px,100%)' },
     el('div', { class: 'dlg-h' }, el('span', {}, 'Участники · ' + ((r && r.title) || '')), B('', '✕', close, { cls: 'icon', title: 'Закрыть (Esc)' })),
-    el('div', { class: 'dlg-b', style: 'padding-top:12px' }, list,
+    el('div', { class: 'dlg-b', style: 'padding-top:12px' },
+      el('div', { class: 'btns', style: 'margin-bottom:10px' }, B('copy', 'Скопировать ссылку на проект', () => copyText(`${GOOGLE.appUrl}?open=${fileId}`, 'Ссылка скопирована. Откроется у тех, кому вы дали доступ'), { cls: 'btn', title: 'Например, чтобы отправить соавтору в мессенджере' })),
+      list,
       owner ? [cap('Пригласить'), row(inp, dl), row(roleSeg(() => role, v => role = v)), row(add)] : el('p', { class: 'hint' }, 'Приглашать участников может только владелец проекта.'))));
   m.hidden = false; m.onclick = e => { if (e.target === m) close(); }; load();
 }
