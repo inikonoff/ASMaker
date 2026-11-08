@@ -59,6 +59,26 @@ textarea.txt{width:100%;height:auto;min-height:64px;padding:6px 8px;resize:verti
 .row > select{flex:1 1 0}
 #modal{position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:20;display:grid;place-items:center;padding:20px}
 #modal[hidden]{display:none}
+.lib-tools{display:flex;gap:10px;align-items:center;margin-bottom:14px}
+.lib-tools input{flex:1;height:34px;border:1px solid var(--line);border-radius:8px;background:var(--input);color:var(--text);padding:0 10px;font:inherit}
+.lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.lib-card{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden;cursor:pointer;display:flex;flex-direction:column;text-align:left;padding:0;font:inherit;color:inherit;transition:border-color .12s,box-shadow .12s}
+.lib-card:hover,.lib-card:focus-visible{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-soft);outline:none}
+.lib-card.cur{border-color:var(--acc)}
+.lib-thumb{position:relative;aspect-ratio:4/3;background:var(--stage);display:grid;place-items:center;padding:10px}
+.lib-thumb img{max-width:100%;max-height:100%;box-shadow:0 1px 4px rgba(0,0,0,.18);background:#fff}
+.lib-badge{position:absolute;top:8px;left:8px;background:var(--acc);color:#fff;font-size:11px;font-weight:600;padding:2px 7px;border-radius:99px}
+.lib-meta{padding:9px 11px 4px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.lib-meta b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lib-meta span{font-size:12px;color:var(--muted)}
+.lib-acts{display:flex;gap:6px;padding:6px 11px 11px}
+.lib-act{flex:1;height:28px;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font:inherit;font-size:12px;cursor:pointer}
+.lib-act:hover:not(:disabled){background:var(--hover)}
+.lib-act:disabled{opacity:.4;cursor:default}
+.lib-act.armed{background:#dc2626;border-color:#dc2626;color:#fff}
+.lib-new{align-items:center;justify-content:center;gap:8px;min-height:220px;border-style:dashed;color:var(--muted)}
+.lib-new .lib-plus{font-size:34px;line-height:1;font-weight:300}
+.lib-empty{color:var(--muted);padding:30px 0;text-align:center;grid-column:1/-1}
 #modal .dlg{background:var(--panel);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:min(900px,100%);max-height:calc(100vh - 40px);display:flex;flex-direction:column;min-height:0}
 #modal .dlg-h{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:650;font-size:15px}
 #modal .dlg-b{overflow:auto;padding:6px 18px 18px;flex:1;min-height:0}
@@ -299,6 +319,7 @@ const ICON = {
   pipette: '<path d="M14 6l4 4"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L17 9l-3-3z"/><path d="M15 7L5.5 16.5 4 20l3.5-1.5L17 9"/>',
   swap: '<path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  library: '<rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
   download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
   folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/>',
@@ -567,43 +588,195 @@ function usedCustomFonts() {
   const used = new Set(doc.objects.filter(o => o.type === 'text').map(o => o.font));
   return FONT_DB.filter(f => f.custom && used.has(f.label)).flatMap(f => f.faces.map(x => ({ label: f.label, fmt: x.fmt, data: FONT_DATA[x.file], weight: x.weight, style: x.style })));
 }
-const serialize = (withAssets = true) => ({ app: 'stand-designer', version: 3, unit, doc, assets: withAssets ? usedAssets() : {}, fonts: withAssets ? usedCustomFonts() : [] });
+const serialize = (withAssets = true) => ({ app: 'stand-designer', version: 4, id: pid, saved: Date.now(), unit, doc, assets: withAssets ? usedAssets() : {}, fonts: withAssets ? usedCustomFonts() : [] });
 let saveT = 0, quotaWarned = false;
 function scheduleSave() { clearTimeout(saveT); saveT = setTimeout(saveNow, 500); }
-function saveNow() {
-  clearTimeout(saveT);
+function saveNow(lib = true) {
+  clearTimeout(saveT); if (lib) scheduleLibSave();
   try { localStorage.setItem(STORE, JSON.stringify(serialize())); }
   catch {
     try { localStorage.setItem(STORE, JSON.stringify(serialize(false))); } catch {}
-    if (!quotaWarned) { quotaWarned = true; toast('Картинки слишком большие для автосохранения браузера. Сохраните проект в файл.', 5000); }
+    if (!quotaWarned) { quotaWarned = true; console.warn('localStorage quota: картинки хранятся только в библиотеке'); }
   }
 }
+let hadStored = false, storedSaved = 0;
 function loadStored() {
   try {
     const raw = localStorage.getItem(STORE); if (!raw) return false;
     const d = JSON.parse(raw); const n = normalize(d && d.doc); if (!n) return false;
-    doc = n; assets = (d.assets && typeof d.assets === 'object') ? d.assets : {}; unit = d.unit === 'cm' ? 'cm' : 'mm';
+    doc = n; assets = (d.assets && typeof d.assets === 'object') ? d.assets : {}; unit = d.unit === 'cm' ? 'cm' : 'mm'; storedSaved = d.saved || 0;
     if (Array.isArray(d.fonts) && d.fonts.length) loadCustomFonts(d.fonts);
-    return true;
+    return hadStored = true;
   } catch { return false; }
 }
 const fileBase = () => (doc.title || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || 'стенд';
-async function saveFile() {
-  const name = fileBase() + '.stand.json';
-  if (await download(new Blob([JSON.stringify(serialize(), null, 1)], { type: 'application/json' }), name)) toast('Проект сохранён: ' + name + '. Откройте его кнопкой «Открыть», чтобы продолжить.', 4000);
+async function saveFile(as = false) {
+  await flushLib();
+  const name = fileBase() + '.stand.json', blob = new Blob([JSON.stringify(serialize(), null, 1)], { type: 'application/json' });
+  if (canFS()) {
+    try {
+      let h = !as && await projects.handle(pid).catch(() => null);
+      if (h) { const q = { mode: 'readwrite' }; if ((await h.queryPermission(q)) !== 'granted' && (await h.requestPermission(q)) !== 'granted') h = null; }
+      if (!h) { h = await showSaveFilePicker({ suggestedName: name, types: FILE_TYPES }); projects.setHandle(pid, h).catch(() => {}); }
+      const w = await h.createWritable(); await w.write(blob); await w.close();
+      return toast(`Сохранено в файл ${h.name}. Ctrl+S теперь перезаписывает его`, 3500);
+    } catch (e) { if (e && e.name === 'AbortError') return; console.warn(e); }
+  }
+  if (await download(blob, name)) toast('Файл проекта скачан: ' + name + '. Проект и так сохранён в «Мои проекты»', 4000);
 }
-async function openFile(file) {
-  try {
-    const d = JSON.parse(await file.text()); const n = normalize(d && (d.doc || d));
-    if (!n) throw 0;
-    if (Array.isArray(d.fonts)) { await loadCustomFonts(d.fonts); for (const f of d.fonts) try { await fontStore.put(f); } catch {} }
-    commit(); Object.assign(assets, d.assets || {}); doc = n; if (d.unit) unit = d.unit === 'cm' ? 'cm' : 'mm';
-    sel = base().id; selIds = [sel]; changed(); fit(); toast('Проект открыт');
-  } catch { toast('Это не похоже на файл проекта'); }
+async function openFile(file, handle) {
+  let d, n;
+  try { d = JSON.parse(await file.text()); n = normalize(d && (d.doc || d)); if (!n) throw 0; } catch { return toast('Это не похоже на файл проекта'); }
+  await flushLib();
+  let id = typeof d.id === 'string' && d.id ? d.id : null, msg = 'Проект открыт и добавлен в «Мои проекты»';
+  const ex = id && await projects.get(id).catch(() => null);
+  if (ex && ex.updated > (d.saved || 0) + 2000) { id = null; msg = 'В «Моих проектах» есть более новая версия этого проекта — файл открыт отдельной копией'; }
+  else if (ex) msg = 'Проект обновлён из файла';
+  if (!id) id = uid();
+  if (Array.isArray(d.fonts)) await loadCustomFonts(d.fonts);
+  if (!applyData(d)) return toast('Это не похоже на файл проекта');
+  setPid(id); pristine = null; libSave();
+  if (handle) projects.setHandle(id, handle).catch(() => {}); else if (!ex) projects.delHandle(id).catch(() => {});
+  toast(msg, 4000);
 }
-function newStand() { commit(); doc = newDoc(); sel = base().id; selIds = [sel]; changed(); fit(); toast('Новый стенд. Ctrl+Z вернёт прежний'); }
+async function newStand() {
+  await flushLib();
+  doc = newDoc(); assets = {}; setPid(uid()); sel = base().id; selIds = [sel]; resetHistory(); changed(); fit();
+  pristine = docKey(); toast('Новый проект. Прежний — в «Мои проекты»');
+}
 
-/* ================= objects: add / delete / order ================= */
+/* ================= библиотека проектов =================
+   Все проекты живут в IndexedDB этого браузера: каждый со своим id, превью и автосохранением.
+   Файл .stand.json — для переноса и резервной копии; он помнит id проекта, поэтому повторное
+   открытие того же файла не плодит копии. Где браузер позволяет (Chrome, Edge), Ctrl+S
+   перезаписывает тот же файл на диске. */
+let idbP = null;
+function idbOpen() {
+  return idbP || (idbP = new Promise((ok, err) => {
+    const r = indexedDB.open('stand-designer', 3);
+    r.onupgradeneeded = () => { const db = r.result;
+      for (const [n, k] of [['fonts', 'label'], ['faces', 'key'], ['projects', 'id'], ['handles', 'id']]) if (!db.objectStoreNames.contains(n)) db.createObjectStore(n, { keyPath: k }); };
+    r.onsuccess = () => ok(r.result); r.onerror = () => { idbP = null; err(r.error); };
+  }));
+}
+function idbTx(store, mode, fn) {
+  return idbOpen().then(db => new Promise((ok, err) => { const t = db.transaction(store, mode), q = fn(t.objectStore(store)); t.oncomplete = () => ok(q && q.result); t.onerror = () => err(t.error); }));
+}
+const projects = {
+  all: () => idbTx('projects', 'readonly', s_ => s_.getAll()).then(a => a || []),
+  get: id => idbTx('projects', 'readonly', s_ => s_.get(id)),
+  put: r => idbTx('projects', 'readwrite', s_ => s_.put(r)),
+  del: id => idbTx('projects', 'readwrite', s_ => s_.delete(id)),
+  handle: id => idbTx('handles', 'readonly', s_ => s_.get(id)).then(r => r && r.h),
+  setHandle: (id, h) => idbTx('handles', 'readwrite', s_ => s_.put({ id, h })),
+  delHandle: id => idbTx('handles', 'readwrite', s_ => s_.delete(id)),
+};
+const PID_KEY = STORE + ':pid';
+let pid = null, pristine = null, libT = 0, libQ = Promise.resolve();
+try { pid = localStorage.getItem(PID_KEY); } catch {}
+function setPid(id) { pid = id; try { localStorage.setItem(PID_KEY, id); } catch {} }
+const docKey = () => unit + JSON.stringify(doc);
+const resetHistory = () => { past = []; future = []; lastKey = null; };
+function scheduleLibSave() { clearTimeout(libT); libT = setTimeout(libSave, 1500); }
+/* запись в библиотеку по очереди: снимок данных берётся сразу, превью рисуется следом */
+function libSave() {
+  clearTimeout(libT); libT = 0;
+  const json = docKey();
+  if (json === pristine) return libQ; // без изменений с последней записи (или новый нетронутый проект) — не переписываем
+  pristine = json; if (!pid) setPid(uid());
+  const id = pid, b = base(), data = structuredClone(serialize()), meta = { title: doc.title || DEFAULT_TITLE, w: b.w, h: b.h, parts: partsOf(b).length };
+  const thumbP = renderStand(360).then(c => c.toDataURL('image/jpeg', 0.82), () => null);
+  return libQ = libQ.then(async () => {
+    const thumb = await thumbP, old = await projects.get(id).catch(() => null), now = Date.now();
+    await projects.put({ id, ...meta, created: (old && old.created) || now, updated: now, thumb: thumb || (old && old.thumb) || null, data });
+  }).catch(e => console.warn('library save', e));
+}
+async function flushLib() { clearTimeout(saveT); saveNow(false); await libSave(); }
+function applyData(d) {
+  const n = normalize(d && (d.doc || d)); if (!n) return false;
+  doc = n; assets = d.assets && typeof d.assets === 'object' ? { ...d.assets } : {}; if (d.unit) unit = d.unit === 'cm' ? 'cm' : 'mm';
+  if (Array.isArray(d.fonts) && d.fonts.length) { loadCustomFonts(d.fonts); for (const f of d.fonts) fontStore.put(f).catch(() => {}); }
+  sel = base().id; selIds = [sel]; resetHistory(); nodes.forEach(n => n.sig = null); changed(); fit();
+  return true;
+}
+async function openProject(id) {
+  if (id === pid) return;
+  await flushLib();
+  const r = await projects.get(id).catch(() => null);
+  if (!r || !applyData(r.data)) return toast('Не удалось открыть проект');
+  setPid(id); pristine = docKey(); toast('Открыт: ' + (doc.title || DEFAULT_TITLE));
+}
+async function duplicateProject(r) {
+  const id = uid(), now = Date.now(), data = structuredClone(r.data), title = (r.title || DEFAULT_TITLE) + ' — копия';
+  if (data.doc) data.doc.title = title; data.id = id;
+  const c = { ...r, id, title, data, created: now, updated: now };
+  await projects.put(c); return c;
+}
+async function libInit() {
+  try {
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    const r = pid && await projects.get(pid);
+    if (r) {
+      const rk = (r.data.unit === 'cm' ? 'cm' : 'mm') + JSON.stringify(normalize(r.data.doc));
+      if (rk === docKey()) { pristine = rk; if (Object.keys(r.data.assets || {}).some(k => !assets[k])) { Object.assign(assets, r.data.assets); nodes.forEach(n => n.sig = null); invalidate('all'); } }
+      else if (!hadStored || r.updated > storedSaved) { applyData(r.data); pristine = docKey(); } // в библиотеке новее (или автосохранение не прочиталось)
+      else libSave();
+      return;
+    }
+    if (!pid) setPid(uid());
+    if (hadStored) libSave(); else pristine = docKey(); // прежнее автосохранение становится первым проектом библиотеки
+  } catch (e) { console.warn('library', e); }
+}
+const fmtWhen = t => { const d = new Date(t), now = new Date(), same = d.toDateString() === now.toDateString();
+  return same ? 'сегодня, ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric', hour: '2-digit', minute: '2-digit' }); };
+async function openLibrary() {
+  const m = $('#modal'), close = () => { m.hidden = true; m.replaceChildren(); };
+  await flushLib();
+  const list = (await projects.all().catch(() => [])).sort((a, b) => b.updated - a.updated);
+  const q = el('input', { type: 'search', placeholder: 'Поиск по названию' }), grid = el('div', { class: 'lib-grid' });
+  const card = r => {
+    const cur = r.id === pid; let armed = 0;
+    const dup = el('button', { type: 'button', class: 'lib-act', title: 'Создать копию проекта' }, 'Дублировать');
+    dup.onclick = async e => { e.stopPropagation(); list.unshift(await duplicateProject(r)); draw(); toast('Копия создана'); };
+    const del = el('button', { type: 'button', class: 'lib-act', disabled: cur, title: cur ? 'Открытый проект удалить нельзя' : 'Удалить проект из браузера' }, 'Удалить');
+    del.onclick = async e => {
+      e.stopPropagation();
+      if (!armed) { del.textContent = 'Точно?'; del.classList.add('armed'); armed = setTimeout(() => { armed = 0; del.textContent = 'Удалить'; del.classList.remove('armed'); }, 3000); return; }
+      clearTimeout(armed); await projects.del(r.id); projects.delHandle(r.id).catch(() => {}); list.splice(list.indexOf(r), 1); draw(); toast('Проект удалён');
+    };
+    const open = () => { close(); if (!cur) openProject(r.id); };
+    const c = el('div', { class: 'lib-card' + (cur ? ' cur' : ''), tabindex: 0, title: cur ? 'Этот проект открыт сейчас' : 'Открыть проект', onclick: open },
+      el('div', { class: 'lib-thumb' }, r.thumb ? el('img', { src: r.thumb, alt: '' }) : null, cur ? el('span', { class: 'lib-badge' }, 'открыт') : null),
+      el('div', { class: 'lib-meta' }, el('b', { title: r.title }, r.title || DEFAULT_TITLE),
+        el('span', {}, `${mmTxt(r.w)} × ${mmTxt(r.h)} мм` + (r.parts > 1 ? ` · частей: ${r.parts}` : '')), el('span', {}, fmtWhen(r.updated))),
+      el('div', { class: 'lib-acts' }, dup, del));
+    c.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target === c) open(); });
+    return c;
+  };
+  const draw = () => {
+    const f = q.value.trim().toLowerCase(), shown = list.filter(r => !f || (r.title || '').toLowerCase().includes(f));
+    grid.replaceChildren(el('button', { type: 'button', class: 'lib-card lib-new', onclick: () => { close(); newStand(); } }, el('span', { class: 'lib-plus' }, '+'), el('b', {}, 'Новый проект')),
+      ...shown.map(card), ...(f && !shown.length ? [el('div', { class: 'lib-empty' }, 'Ничего не найдено')] : []));
+  };
+  q.addEventListener('input', draw); draw();
+  m.replaceChildren(el('div', { class: 'dlg', role: 'dialog', style: 'width:min(980px,100%)' },
+    el('div', { class: 'dlg-h' }, el('span', {}, `Мои проекты · ${list.length}`), B('', '✕', close, { cls: 'icon', title: 'Закрыть (Esc)' })),
+    el('div', { class: 'dlg-b', style: 'padding-top:14px' },
+      el('div', { class: 'lib-tools' }, q, B('folder', 'Открыть файл…', () => { close(); pickProjectFile(); }, { cls: 'btn', title: 'Добавить проект из файла .stand.json' })),
+      grid,
+      el('p', { class: 'hint', style: 'margin:14px 0 0' }, 'Проекты хранятся в этом браузере на этом устройстве и сохраняются сами. Чтобы перенести проект на другой компьютер или сделать резервную копию — «Сохранить» в файл.'))));
+  m.hidden = false; m.onclick = e => { if (e.target === m) close(); };
+  setTimeout(() => q.focus(), 30);
+}
+/* ---- файл проекта ---- */
+const canFS = () => 'showSaveFilePicker' in window && (() => { try { return window.self === window.top; } catch { return false; } })();
+const FILE_TYPES = [{ description: 'Проект стенда', accept: { 'application/json': ['.json'] } }];
+async function pickProjectFile() {
+  if (!canFS()) return $('#projectInput').click();
+  try { const [h] = await showOpenFilePicker({ types: FILE_TYPES }); await openFile(await h.getFile(), h); }
+  catch (e) { if (!e || e.name !== 'AbortError') $('#projectInput').click(); }
+}
+
 function visibleCenter() { const r = stage.getBoundingClientRect(); return { x: (r.width / 2 - view.x) / view.z, y: (r.height / 2 - view.y) / view.z }; }
 function placeInView(o) {
   const b = base(), c = visibleCenter();
@@ -1000,13 +1173,7 @@ document.head.append(el('style', {}, fontFaceCSS()));
    одного семейства объединяются, поэтому переключатель насыщенности выбирает настоящие начертания.
    Хранятся в IndexedDB на устройстве и в файле проекта. */
 const fontStore = (() => {
-  let p = null;
-  const open = () => p || (p = new Promise((ok, err) => {
-    const r = indexedDB.open('stand-designer', 2);
-    r.onupgradeneeded = () => { const db = r.result; if (!db.objectStoreNames.contains('fonts')) db.createObjectStore('fonts', { keyPath: 'label' }); if (!db.objectStoreNames.contains('faces')) db.createObjectStore('faces', { keyPath: 'key' }); };
-    r.onsuccess = () => ok(r.result); r.onerror = () => err(r.error);
-  }));
-  const tx = (store, mode, fn) => open().then(db => new Promise((ok, err) => { const t = db.transaction(store, mode), q = fn(t.objectStore(store)); t.oncomplete = () => ok(q && q.result); t.onerror = () => err(t.error); }));
+  const tx = idbTx;
   return {
     all: async () => [...(await tx('fonts', 'readonly', s_ => s_.getAll()) || []), ...(await tx('faces', 'readonly', s_ => s_.getAll()) || [])],
     put: v => tx('faces', 'readwrite', s_ => s_.put({ ...v, key: faceKey(v) })),
@@ -1342,9 +1509,10 @@ const topBar = $('#top');
 const unitBtns = {};
 topBar.append(
   el('div', { class: 'brand' }, el('i'), el('span', { class: 'title', id: 'docTitle', title: 'Нажмите, чтобы переименовать проект. Так будет называться сохраняемый файл', onclick: renameTitle })),
-  B('file', 'Новый', newStand, { title: 'Новый стенд' }),
-  B('folder', 'Открыть', () => $('#projectInput').click(), { title: 'Открыть проект (Ctrl+O)' }),
-  B('download', 'Сохранить', saveFile, { title: 'Сохранить проект в файл (Ctrl+S)' }),
+  B('library', 'Проекты', openLibrary, { title: 'Мои проекты: все стенды в этом браузере (Ctrl+Shift+O)' }),
+  B('file', 'Новый', newStand, { title: 'Новый проект' }),
+  B('folder', 'Открыть', pickProjectFile, { title: 'Открыть проект из файла (Ctrl+O)' }),
+  B('download', 'Сохранить', () => saveFile(), { title: 'Сохранить проект в файл (Ctrl+S). Сохранить как — Ctrl+Shift+S' }),
   el('div', { class: 'sep' }),
   B('undo', '', undo, { title: 'Отменить (Ctrl+Z)', id: 'undoBtn' }),
   B('redo', '', redo, { title: 'Повторить (Ctrl+Shift+Z)', id: 'redoBtn' }),
@@ -2392,8 +2560,8 @@ $('#projectInput').addEventListener('change', e => { const f = e.target.files[0]
 window.addEventListener('keydown', e => {
   const t = e.target, typing = /INPUT|TEXTAREA|SELECT/.test(t.tagName) || t.isContentEditable;
   const mod = e.ctrlKey || e.metaKey;
-  if (mod && e.code === 'KeyS') { e.preventDefault(); saveFile(); return; }
-  if (mod && e.code === 'KeyO') { e.preventDefault(); $('#projectInput').click(); return; }
+  if (mod && e.code === 'KeyS') { e.preventDefault(); saveFile(e.shiftKey); return; }
+  if (mod && e.code === 'KeyO') { e.preventDefault(); e.shiftKey ? openLibrary() : pickProjectFile(); return; }
   if (mod && e.shiftKey && e.code === 'KeyE') { e.preventDefault(); openExport(); return; }
   if (typing) return;
   if (mod && e.code === 'KeyZ') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
@@ -2425,7 +2593,7 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => { if (e.code === 'Space') { spaceDown = false; stage.classList.remove('space'); } });
 window.addEventListener('blur', () => { spaceDown = false; stage.classList.remove('space'); });
-window.addEventListener('beforeunload', saveNow);
+window.addEventListener('beforeunload', () => { saveNow(false); libSave(); });
 
 /* ================= specification ================= */
 const nf = (v, d = 0) => (+v).toLocaleString('ru-RU', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -3055,6 +3223,7 @@ propsRz.addEventListener('dblclick', () => setPropsW(296));
 /* ================= start ================= */
 loadStored();
 sel = base().id; selIds = [sel];
+libInit();
 if (document.fonts) document.fonts.ready.then(relayoutTexts);
 try { fontStore.all().then(loadCustomFonts, () => {}); } catch {}
 invalidate('all');
