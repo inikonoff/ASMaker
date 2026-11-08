@@ -198,6 +198,11 @@ aside{background:var(--panel);overflow:auto;min-height:0}
 .layer.drop-above::before,.layer.drop-below::after{content:"";position:absolute;left:6px;right:6px;height:2px;background:var(--acc);border-radius:2px}
 .layer.drop-above::before{top:-2px}.layer.drop-below::after{bottom:-2px}
 .layer.dragging{opacity:.4}
+.layer.in-grp{margin-left:22px}
+.layer.grp .nm{font-weight:600}
+.gchev{width:20px!important;height:26px;display:grid;place-items:center;border:0;background:none;color:var(--muted);cursor:pointer;padding:0}
+.gchev svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
+.gchev.closed svg{transform:rotate(-90deg)}
 .layer .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px}
 .layer.hidden .nm,.layer.hidden .sw{opacity:.4}
 .layer button.icon{width:26px;height:26px;border-radius:6px}
@@ -2795,7 +2800,7 @@ function normPricing(p) {
 const GRID_DEFAULT = () => ({ on: false, step: 50, color: '#2563eb', lineOpacity: 0.35, snap: true, export: false });
 function normGrid(g) { const d = GRID_DEFAULT(); if (!g || typeof g !== 'object') return d;
   return { on: !!g.on, step: clamp(+g.step || 50, 2, 5000), color: normHex(g.color) || d.color, lineOpacity: isFinite(g.lineOpacity) ? clamp(+g.lineOpacity, 0, 1) : d.lineOpacity, snap: g.snap !== false, export: !!g.export }; }
-const newDoc = () => ({ version: 5, title: DEFAULT_TITLE, pricing: normPricing(), grid: GRID_DEFAULT(), objects: [makeBase()] });
+const newDoc = () => ({ version: 5, title: DEFAULT_TITLE, pricing: normPricing(), grid: GRID_DEFAULT(), groups: [], objects: [makeBase()] });
 
 function pocketGeom(o) {
   const s = o.sides, t = o.tape, g = o.gap, L = s.l ? t : 0, R = s.r ? t : 0, T = s.t ? t : 0, Bo = s.b ? t : 0;
@@ -2863,6 +2868,7 @@ function normalizeObj(raw, ids) {
   if (!raw || typeof raw !== 'object' || !MAKERS[raw.type]) return null;
   const o = Object.assign(MAKERS[raw.type](), raw);
   if (typeof o.id !== 'string' || ids.has(o.id)) o.id = uid();
+  if (typeof o.group !== 'string' || !o.group) delete o.group;
   if (o.type === 'pocket' || o.type === 'shape' || o.type === 'text' || o.type === 'qr') { const t = +o.tilt || 0; o.tilt = Math.abs(t) < 0.01 ? 0 : clamp(r2(t), -45, 45); } else delete o.tilt;
   for (const k of ['x', 'y']) if (!isFinite(o[k])) o[k] = 0;
   o.name = String(o.name || '').slice(0, 80) || MAKERS[o.type]().name;
@@ -2965,7 +2971,10 @@ function normalize(d) {
   // старые проекты: слой «Отверстия» переезжает в свойства подложки
   const oldHoles = rest.find(o => o.type === 'holes');
   if (oldHoles && !(d.objects.find(o => o && o.type === 'base') || {}).holes) b.holes = normHoles({ ...oldHoles, on: oldHoles.visible });
-  return { version: 5, title: String(d.title || DEFAULT_TITLE).slice(0, 120), pricing: normPricing(d.pricing), grid, objects: [b, ...under, ...rest.filter(o => o.type !== 'holes' && o.type !== 'grid')] };
+  const groups = (Array.isArray(d.groups) ? d.groups : []).filter(g => g && typeof g.id === 'string').map(g => ({ id: g.id, name: String(g.name || 'Группа').slice(0, 80), collapsed: !!g.collapsed }));
+  const nd = { version: 5, title: String(d.title || DEFAULT_TITLE).slice(0, 120), pricing: normPricing(d.pricing), grid, groups, objects: [b, ...under, ...rest.filter(o => o.type !== 'holes' && o.type !== 'grid')] };
+  const keep = doc; doc = nd; cleanGroups(); doc = keep; // cleanGroups работает с doc
+  return nd;
 }
 
 let doc = newDoc(), assets = {}, unit = 'mm', sel = null, selIds = [];
@@ -3023,7 +3032,7 @@ function keepTextAnchors(before) {
     o.y = r2(ay === 'c' ? cy - o.h / 2 : p.y);
   }
 }
-function mutate(key, fn) { if (readOnly) return roToast(); commit(key); const before = textBoxes(); fn(); doc.objects.forEach(syncDerived); keepTextAnchors(before); changed(); }
+function mutate(key, fn) { if (readOnly) return roToast(); commit(key); const before = textBoxes(); fn(); doc.objects.forEach(syncDerived); keepTextAnchors(before); cleanGroups(); changed(); }
 function restore(json) { doc = JSON.parse(json); selIds = selIds.filter(i => byId(i)); if (sel && !byId(sel)) sel = selIds[selIds.length - 1] || null; lastKey = null; changed(); }
 const roToast = () => toast(cur.canEdit ? 'Сейчас просмотр: нажмите «Взять в работу»' : 'У вас доступ только для просмотра');
 function undo() { if (readOnly || !past.length) return; future.push(JSON.stringify(doc)); restore(past.pop()); }
@@ -3359,6 +3368,7 @@ function duplicateSel() {
       const c = JSON.parse(JSON.stringify(o)); c.id = uid(); c.x += 20; c.y += 20; c.name = o.name + ' копия'; c.locked = false;
       const i = doc.objects.findIndex(x => x.id === o.id); doc.objects.splice(i + 1, 0, c); copies.push(c.id);
     }
+    regroupCopies(copies.map(byId));
   });
   setSel(copies);
 }
@@ -4194,8 +4204,7 @@ function setUnit(u) { if (unit === u) return; unit = u; nodes.forEach(n => n.sig
 
 /* ================= layers panel ================= */
 const layerMenu = el('div', { class: 'menu', hidden: true },
-  el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('solid'); } }, el('span', { class: 'grad', style: 'background:#f59e0b' }), 'Заливка'),
-  el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('grad'); } }, el('span', { class: 'grad', style: 'background:linear-gradient(90deg,#2563eb,#a5f3fc)' }), 'Градиент'),
+  el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('solid'); } }, el('span', { class: 'grad', style: 'background:linear-gradient(90deg,#f59e0b 50%,#2563eb 50%,#a5f3fc)' }), 'Заливка / Градиент'),
   el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('empty'); } }, el('span', { class: 'grad', html: ic('empty'), style: 'color:#9ca3af' }), 'Пустой — для своей картинки'),
   el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addQR(); } }, el('span', { class: 'grad', html: ic('qr'), style: 'color:#111827' }), 'QR-код'));
 $('#layersFoot').append(layerMenu,
@@ -4234,15 +4243,40 @@ function layerTag(o) {
 }
 function renderLayers() {
   if (renaming) return;
-  const list = $('#layerList');
-  list.replaceChildren(...doc.objects.slice().reverse().map(o => {
+  const list = $('#layerList'), shownGroups = new Set(), rows = [];
+  for (const o of doc.objects.slice().reverse()) {
+    const g = groupOf(o);
+    if (g && !shownGroups.has(g.id)) { shownGroups.add(g.id); rows.push(groupRow(g)); }
+    if (g && g.collapsed) continue;
+    rows.push(layerRow(o, !!g));
+  }
+  list.replaceChildren(...rows);
+  $('#layerHint').style.visibility = doc.objects.length > 2 ? '' : 'hidden';
+}
+function groupRow(g) {
+  const mem = membersOf(g.id), allSel = mem.every(m => selIds.includes(m.id)), vis = mem.some(m => m.visible), lock = mem.every(m => m.locked);
+  const nm = el('span', { class: 'nm', title: 'Двойной клик — переименовать' }, g.name);
+  nm.addEventListener('dblclick', e => { e.stopPropagation();
+    const inp = el('input', { class: 'txt rn', value: g.name }); nm.replaceWith(inp); inp.focus(); inp.select(); renaming = true; let done = false;
+    const fin = ok => { if (done) return; done = true; renaming = false; const v = inp.value.trim(); if (ok && v && v !== g.name) mutate(null, () => { const x = doc.groups.find(y => y.id === g.id); if (x) x.name = v; }); else invalidate('layers'); };
+    inp.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') fin(true); if (ev.key === 'Escape') fin(false); });
+    inp.addEventListener('blur', () => fin(true)); inp.addEventListener('click', ev => ev.stopPropagation()); });
+  const chev = el('button', { type: 'button', class: 'icon gchev' + (g.collapsed ? ' closed' : ''), title: g.collapsed ? 'Развернуть группу' : 'Свернуть группу', html: '<svg viewBox="0 0 24 24"><path d="M8 10l4 4 4-4"/></svg>' });
+  chev.addEventListener('click', e => { e.stopPropagation(); g.collapsed = !g.collapsed; scheduleSave(); invalidate('layers'); });
+  const eye = B(vis ? 'eye' : 'eyeOff', '', e => { e.stopPropagation(); setGroupFlag(g.id, 'visible', !vis); }, { title: vis ? 'Скрыть группу' : 'Показать группу', cls: vis ? '' : 'off' });
+  const lk = B(lock ? 'lock' : 'unlock', '', e => { e.stopPropagation(); setGroupFlag(g.id, 'locked', !lock); }, { title: lock ? 'Разблокировать группу' : 'Заблокировать группу', cls: lock ? 'on' : 'off' });
+  return el('div', { class: 'layer grp' + (allSel ? ' sel' : '') + (vis ? '' : ' hidden'), 'data-gid': g.id, onclick: () => setSel(mem.map(m => m.id)) },
+    eye, chev, el('span', { class: 'sw ico', html: ic('library') }), nm, el('span', { class: 'tag' }, mem.length + ' эл.'), lk);
+}
+function layerRow(o, inGroup) {
+  {
     const nm = el('span', { class: 'nm', title: 'Двойной клик — переименовать' }, o.name);
     nm.addEventListener('dblclick', e => { e.stopPropagation(); startRename(o.id, nm); });
     const eye = B(o.visible ? 'eye' : 'eyeOff', '', e => { e.stopPropagation(); mutate(null, () => { const x = byId(o.id); x.visible = !x.visible; }); },
       { title: o.visible ? 'Скрыть' : 'Показать', cls: o.visible ? '' : 'off' });
     const lk = B(o.locked ? 'lock' : 'unlock', '', e => { e.stopPropagation(); mutate(null, () => { const x = byId(o.id); x.locked = !x.locked; }); },
       { title: o.locked ? 'Разблокировать' : 'Заблокировать', cls: o.locked ? 'on' : 'off' });
-    const row = el('div', { class: 'layer' + (selIds.includes(o.id) ? ' sel' : '') + (o.visible ? '' : ' hidden'), onclick: e => layerClick(e, o.id), draggable: o.type !== 'base' ? 'true' : null, 'data-lid': o.id },
+    const row = el('div', { class: 'layer' + (inGroup ? ' in-grp' : '') + (selIds.includes(o.id) ? ' sel' : '') + (o.visible ? '' : ' hidden'), onclick: e => layerClick(e, o.id), draggable: o.type !== 'base' ? 'true' : null, 'data-lid': o.id },
       eye, swatch(o), nm, el('span', { class: 'tag' }, layerTag(o)), lk);
     row.addEventListener('dragstart', e => { dragLayer = o.id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/x-layer', o.id); row.classList.add('dragging'); });
     row.addEventListener('dragend', () => { dragLayer = null; row.classList.remove('dragging'); list.querySelectorAll('.drop-above,.drop-below').forEach(r => r.classList.remove('drop-above', 'drop-below')); });
@@ -4258,8 +4292,7 @@ function renderLayers() {
       moveLayer(dragLayer, o.id, above);
     });
     return row;
-  }));
-  $('#layerHint').style.visibility = doc.objects.length > 2 ? '' : 'hidden';
+  }
 }
 function startRename(id, span) {
   const o = byId(id); if (!o) return;
@@ -4446,7 +4479,9 @@ function fillSection(o, O, upd) {
       B('swap', '', () => upd(null, x => { [x.fill, x.fill2] = [x.fill2, x.fill]; }), { cls: 'btn', title: 'Поменять цвета местами' })));
     if (o.fillType === 'linear') parts.push(cap('Направление'), row(sliderField(() => O().angle, (v, k) => upd(k, x => x.angle = v), { min: 0, max: 360, key: 'angle', suffix: '°', def: 90 })));
   }
-  parts.push(cap('Прозрачность заливки'), row(sliderField(() => O().fillOpacity * 100, (v, k) => upd(k, x => x.fillOpacity = v / 100), { key: 'fillOp', def: 100 })));
+  // без картинки прозрачность заливки и слоя дают одно и то же — оставляем одну, в разделе «Слой»
+  if (o.type !== 'shape' || (o.image && assets[o.image.asset]) || o.fillOpacity < 1)
+    parts.push(cap('Прозрачность заливки (картинка не меняется)'), row(sliderField(() => O().fillOpacity * 100, (v, k) => upd(k, x => x.fillOpacity = v / 100), { key: 'fillOp', def: 100 })));
   return sec('Заливка', el('fieldset', { disabled: o.locked }, ...parts));
 }
 function layerSection(o, O, upd) {
@@ -4906,6 +4941,7 @@ const ALIGN = [['l', 'aL', 'По левому краю'], ['ch', 'aCH', 'По ц
 function buildMulti() {
   const list = selected(); arrangeOpts.cols = null; arrangeOpts.rows = null;
   return [
+    selIsGroup() ? groupPanel(selIsGroup()) : null,
     sec('Выбрано элементов: ' + list.length,
       el('p', { class: 'hint', style: 'margin:0 0 10px' }, 'Рамка мышью — выделить область, с ', el('kbd', {}, 'Shift'), ' — добавить. ', el('kbd', {}, 'Shift'), ' + клик — добавить или убрать элемент. В списке слоёв ', el('kbd', {}, 'Shift'), ' — диапазон, ', el('kbd', {}, 'Ctrl'), ' — по одному.'),
       row(checkField('Относительно стенда', () => alignToStand, v => { alignToStand = v; })),
@@ -4923,7 +4959,9 @@ function buildMulti() {
         lenField('↕', () => arrangeOpts.gy, v => { arrangeOpts.gy = v; }, { min: 0, max: 10000, title: 'По вертикали' })),
       (() => { const h = el('p', { class: 'hint', style: 'margin:-2px 0 8px' }); bind(h, () => arrangeOpts.mode === 'gap' ? 'Сетка встаёт по центру стенда, между элементами — заданный зазор.' : 'Крайние элементы встают на заданный отступ от краёв стенда, промежутки между ними одинаковые.', 'textContent'); return h; })(),
       el('div', { class: 'btns' }, B('', 'Расставить', arrangeGrid, { cls: 'btn primary', title: 'Порядок — как читаются элементы сейчас: слева направо, сверху вниз' })),
-      el('div', { class: 'btns', style: 'margin-top:10px' }, B('copy', 'Дублировать', duplicateSel, { cls: 'btn', title: 'Ctrl+D' }), B('trash', 'Удалить', deleteSel, { cls: 'btn danger', title: 'Delete' }))),
+      el('div', { class: 'btns', style: 'margin-top:10px' }, B('copy', 'Дублировать', duplicateSel, { cls: 'btn', title: 'Ctrl+D' }),
+        selIsGroup() ? null : B('', 'Сгруппировать', groupSel, { cls: 'btn', title: 'Ctrl+G' }),
+        B('trash', 'Удалить', deleteSel, { cls: 'btn danger', title: 'Delete' }))),
   ];
 }
 function intField(label, get, set, min, max, suffix = 'шт') {
@@ -5124,7 +5162,10 @@ stage.addEventListener('pointerdown', e => {
       startMarquee(id); return;
     }
     if (e.shiftKey) { startMarquee(undefined); return; }
-    const inGroup = selIds.length > 1 && selIds.includes(id);
+    let inGroup = selIds.length > 1 && selIds.includes(id);
+    const gr = ob && ob.group && groupOf(ob);
+    if (gr && !inGroup) { setSel(membersOf(gr.id).map(m => m.id), id); inGroup = true; }
+    else if (gr && inGroup && selIsGroup() && !e.altKey) drag_pickOne = id; // отпустили без движения — выделится один элемент
     if (!inGroup) select(id);
     if (ob && !ob.locked && ob.visible) {
       if (isBox(ob)) {
@@ -5162,6 +5203,7 @@ stage.addEventListener('pointermove', e => {
   }
   if (drag.type === 'marquee') {
     if (!drag.moved) { if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return; drag.moved = true; }
+    drag_pickOne = null;
     drag.cur = w; const r = normRect(drag.sw, w);
     const hits = doc.objects.filter(o0 => { if (!isBox(o0) || !o0.visible) return false; const o = AB(o0); return o.x < r.x + r.w && r.x < o.x + o.w && o.y < r.y + r.h && r.y < o.y + o.h; }).map(o => o.id);
     setSel([...drag.keep, ...hits]); invalidate('overlay'); return;
@@ -5169,6 +5211,7 @@ stage.addEventListener('pointermove', e => {
   let o = byId(drag.id); if (!o) { drag = null; return; }
   if (!drag.moved) {
     if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 3) return;
+    drag_pickOne = null;
     commit(); drag.moved = true;
     if (drag.dupe) { // копии встают на место оригиналов и уезжают за курсором, оригиналы остаются
       const copies = [];
@@ -5176,7 +5219,7 @@ stage.addEventListener('pointermove', e => {
         const src = byId(g.id), c = JSON.parse(JSON.stringify(src)); c.id = uid(); c.name = src.name + ' копия'; c.locked = false;
         doc.objects.splice(doc.objects.indexOf(src) + 1, 0, c); copies.push(c); g.id = c.id;
       }
-      drag.id = copies[0].id; setSel(copies.map(c => c.id)); invalidate('layers');
+      regroupCopies(copies); drag.id = copies[0].id; setSel(copies.map(c => c.id)); invalidate('layers');
     }
   }
   const s = drag.start, free = drag.dupe ? e.shiftKey && (e.ctrlKey || e.metaKey) : e.ctrlKey || e.metaKey, thr = 8 / view.z, b = base();
@@ -5247,8 +5290,10 @@ stage.addEventListener('pointermove', e => {
   }
   invalidate('scene', 'overlay', 'props');
 });
+let drag_pickOne = null;
 function endPointer(e) {
   pointers.delete(e.pointerId);
+  if (drag_pickOne) { const id = drag_pickOne; drag_pickOne = null; if (drag && drag.type === 'boxmove' && !drag.moved) { drag = null; select(id); return; } }
   if (pinch) { if (pointers.size < 2) pinch = null; return; }
   if (drag && drag.type === 'pan' && drag.ctx && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 5 && e.type === 'pointerup') {
     drag = null; stage.classList.remove('panning'); stageMenu(e); return;
@@ -5303,7 +5348,7 @@ const typingNow = () => /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tag
 function clipPayload() {
   const list = selected().filter(isBox); if (!list.length) return null;
   const a = {}; for (const o of list) if (o.image && assets[o.image.asset]) a[o.image.asset] = assets[o.image.asset];
-  return { objects: JSON.parse(JSON.stringify(list)), assets: a, fonts: usedCustomFonts().filter(f => list.some(o => o.font === f.label)) };
+  return { objects: JSON.parse(JSON.stringify(list)), groups: (doc.groups || []).filter(g => list.some(o => o.group === g.id)), assets: a, fonts: usedCustomFonts().filter(f => list.some(o => o.font === f.label)) };
 }
 function copySel(e, cut) {
   const pl = clipPayload(); if (!pl) return false;
@@ -5328,7 +5373,7 @@ async function pasteObjects(pl, at) {
     const bx = bboxOf(add), dx = at.x - (bx.x + bx.w / 2), dy = at.y - (bx.y + bx.h / 2);
     for (const o of add) { o.x = r2(o.x + dx); o.y = r2(o.y + dy); }
   }
-  mutate(null, () => add.forEach(insertObj));
+  mutate(null, () => { add.forEach(insertObj); regroupCopies(add, pl.groups); });
   setSel(add.map(o => o.id));
 }
 document.addEventListener('copy', e => { if (!typingNow() && copySel(e, false)) e.preventDefault(); });
@@ -5346,6 +5391,86 @@ document.addEventListener('paste', e => {
 $('#imageInput').addEventListener('change', e => { const f = e.target.files[0]; if (f) importImage(f, imageTarget); e.target.value = ''; });
 $('#fontInput').addEventListener('change', e => { const fs = [...e.target.files]; if (fs.length) addFontFiles(fs); e.target.value = ''; });
 $('#projectInput').addEventListener('change', e => { const f = e.target.files[0]; if (f) openFile(f); e.target.value = ''; });
+
+/* ================= группы =================
+   Группа — запись в doc.groups { id, name, collapsed }, у её элементов поле group. Видимость и блокировка
+   группы — это видимость и блокировка всех её элементов. Элементы группы в списке слоёв всегда идут подряд. */
+const groupOf = o => o && o.group && (doc.groups || []).find(g => g.id === o.group);
+const membersOf = gid => doc.objects.filter(o => o.group === gid);
+/* убирает пустые и одиночные группы и собирает элементы каждой группы подряд — у самого верхнего */
+function cleanGroups() {
+  if (!Array.isArray(doc.groups)) doc.groups = [];
+  const cnt = new Map(); for (const o of doc.objects) if (o.group) cnt.set(o.group, (cnt.get(o.group) || 0) + 1);
+  for (const o of doc.objects) if (o.group && ((cnt.get(o.group) || 0) < 2 || !doc.groups.some(g => g.id === o.group))) delete o.group;
+  doc.groups = doc.groups.filter(g => (cnt.get(g.id) || 0) >= 2);
+  for (const g of doc.groups) {
+    const arr = doc.objects, idx = arr.map((o, i) => o.group === g.id ? i : -1).filter(i => i >= 0);
+    if (idx[idx.length - 1] - idx[0] === idx.length - 1) continue; // уже подряд
+    const mem = idx.map(i => arr[i]), top = idx[idx.length - 1], rest = arr.filter(o => o.group !== g.id);
+    const at = rest.indexOf(arr.slice(0, top).filter(o => o.group !== g.id).pop()) + 1;
+    rest.splice(Math.max(1, at), 0, ...mem); doc.objects = rest;
+  }
+}
+function groupSel() {
+  const list = selected().filter(isBox); if (list.length < 2) return toast('Выберите хотя бы 2 элемента (Shift + клик или рамкой)');
+  if (readOnly) return roToast();
+  const gid = 'g' + uid(), n = (doc.groups || []).length + 1;
+  mutate(null, () => {
+    const old = new Set(list.map(o => o.group).filter(Boolean));
+    doc.groups = (doc.groups || []).concat({ id: gid, name: 'Группа ' + n, collapsed: false });
+    for (const o of list) byId(o.id).group = gid;
+    if (old.size) toast('Элементы перенесены в новую группу');
+  });
+  setSel(list.map(o => o.id)); toast('Группа создана: клик выделяет её целиком, второй клик — отдельный элемент. Разгруппировать — Ctrl+Shift+G');
+}
+function ungroupSel() {
+  const gids = new Set(selected().map(o => o.group).filter(Boolean)); if (!gids.size) return toast('В выделении нет групп');
+  mutate(null, () => { for (const o of doc.objects) if (gids.has(o.group)) delete o.group; doc.groups = doc.groups.filter(g => !gids.has(g.id)); });
+  toast('Разгруппировано');
+}
+const selIsGroup = () => { const L = selected(); if (L.length < 2) return null; const g = L[0].group; if (!g || L.some(o => o.group !== g)) return null; return membersOf(g).length === L.length ? groupOf(L[0]) : null; };
+/* копии (дубликат, вставка, перетаскивание с Ctrl) получают свои группы, а не вливаются в исходные */
+function regroupCopies(copies, names) {
+  const map = new Map(), cnt = new Map();
+  for (const c of copies) if (c.group) cnt.set(c.group, (cnt.get(c.group) || 0) + 1);
+  for (const c of copies) {
+    if (!c.group) continue;
+    if (cnt.get(c.group) < 2) { delete c.group; continue; }
+    if (!map.has(c.group)) {
+      const id = 'g' + uid(), src = (doc.groups || []).find(g => g.id === c.group) || (names || []).find(g => g.id === c.group);
+      map.set(c.group, id); doc.groups = (doc.groups || []).concat({ id, name: ((src && src.name) || 'Группа') + ' копия', collapsed: !!(src && src.collapsed) });
+    }
+    c.group = map.get(c.group);
+  }
+}
+/* поворот группы целиком вокруг её центра */
+function rotateGroupBy(deg) {
+  const L = selected().filter(o => isBox(o) && !o.locked); if (!L.length) return;
+  const bb = bboxOf(L), c = { x: bb.x + bb.w / 2, y: bb.y + bb.h / 2 };
+  mutate(null, () => { for (const o of L) {
+    const x = byId(o.id), p = rotPt({ x: x.x + x.w / 2, y: x.y + x.h / 2 }, c, deg);
+    applyAngle(x, angleOf(x) + deg); x.x = r2(p.x - x.w / 2); x.y = r2(p.y - x.h / 2);
+  } });
+}
+function setGroupFlag(gid, k, v) { mutate(null, () => { for (const o of doc.objects) if (o.group === gid) o[k] = v; }); }
+function groupPanel(g) {
+  const nameIn = el('input', { type: 'text', class: 'txt', value: g.name });
+  nameIn.addEventListener('change', () => { const v = nameIn.value.trim() || g.name; mutate(null, () => { const x = doc.groups.find(y => y.id === g.id); if (x) x.name = v; }); });
+  nameIn.addEventListener('keydown', e => { if (e.key === 'Enter') nameIn.blur(); });
+  const ang = el('input', { type: 'text', inputmode: 'decimal', value: '15' });
+  return sec('Группа',
+    el('fieldset', { disabled: readOnly },
+      row(nameIn),
+      cap('Повернуть группу целиком'),
+      el('div', { class: 'grid2' },
+        el('label', { class: 'nf', title: 'На сколько градусов повернуть' }, el('b', {}, '∠'), ang, el('i', {}, '°')),
+        el('div', { class: 'btns', style: 'margin:0' },
+          B('rotate', '', () => { const v = parseNum(ang.value); if (v) rotateGroupBy(v); }, { cls: 'btn', title: 'По часовой на указанный угол' }),
+          el('button', { type: 'button', class: 'btn', title: 'Против часовой на указанный угол', onclick: () => { const v = parseNum(ang.value); if (v) rotateGroupBy(-v); } }, '↺'))),
+      el('div', { class: 'btns', style: 'margin-top:8px' },
+        B('', 'Разгруппировать', ungroupSel, { cls: 'btn', title: 'Ctrl+Shift+G' })),
+      el('p', { class: 'hint', style: 'margin:8px 0 0' }, 'Клик по элементу группы выделяет её целиком, второй клик — только этот элемент. Скопированный стиль вставляется во все подходящие элементы группы.')));
+}
 
 /* ================= контекстное меню (правая кнопка) =================
    Правило: в меню только действия, параметры — в панели свойств.
@@ -5438,7 +5563,7 @@ function orderSel(kind) {
     }
   });
 }
-function rotateSel(dir) { const ids = selected().filter(isBox).map(o => o.id); ids.forEach(id => rotateObj(id, dir)); if (ids.length > 1) setSel(ids); }
+function rotateSel(dir) { if (selIsGroup()) return rotateGroupBy(dir * 90); const ids = selected().filter(isBox).map(o => o.id); ids.forEach(id => rotateObj(id, dir)); if (ids.length > 1) setSel(ids); }
 function flipSel() { const ids = selected().filter(canFlip).map(o => o.id); ids.forEach(id => flipObj(id)); if (ids.length > 1) setSel(ids); }
 function setFlag(k, v) { const ids = new Set(selected().filter(o => o.type !== 'base' || k === 'locked').map(o => o.id)); mutate(null, () => doc.objects.forEach(o => { if (ids.has(o.id)) o[k] = v; })); }
 function renameSel() {
@@ -5474,6 +5599,10 @@ function elementMenu() {
       { label: 'На задний план', act: () => orderSel('back'), edit: true }] },
     L.length > 1 ? { label: 'Выровнять', sub: ALIGN.map(([k, i, t]) => ({ label: t, icon: i, act: () => alignSel(k), edit: true })) } : null,
     L.length > 1 ? { label: 'Расставить сеткой', act: arrangeGrid, edit: true } : null,
+    '-',
+    L.length > 1 ? { label: 'Сгруппировать', kbd: 'Ctrl+G', act: groupSel, edit: true } : null,
+    L.some(x => x.group) ? { label: 'Разгруппировать', kbd: 'Ctrl+Shift+G', act: ungroupSel, edit: true } : null,
+    '-',
     { label: 'Повернуть по часовой', kbd: 'R', icon: 'rotate', act: () => rotateSel(1), edit: true, disabled: !unlocked.length },
     { label: 'Повернуть против часовой', kbd: 'Shift+R', act: () => rotateSel(-1), edit: true, disabled: !unlocked.length },
     L.some(canFlip) ? { label: 'Отразить по горизонтали', kbd: 'Shift+H', icon: 'flip', act: flipSel, edit: true, disabled: !unlocked.length } : null,
@@ -5493,8 +5622,7 @@ function canvasMenu(w) {
     { label: inside ? 'Добавить здесь' : 'Добавить', sub: [
       { label: 'Карман', act: () => addHere(at, addPocket), edit: true },
       { label: 'Текст', act: () => addHere(at, addText), edit: true },
-      { label: 'Слой «Заливка»', act: () => addHere(at, () => addShape('solid')), edit: true },
-      { label: 'Слой «Градиент»', act: () => addHere(at, () => addShape('grad')), edit: true },
+      { label: 'Заливка / Градиент', act: () => addHere(at, () => addShape('solid')), edit: true },
       { label: 'Пустой слой', act: () => addHere(at, () => addShape('empty')), edit: true },
       { label: 'QR-код', icon: 'qr', act: () => addHere(at, addQR), edit: true },
       { label: 'Картинку…', icon: 'image', act: () => chooseImage(null), edit: true }] },
@@ -5523,6 +5651,8 @@ function stageMenu(e) {
   openMenu(e.clientX, e.clientY, canvasMenu(toWorld(e)));
 }
 $('#layerList').addEventListener('contextmenu', e => {
+  const gr = e.target.closest('[data-gid]');
+  if (gr) { e.preventDefault(); setSel(membersOf(gr.dataset.gid).map(m => m.id)); flush(); return openMenu(e.clientX, e.clientY, elementMenu()); }
   const row = e.target.closest('[data-lid]'); if (!row) return;
   e.preventDefault(); const o = byId(row.dataset.lid); if (!o) return;
   if (o.type === 'base') { select(o.id); return openMenu(e.clientX, e.clientY, canvasMenu(null)); }
@@ -5543,6 +5673,7 @@ window.addEventListener('keydown', e => {
   if (mod && e.code === 'KeyY') { e.preventDefault(); redo(); return; }
   if (mod && e.code === 'KeyD') { e.preventDefault(); duplicateSel(); return; }
   if (mod && e.code === 'KeyA') { e.preventDefault(); setSel(doc.objects.filter(o => isBox(o) && o.visible && !o.locked).map(o => o.id)); return; }
+  if (mod && e.code === 'KeyG') { e.preventDefault(); e.shiftKey ? ungroupSel() : groupSel(); return; }
   if (mod && e.altKey && e.code === 'KeyC') { e.preventDefault(); copyStyle(); return; }
   if (mod && e.altKey && e.code === 'KeyV') { e.preventDefault(); pasteStyle(); return; }
   if (!mod && !e.altKey && e.code === 'KeyD' && !e.shiftKey) { e.preventDefault(); showDims.on = !showDims.on; try { localStorage.setItem(STORE + ':dims', JSON.stringify(showDims.on)); } catch {} invalidate('overlay'); toast(showDims.on ? 'Размеры и расстояния показаны (D)' : 'Размеры и расстояния скрыты (D)'); return; }
@@ -5558,8 +5689,8 @@ window.addEventListener('keydown', e => {
     case 'Digit1': case 'Numpad1': realSize(); return;
     case 'Escape': select(null); return;
     case 'Delete': case 'Backspace': e.preventDefault(); deleteSel(); return;
-    case 'KeyR': if (sel) { e.preventDefault(); rotateObj(sel, e.shiftKey ? -1 : 1); } return;
-    case 'KeyH': if (sel && e.shiftKey) { e.preventDefault(); flipObj(sel); } return;
+    case 'KeyR': if (sel) { e.preventDefault(); rotateSel(e.shiftKey ? -1 : 1); } return;
+    case 'KeyH': if (sel && e.shiftKey) { e.preventDefault(); flipSel(); } return;
   }
   const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.code];
   const o = sel && byId(sel), boxes = selected().filter(x => isBox(x) && !x.locked);
@@ -6733,6 +6864,11 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-08g', date: '8 ноября 2026', items: [
+    'Группы: Ctrl+G — сгруппировать, Ctrl+Shift+G — разгруппировать (или правой кнопкой). Клик по элементу выделяет группу целиком, второй клик — только этот элемент.',
+    'Группа двигается, дублируется, скрывается и блокируется целиком, сворачивается в списке слоёв. R и Shift+R поворачивают её вокруг общего центра, в свойствах — поворот на любой угол.',
+    'Скопированный стиль вставляется сразу во все подходящие элементы группы.',
+    'В меню «Слой» — один пункт «Заливка / Градиент». «Прозрачность заливки» показывается, только когда у слоя есть картинка: без неё это то же самое, что «Прозрачность слоя».'] },
   { v: '2026-11-08f', date: '8 ноября 2026', items: [
     'Свободный поворот карманов, слоёв, текста и QR-кодов: круглая ручка над выделенным элементом (Shift — шаг 15°, у 0/90/180° прилипает) или поле «∠» в свойствах с кнопками 0°, 15°, 45°.',
     'Наклонённые элементы правильно выравниваются, привязываются и выделяются рамкой; пересечения карманов и выход за край считаются по настоящему контуру.',
