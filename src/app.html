@@ -59,7 +59,8 @@ textarea.txt{width:100%;height:auto;min-height:64px;padding:6px 8px;resize:verti
 .row > select{flex:1 1 0}
 #modal{position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:20;display:grid;place-items:center;padding:20px}
 #modal[hidden]{display:none}
-@media (max-width:1520px){header .tb span{display:none}}
+@media (max-width:1640px){header .tb span,.gridbtn .gtog span{display:none}}
+@media (max-width:1440px){header .tb2 span{display:none}}
 .acct,.acct-in{flex:none}
 .dims{pointer-events:none}
 .rot-stem{stroke:var(--acc);stroke-width:1;vector-effect:non-scaling-stroke}
@@ -81,12 +82,15 @@ textarea.txt{width:100%;height:auto;min-height:64px;padding:6px 8px;resize:verti
 .cm-item > .cm-list{display:none;position:absolute;left:calc(100% + 2px);top:-6px}
 #ctxMenu.flip .cm-item > .cm-list{left:auto;right:calc(100% + 2px)}
 .cm-item.has-sub:hover > .cm-list,.cm-item.has-sub:focus-within > .cm-list{display:block}
+.viewseg{margin-left:6px;flex:none}.viewseg button{padding:0 10px}
+@media (max-width:1380px){.viewseg button{padding:0 6px;font-size:12px}}
 .gridbtn{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-left:6px;height:30px;flex:none}
 .gridbtn button{border:0;border-radius:0;background:var(--input);color:var(--text);display:flex;align-items:center;gap:6px;padding:0 9px;font:inherit;cursor:pointer;height:100%}
 .gridbtn button:hover{background:var(--hover)}
 .gridbtn .gmore{padding:0 5px;border-left:1px solid var(--line)}
 .gridbtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .gridbtn.on .gtog{background:var(--acc-soft);color:var(--acc)}
+.gridbtn.dim{opacity:.5}
 .gchk{display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer}
 .gstep{display:flex;gap:4px;align-items:center}
 .gstep input[type=text]{width:64px;height:30px;border:1px solid var(--line);border-radius:6px;padding:0 6px;background:var(--input);color:var(--text);font:inherit}
@@ -646,6 +650,10 @@ function normalizeObj(raw, ids) {
   ids.add(o.id);
   return o;
 }
+/* вид: «Производство» — технические метки видны; «Клиент» — стенд как готовый: без линий раздела, подписей,
+   сетки и размеров, отверстия — по их отделке. Это настройка просмотра, а не проекта */
+const view_ = { mode: (() => { try { return localStorage.getItem('stand-designer/v1:view') === 'client' ? 'client' : 'prod'; } catch { return 'prod'; } })() };
+const isClient = () => view_.mode === 'client';
 /* отделка отверстий: декоративные шляпки — реальный крепёж Ø10 мм; заглушка — кругляш самоклейки в цвет */
 const CAP_D = 10;
 const HOLE_FINISH = { none: 'Без отделки', sticker: 'Заглушка-кругляш (самоклейка)', white: 'Шляпка Ø10 белая', silver: 'Шляпка Ø10 «серебро»', gold: 'Шляпка Ø10 «золото»' };
@@ -706,7 +714,7 @@ function partsOf(b = base()) {
 const allHoles = () => { const h = holesCfg(); return h ? partsOf().flatMap(r => holePoints(h, r)) : []; };
 const isBox = o => !!o && (o.type === 'pocket' || o.type === 'shape' || o.type === 'text' || o.type === 'qr');
 const canFlip = o => !!o && (o.type === 'pocket' || o.type === 'shape');
-const gridCfg = () => doc.grid && doc.grid.on ? doc.grid : null;
+const gridCfg = () => doc.grid && doc.grid.on && !isClient() ? doc.grid : null;
 
 /* units */
 const U = () => unit === 'cm' ? 10 : 1;
@@ -1289,7 +1297,7 @@ function pocketMarkup(o, exp) {
   let m = '';
   const href = o.image && assets[o.image.asset];
   if (href) m += `<image href="${href}"${exp ? ` xlink:href="${href}"` : ''} x="${g.ix}" y="${g.iy}" width="${o.iw}" height="${o.ih}" preserveAspectRatio="xMidYMid slice" opacity="${o.image.opacity}"/>`;
-  else if (!exp) {
+  else if (!exp && !isClient()) {
     const fs = Math.min(o.iw, o.ih) * 0.16, nameFs = fs * 0.42, withName = o.showName && o.name;
     const cf = (o.rot ? ` rotate(${-o.rot})` : '') + (o.flip ? ' scale(-1 1)' : ''); // подпись всегда читается прямо
     m += `<g transform="translate(${w / 2} ${h / 2})${cf}" fill="#6b7280" fill-opacity=".55" font-family="system-ui,sans-serif" text-anchor="middle" dominant-baseline="central">` +
@@ -1323,20 +1331,25 @@ function badHoles(o, pts) {
   pts.forEach((p, i) => { if (pk.some(k => circleHitsRect(p, r, k))) bad.add(i); });
   return bad;
 }
-function holesMarkup(o, exp) {
+function holesMarkup(o, exp, mode = view_.mode) {
   o = o || holesCfg(); if (!o) return '';
-  const pts = allHoles(), r = o.d / 2, bad = exp ? new Set() : badHoles(o, pts), vs = exp ? '' : ' vector-effect="non-scaling-stroke"';
-  const ring = i => bad.has(i) ? `<circle cx="${pts[i].x}" cy="${pts[i].y}" r="${Math.max(r, o.finish === 'sticker' ? o.stickerD / 2 : o.finish !== 'none' ? CAP_D / 2 : r) + 3}" fill="none" stroke="#e11d48" stroke-width="2"${vs}/>` : '';
-  if (o.finish === 'sticker') // кругляш в цвет самоклейки; на белом почти не виден — на холсте обводим пунктиром
-    return pts.map((p, i) => `<circle cx="${p.x}" cy="${p.y}" r="${o.stickerD / 2}" fill="${o.stickerColor}"${exp ? '' : ` stroke="#9ca3af" stroke-width="1" stroke-dasharray="3 2"${vs}`}/>` + ring(i)).join('');
+  const pts = allHoles(), r = o.d / 2, bad = exp || mode === 'client' ? new Set() : badHoles(o, pts), vs = exp ? '' : ' vector-effect="non-scaling-stroke"';
+  if (mode !== 'client') { // производство: центр сверления с крестиком, пунктиром — чем закроют
+    const fr = o.finish === 'sticker' ? o.stickerD / 2 : o.finish !== 'none' ? CAP_D / 2 : 0, sw = exp ? 0.3 : 1, c = r * 0.9;
+    return pts.map((p, i) => (fr ? `<circle cx="${p.x}" cy="${p.y}" r="${fr}" fill="none" stroke="#9ca3af" stroke-width="${sw}" stroke-dasharray="${exp ? '1 0.8' : '3 2'}"${vs}/>` : '') +
+      `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${o.color}" fill-opacity=".85" stroke="#fff" stroke-opacity=".7" stroke-width="${exp ? 0.4 : 1}"${vs}/>` +
+      `<path d="M${p.x - c} ${p.y}H${p.x + c}M${p.x} ${p.y - c}V${p.y + c}" stroke="#fff" stroke-width="${sw}"${vs}/>` +
+      (bad.has(i) ? `<circle cx="${p.x}" cy="${p.y}" r="${Math.max(r, fr) + 3}" fill="none" stroke="#e11d48" stroke-width="2"${vs}/>` : '')).join('');
+  }
+  if (o.finish === 'none') // открытое отверстие — тёмный кружок с тонким светлым краем
+    return pts.map(p => `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="#2b2f36" stroke="#d1d5db" stroke-width="${exp ? 0.3 : 1}"${vs}/>`).join('');
+  if (o.finish === 'sticker') return ''; // заклеено кругляшом в цвет — на готовом стенде не видно
   if (CAP_GRAD[o.finish]) { // шляпка: объём — радиальный градиент с бликом
     const [a, b, c] = CAP_GRAD[o.finish], gid = 'cap-' + o.finish + (exp ? 'x' : '');
     return `<defs><radialGradient id="${gid}" cx=".5" cy=".5" r=".55" fx=".36" fy=".3"><stop offset="0" stop-color="${a}"/><stop offset=".55" stop-color="${b}"/><stop offset="1" stop-color="${c}"/></radialGradient></defs>` +
-      pts.map((p, i) => `<circle cx="${p.x}" cy="${p.y}" r="${CAP_D / 2}" fill="url(#${gid})" stroke="rgba(0,0,0,.25)" stroke-width="${exp ? 0.2 : 0.8}"${vs}/>` + ring(i)).join('');
+      pts.map(p => `<circle cx="${p.x}" cy="${p.y}" r="${CAP_D / 2}" fill="url(#${gid})" stroke="rgba(0,0,0,.25)" stroke-width="${exp ? 0.2 : 0.8}"${vs}/>`).join('');
   }
-  return pts.map((p, i) =>
-    `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${o.color}" fill-opacity=".85" stroke="#fff" stroke-opacity=".7" stroke-width="${exp ? 0.4 : 1}"${vs}/>` +
-    (bad.has(i) ? `<circle cx="${p.x}" cy="${p.y}" r="${r + 3}" fill="none" stroke="#e11d48" stroke-width="2"${vs}/>` : '')).join('');
+  return '';
 }
 /* ---- QR-код: модули склеиваются в полосы по строкам, чтобы файл был компактным ---- */
 const qrCache = new Map();
@@ -1571,7 +1584,7 @@ function exportSVG(W, H, opts = {}) {
     }
     const t = objTransform(o), tr = t ? ` transform="${t}"` : '';
     return `<g opacity="${o.opacity}"${tr}>${objMarkup(o, true)}</g>`;
-  }).join('') + (doc.grid && doc.grid.on && doc.grid.export ? gridMarkup(doc.grid, true) : '') + holesMarkup(null, true);
+  }).join('') + (doc.grid && doc.grid.on && doc.grid.export && !isClient() ? gridMarkup(doc.grid, true) : '') + holesMarkup(null, true, opts.view || view_.mode);
   const used = new Set(doc.objects.filter(o => o.type === 'text' && o.visible).map(o => o.font));
   const css = used.size ? `<style>${fontFaceCSS(used)}</style>` : '';
   let marks = '';
@@ -1657,7 +1670,7 @@ function updateBaseNode(n, o) {
 function objSig(o) {
   const { x, y, opacity, locked, visible, ...rest } = o;
   if (o.type !== 'pocket') delete rest.name;
-  let s = JSON.stringify(rest) + unit;
+  let s = JSON.stringify(rest) + unit + view_.mode;
   if (o.type === 'grid') { const b = base(); s += b.w + 'x' + b.h; }
   if (o.type === 'holes') { const b = base(); s += b.w + 'x' + b.h + doc.objects.filter(k => k.type === 'pocket' && k.visible).map(k => [k.x, k.y, k.w, k.h].join(',')).join(';'); }
   return s;
@@ -1697,7 +1710,7 @@ function renderScene() {
   if (!hn) { hn = { type: '__holes', g: sv('g', { 'pointer-events': 'none' }), sig: null }; nodes.set('__holes', hn); }
   seen.add('__holes');
   if (scene.lastChild !== hn.g) scene.appendChild(hn.g);
-  const hc = holesCfg(), b0 = base(), hsig = hc ? JSON.stringify([hc, b0.w, b0.h, b0.splits, doc.objects.filter(k => k.type === 'pocket' && k.visible).map(k => [k.x, k.y, k.w, k.h])]) : '';
+  const hc = holesCfg(), b0 = base(), hsig = hc ? JSON.stringify([view_.mode, hc, b0.w, b0.h, b0.splits, doc.objects.filter(k => k.type === 'pocket' && k.visible).map(k => [k.x, k.y, k.w, k.h])]) : '';
   if (hsig !== hn.sig) { hn.sig = hsig; hn.g.innerHTML = hc ? holesMarkup(hc, false) : ''; }
   for (const [id, n] of nodes) if (!seen.has(id)) { (n.wrap || n.g).remove(); n.clip && n.clip.remove(); nodes.delete(id); }
 }
@@ -1775,14 +1788,14 @@ function dimsOverlay(kids, o0, z) {
 }
 function renderOverlay() {
   const z = view.z, kids = [], b = base();
-  if (b && b.visible) {
+  if (b && b.visible && !isClient()) {
     // имя подложки и её размер — одной строкой над левым верхним углом
     const t = svText(b.name, 0, -8 / z, 12 / z, 'lbl'), ts = sv('tspan', { class: 'dim', dx: 8 / z });
     ts.textContent = `${fmtLen(b.w)} × ${fmtLen(b.h)} ${unitLabel()}`; t.append(ts); kids.push(t);
   }
-  if (b && b.visible && b.splits.length) splitOverlay(kids, b, z);
+  if (b && b.visible && b.splits.length && !isClient()) splitOverlay(kids, b, z);
   const o = selIds.length === 1 && sel && byId(sel);
-  if (showDims.on && o && isBox(o) && o.visible) dimsOverlay(kids, o, z);
+  if (showDims.on && !isClient() && o && isBox(o) && o.visible) dimsOverlay(kids, o, z);
   if (selIds.length > 1) {
     const list = selected().filter(x => x.visible && x.type !== 'holes' && x.type !== 'grid');
     for (const x of list) kids.push(sv('polygon', { class: 'sel-outline' + (x.locked ? ' locked' : ''), points: cornersOf(x).map(p => p.x + ',' + p.y).join(' ') }));
@@ -1832,6 +1845,17 @@ function renderOverlay() {
 /* ================= top bar ================= */
 const topBar = $('#top');
 const unitBtns = {};
+/* ---- вид: производство / клиент ---- */
+const viewSeg = el('div', { class: 'seg viewseg', title: 'Вид: производство — с техническими метками; клиент — как готовый стенд (V)' });
+function setViewMode(m) {
+  view_.mode = m; try { localStorage.setItem('stand-designer/v1:view', m); } catch {}
+  nodes.forEach(n => n.sig = null); renderViewSeg(); invalidate('scene', 'overlay', 'props'); renderGridBtn();
+}
+function renderViewSeg() {
+  viewSeg.replaceChildren(...[['prod', 'Производство', 'Технические метки: линии раздела, подписи карманов, центры отверстий, сетка, размеры'], ['client', 'Клиент', 'Как будет выглядеть готовый стенд: без технических меток, отверстия — по их отделке']]
+    .map(([v, l, t]) => el('button', { type: 'button', class: view_.mode === v ? 'on' : '', title: t, onclick: () => setViewMode(v) }, l)));
+}
+queueMicrotask(() => { renderViewSeg(); renderGridBtn(); });
 /* ---- сетка: кнопка в верхней панели — клик включает/выключает, стрелка открывает настройки ---- */
 const gridTog = el('button', { type: 'button', class: 'gtog', title: 'Сетка: показать или скрыть (G)', onclick: () => setGrid(g => g.on = !g.on) });
 const gridMore = el('button', { type: 'button', class: 'gmore', title: 'Настройки сетки', html: '<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg>' });
@@ -1842,6 +1866,7 @@ gridMore.addEventListener('click', e => { e.stopPropagation(); gridPop.hidden = 
 document.addEventListener('pointerdown', e => { if (!gridPop.hidden && !gridPop.contains(e.target) && !gridBtn.contains(e.target)) gridPop.hidden = true; });
 function renderGridBtn() {
   const g = doc.grid || GRID_DEFAULT();
+  gridBtn.classList.toggle('dim', isClient()); gridBtn.title = isClient() ? 'В виде для клиента сетка не показывается' : '';
   gridTog.innerHTML = ic('grid') + `<span>Сетка${g.on ? ' · ' + fmtLen(g.step) : ''}</span>`;
   gridBtn.classList.toggle('on', g.on);
   if (!gridPop.hidden) renderGridPop();
@@ -1866,7 +1891,7 @@ function renderGridPop() {
 }
 topBar.append(
   el('div', { class: 'brand' }, el('i'), el('span', { class: 'title', id: 'docTitle', title: 'Нажмите, чтобы переименовать проект. Так будет называться сохраняемый файл', onclick: renameTitle })),
-  B('library', 'Проекты', openLibrary, { title: 'Мои проекты: все стенды в этом браузере (Ctrl+Shift+O)' }),
+  B('library', 'Проекты', openLibrary, { title: 'Мои проекты: все стенды в этом браузере (Ctrl+Shift+O)', cls: 'tb2' }),
   B('file', 'Новый', () => openNewDialog(), { title: 'Новый проект: пустой, мастер раскладки или шаблон', cls: 'tb' }),
   B('folder', 'Открыть', pickProjectFile, { title: 'Открыть проект из файла (Ctrl+O)', cls: 'tb' }),
   B('download', 'Сохранить', () => saveFile(), { title: 'Сохранить проект в файл (Ctrl+S). Сохранить как — Ctrl+Shift+S', cls: 'tb' }),
@@ -1879,6 +1904,7 @@ topBar.append(
     unitBtns.mm = el('button', { type: 'button', onclick: () => setUnit('mm') }, 'мм'),
     unitBtns.cm = el('button', { type: 'button', onclick: () => setUnit('cm') }, 'см')),
   gridBtn,
+  viewSeg,
   el('div', { class: 'sep' }),
   B('minus', '', () => zoomBy(1 / 1.25), { title: 'Отдалить (−)' }),
   el('button', { type: 'button', id: 'zoomPct', title: '100% — реальный размер. Клик — показать целиком (0)', onclick: fit }),
@@ -1886,7 +1912,7 @@ topBar.append(
   B('fit', '', fit, { title: 'Показать целиком (0)' }),
   el('div', { class: 'sep' }),
   B('moon', '', e => { e.stopPropagation(); themePop.hidden = !themePop.hidden; }, { title: 'Тема оформления', id: 'themeBtn' }),
-  B('list', 'Спецификация', () => openSpec(), { cls: 'btn', title: 'Материалы, размеры и расположение карманов' }),
+  B('list', 'Спецификация', () => openSpec(), { cls: 'btn tb2', title: 'Материалы, размеры и расположение карманов' }),
   B('download', 'Экспорт', () => openExport(), { cls: 'btn primary', title: 'Экспорт: PNG, JPEG, TIFF, PDF, SVG (Ctrl+Shift+E)' }),
 );
 queueMicrotask(() => topBar.append(acctBtn));
@@ -3575,6 +3601,7 @@ window.addEventListener('keydown', e => {
   if (mod && e.altKey && e.code === 'KeyC') { e.preventDefault(); copyStyle(); return; }
   if (mod && e.altKey && e.code === 'KeyV') { e.preventDefault(); pasteStyle(); return; }
   if (!mod && !e.altKey && e.code === 'KeyD' && !e.shiftKey) { e.preventDefault(); showDims.on = !showDims.on; try { localStorage.setItem(STORE + ':dims', JSON.stringify(showDims.on)); } catch {} invalidate('overlay'); toast(showDims.on ? 'Размеры и расстояния показаны (D)' : 'Размеры и расстояния скрыты (D)'); return; }
+  if (!mod && !e.altKey && e.code === 'KeyV') { e.preventDefault(); setViewMode(isClient() ? 'prod' : 'client'); toast(isClient() ? 'Вид для клиента (V)' : 'Производственный вид (V)'); return; }
   if (!mod && !e.altKey && e.code === 'KeyG') { e.preventDefault(); setGrid(g => g.on = !g.on); return; }
   if (mod && (e.code === 'Equal' || e.code === 'NumpadAdd')) { e.preventDefault(); zoomBy(1.25); return; }
   if (mod && (e.code === 'Minus' || e.code === 'NumpadSubtract')) { e.preventDefault(); zoomBy(1 / 1.25); return; }
@@ -4154,6 +4181,7 @@ function openExport() {
     split ? [cap('Составной стенд'),
       row(seg([[true, `Каждая часть отдельно (${partsOf().length})`], [false, 'Весь стенд одним файлом']], expOpts.parts, v => set('parts', v))),
       el('p', { class: 'hint', style: 'margin:0 0 10px' }, many ? `Каждая часть — отдельный файл с белым полем ${mmTxt(base().partMargin)} мм по периметру (меняется в свойствах подложки). Файлы придут одним ZIP-архивом.` : 'Один файл без разделения — для показа заказчику.')] : null,
+    el('p', { class: 'hint', style: 'margin:0 0 8px' }, isClient() ? 'Вид «Клиент»: отверстия на картинке — как на готовом стенде (шляпки, заглушки не видны), без сетки.' : 'Вид «Производство»: на картинке отмечены центры отверстий. Для макета заказчику переключите вид на «Клиент» (V).'),
     cap('Для печати'),
     el('div', { class: 'grid2' }, el('label', { class: 'nf', title: 'Фон подложки продлевается за край на эту величину' }, el('b', {}, 'Вылеты'), bleedIn, el('i', {}, 'мм')),
       checkField('Метки реза', () => expOpts.marks, v => set('marks', v))),
@@ -4762,6 +4790,10 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-08i', date: '8 ноября 2026', items: [
+    'Переключатель «Производство / Клиент» в верхней панели (клавиша V). В виде для клиента нет линий раздела, подписей карманов, сетки и размеров — стенд выглядит как готовый.',
+    'Отверстия в виде для клиента — по отделке: открытые — тёмные, заглушки не видны, шляпки — шляпки. В производственном виде — центры сверления с крестиком, пунктиром — чем их закроют.',
+    'Экспорт картинки повторяет текущий вид: для макета заказчику переключитесь на «Клиент».'] },
   { v: '2026-11-08h', date: '8 ноября 2026', items: [
     '«Новый» открывает выбор: пустой стенд, мастер раскладки или шаблон.',
     'Мастер раскладки: формат вкладыша, количество (или «сколько поместится»), зазоры, поля, место под заголовок; размер стенда можно подогнать под раскладку. Схема меняется на лету. Для текущего стенда — правой кнопкой по пустому месту.',
