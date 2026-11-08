@@ -2720,6 +2720,7 @@ const ICON = {
   share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
   download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  item: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 12h16M9 7h6"/>',
   archive: '<path d="M4 7h16v13H4zM3 3h18v4H3zM10 11h4"/>',
   folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/>',
   file: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',
@@ -2791,7 +2792,7 @@ const makeBase = () => ({ ...common(), type: 'base', name: 'База', x: 0, y: 
 const makeShape = (kind = 'solid') => ({ ...common(), type: 'shape', name: 'Слой', x: 0, y: 0, w: 300, h: 200, rot: 0, radius: 0, image: null,
   ...fillDefaults(kind === 'grad' ? '#2563eb' : '#f59e0b', '#a5f3fc', kind === 'grad' ? 'linear' : kind === 'empty' ? 'none' : 'solid') });
 const makePocket = () => ({ ...common(), type: 'pocket', name: 'Карман', x: 0, y: 0, w: 0, h: 0, rot: 0, iw: 210, ih: 297,
-  sides: { t: false, r: true, b: true, l: true }, tape: 10, tapeColor: '#ffffff', gap: 2, notch: 'round', notchSize: 20, showName: true, film: true, filmW: 15, image: null });
+  sides: { t: false, r: true, b: true, l: true }, tape: 10, tapeColor: '#ffffff', gap: 2, notch: 'round', notchSize: 20, showName: true, nameFs: 0, film: true, filmW: 15, image: null });
 const makeText = () => ({ ...common(), type: 'text', name: 'Текст', x: 0, y: 0, w: 0, h: 0, rot: 0,
   text: 'Заголовок стенда', font: 'Montserrat', size: 60, weight: 700, italic: false, underline: false, strike: false, caps: false,
   align: 'center', lh: 1.2, ls: 0, skew: 0, color: '#1f2937', colorOpacity: 1, strokeW: 0, strokeColor: '#ffffff', wrap: false, boxW: 600,
@@ -2799,7 +2800,124 @@ const makeText = () => ({ ...common(), type: 'text', name: 'Текст', x: 0, y
 const makeGrid = () => ({ ...common(), type: 'grid', name: 'Сетка', x: 0, y: 0, w: 0, h: 0, step: 50, color: '#2563eb', lineOpacity: 0.35, snap: true, export: false });
 const makeHoles = () => ({ ...common(), type: 'holes', name: 'Отверстия', x: 0, y: 0, w: 0, h: 0, count: 4, d: 6, inset: 20, color: '#374151' });
 const makeQR = () => ({ ...common(), type: 'qr', name: 'QR-код', x: 0, y: 0, w: 120, h: 120, rot: 0, text: 'https://inikonoff.github.io/ASMaker/', color: '#111827', bg: '#ffffff', bgOn: true, ecl: 'M', margin: 2 });
-const MAKERS = { base: makeBase, shape: () => makeShape(), pocket: makePocket, holes: makeHoles, text: makeText, grid: makeGrid, qr: makeQR }; // holes — только для чтения старых проектов
+/* ================= изделия на стенд: перекидная система, объёмные карманы, книга замечаний, ячейка для записок, доска ================= */
+const ITEM_KINDS = {
+  flip: { label: 'Перекидная система', short: 'Перекидная' },
+  booklet: { label: 'Карман для буклетов', short: 'Буклеты' },
+  cards: { label: 'Карман для визиток', short: 'Визитки' },
+  book: { label: 'Книга замечаний и предложений', short: 'Книга' },
+  notes: { label: 'Ячейка для записок', short: 'Записки' },
+  board: { label: 'Магнитно-маркерная доска', short: 'Доска' },
+};
+const PAPER = { A3: [297, 420], A4: [210, 297], A5: [148, 210], euro: [99, 210] };
+const PAPER_TXT = { A3: 'A3', A4: 'A4', A5: 'A5', euro: 'Евро' };
+const BOOK = { A5: [150, 215], A4: [215, 300] }; // книга чуть больше листа
+const BOOK_MOUNT = { pocket: 'карман-ячейка', shelf: 'полочка', holder: 'держатель' };
+const makeItem = (kind = 'booklet') => ({ ...common(), type: 'item', kind, name: (ITEM_KINDS[kind] || ITEM_KINDS.booklet).label, x: 0, y: 0, w: 0, h: 0, rot: 0,
+  fmt: { flip: 'A4', booklet: 'A4', book: 'A5' }[kind] || 'A4', orient: kind === 'cards' ? 'h' : 'v', pages: 10, mount: 'pocket',
+  depth: { booklet: 20, cards: 15, notes: 40 }[kind] || 20, lw: kind === 'board' ? 600 : 100, lh: kind === 'board' ? 450 : 150, color: kind === 'flip' ? '#374151' : '#9ca3af' });
+function itemGeom(o) { // размеры изделия до поворота, мм
+  const P = PAPER[o.fmt] || PAPER.A4;
+  if (o.kind === 'flip') { const [pw, ph] = o.orient === 'h' ? [P[1], P[0]] : P; return { w: 34 + pw + 24 + 6, h: ph + 24 + 6 }; }
+  if (o.kind === 'booklet') return { w: P[0] + 12, h: P[1] + 6 };
+  if (o.kind === 'cards') return o.orient === 'v' ? { w: 60, h: 96 } : { w: 100, h: 56 };
+  if (o.kind === 'book') { const [bw, bh] = BOOK[o.fmt] || BOOK.A5; return o.mount === 'shelf' ? { w: bw + 40, h: bh + 20 } : o.mount === 'holder' ? { w: bw + 16, h: bh + 16 } : { w: bw + 12, h: bh + 6 }; }
+  return { w: o.lw, h: o.lh };
+}
+const itemSizable = o => o.kind === 'notes' || o.kind === 'board';
+function itemParams(o) { // для смет и таблиц
+  if (o.kind === 'flip') return `${PAPER_TXT[o.fmt]}, ${o.orient === 'h' ? 'альбомная' : 'книжная'}, листов: ${o.pages}`;
+  if (o.kind === 'booklet') return `${PAPER_TXT[o.fmt]}, глубина ${mmTxt(o.depth)} мм`;
+  if (o.kind === 'cards') return `${o.orient === 'v' ? 'вертикальный' : 'горизонтальный'}, глубина ${mmTxt(o.depth)} мм`;
+  if (o.kind === 'book') return `${o.fmt}, ${BOOK_MOUNT[o.mount]}`;
+  if (o.kind === 'notes') return `${mmTxt(o.lw)} × ${mmTxt(o.lh)} мм, глубина ${mmTxt(o.depth)} мм, оргстекло`;
+  return `${mmTxt(o.lw)} × ${mmTxt(o.lh)} мм`;
+}
+function itemTag(o) {
+  if (o.kind === 'flip') return `${PAPER_TXT[o.fmt]} · ${o.pages} л.`;
+  if (o.kind === 'booklet' || o.kind === 'book') return PAPER_TXT[o.fmt] || o.fmt;
+  if (o.kind === 'cards') return 'визитки';
+  return `${mmTxt(o.lw)}×${mmTxt(o.lh)}`;
+}
+function itemMarkup(o, exp) {
+  const g = itemGeom(o), W = g.w, H = g.h, ns = exp ? '' : ' vector-effect="non-scaling-stroke"', sw = exp ? 0.4 : 1;
+  const R = (x, y, w, h, fill, { stroke = '#6b7280', op = 1, rx = 0, dash = '', sop = 1 } = {}) =>
+    `<rect x="${r2(x)}" y="${r2(y)}" width="${r2(w)}" height="${r2(h)}"${rx ? ` rx="${rx}"` : ''} fill="${fill}" fill-opacity="${op}" stroke="${stroke}" stroke-opacity="${sop}" stroke-width="${sw}"${dash ? ` stroke-dasharray="${dash}"` : ''}${ns}/>`;
+  const label = !exp && !isClient();
+  const cap = (t, x, y, fs, col = '#4b5563') => `<text x="${r2(x)}" y="${r2(y)}" font-size="${r2(fs)}" font-family="system-ui,sans-serif" font-weight="600" fill="${col}" text-anchor="middle" dominant-baseline="central">${esc(t)}</text>`;
+  const front = (x, y, w, h) => R(x, y, w, h, '#dbeafe', { op: 0.45, stroke: '#3b82f6', sop: 0.7 }) + `<path d="M${r2(x)} ${r2(y)}H${r2(x + w)}" stroke="#1d4ed8" stroke-opacity=".6" stroke-width="${sw * 2}"${ns}/>`;
+  let m = '';
+  if (o.kind === 'flip') {
+    const fw = W - 40, fh = H - 6;
+    m += R(0, 0, 30, H, '#4b5563', { stroke: '#374151', rx: 3 });
+    for (let i = 1; i <= 4; i++) m += R(24, fh * i / 5 - 6, 14, 12, '#9ca3af', { stroke: '#6b7280', rx: 2 });
+    m += R(40, 6, fw, fh, '#e5e7eb', { stroke: '#9ca3af' }) + R(37, 3, fw, fh, '#f3f4f6', { stroke: '#9ca3af' });
+    m += R(34, 0, fw, fh, o.color, { stroke: '#111827', rx: 2 }) + R(46, 12, fw - 24, fh - 24, '#ffffff', { stroke: '#9ca3af', op: 0.92 });
+    if (label) m += cap(`${PAPER_TXT[o.fmt]} · ${o.pages} листов`, 34 + fw / 2, fh / 2, Math.min(fw, fh) * 0.07);
+  } else if (o.kind === 'booklet' || o.kind === 'cards') {
+    const top = H * (o.kind === 'cards' ? 0.35 : 0.4);
+    m += R(0, 0, W, H, '#ffffff', { op: 0.3, stroke: '#9ca3af' });
+    m += R(6, 0, W - 12, H - 4, '#f9fafb', { stroke: '#d1d5db' }); // вложенные буклеты
+    for (let i = 1; i <= 3; i++) m += `<path d="M${r2(W * 0.2)} ${r2(H * 0.1 * i + 4)}H${r2(W * 0.8)}" stroke="#d1d5db" stroke-width="${sw * 1.5}"${ns}/>`;
+    m += front(0, top, W, H - top);
+    if (label) m += cap(o.kind === 'cards' ? 'Визитки' : `Буклеты ${PAPER_TXT[o.fmt]}`, W / 2, top + (H - top) / 2, Math.min(W, H) * (o.kind === 'cards' ? 0.13 : 0.08), '#1e3a8a');
+  } else if (o.kind === 'book') {
+    const [bw, bh] = BOOK[o.fmt] || BOOK.A5, bx = o.mount === 'shelf' ? 20 : o.mount === 'holder' ? 8 : 6, by = o.mount === 'holder' ? 8 : 0;
+    const book = R(bx, by, bw, bh, '#1e3a8a', { stroke: '#172554', rx: 2 }) + R(bx + 8, by + 8, bw - 16, bh - 16, 'none', { stroke: '#fbbf24', sop: 0.7 }) +
+      `<text font-size="${r2(bw * 0.075)}" font-family="system-ui,sans-serif" font-weight="700" fill="#fde68a" text-anchor="middle">` +
+      ['КНИГА', 'ЗАМЕЧАНИЙ', 'И ПРЕДЛОЖЕНИЙ'].map((t, i) => `<tspan x="${r2(bx + bw / 2)}" y="${r2(by + bh * 0.38 + i * bw * 0.1)}">${t}</tspan>`).join('') + '</text>';
+    if (o.mount === 'shelf') m += book + R(0, bh, W, H - bh, '#9ca3af', { stroke: '#4b5563', rx: 2 });
+    else if (o.mount === 'holder') m += R(0, 0, W, H, '#ffffff', { op: 0.3, stroke: '#9ca3af', rx: 4 }) + book + R(W * 0.2, 0, 22, 14, '#6b7280', { stroke: '#374151', rx: 2 }) + R(W * 0.8 - 22, 0, 22, 14, '#6b7280', { stroke: '#374151', rx: 2 });
+    else m += R(0, 0, W, H, '#ffffff', { op: 0.3, stroke: '#9ca3af' }) + book + front(0, H * 0.45, W, H * 0.55);
+  } else if (o.kind === 'notes') {
+    const d = Math.min(o.depth * 0.3, W * 0.15, H * 0.15);
+    m += R(0, 0, W, H, '#e0f2fe', { op: 0.5, stroke: '#0284c7', sop: 0.8, rx: 2 }) + R(d, d, W - 2 * d, H - 2 * d, 'none', { stroke: '#0284c7', sop: 0.4, dash: '4 3' });
+    m += R(W * 0.2, H * 0.1, W * 0.6, Math.max(3, H * 0.03), '#0c4a6e', { stroke: '#0c4a6e', rx: 1.5 });
+    m += `<path d="M${r2(W * 0.08)} ${r2(H * 0.92)}L${r2(W * 0.3)} ${r2(H * 0.25)}" stroke="#ffffff" stroke-opacity=".8" stroke-width="${sw * 3}"${ns}/>`;
+    if (label) m += cap('Записки', W / 2, H * 0.6, Math.min(W, H) * 0.12, '#075985');
+  } else { // доска
+    const f = Math.min(12, W * 0.04, H * 0.04);
+    m += R(0, 0, W, H, '#d1d5db', { stroke: '#6b7280', rx: 2 }) + R(f, f, W - 2 * f, H - 2 * f, '#ffffff', { stroke: '#9ca3af' });
+    m += R(W * 0.3, H - f - Math.max(6, H * 0.03), W * 0.4, Math.max(6, H * 0.03), '#9ca3af', { stroke: '#6b7280', rx: 2 });
+    if (label) m += cap('Магнитно-маркерная доска', W / 2, H / 2, Math.min(W * 0.05, H * 0.08), '#9ca3af');
+  }
+  return m;
+}
+function addItem(kind) {
+  const o = makeItem(kind), n = doc.objects.filter(x => x.type === 'item' && x.kind === kind).length;
+  if (n) o.name += ' ' + (n + 1);
+  syncDerived(o); placeInView(o);
+  mutate(null, () => insertObj(o)); select(o.id);
+}
+const ITEM_ORDER = ['flip', 'booklet', 'cards', 'book', 'notes', 'board'];
+function buildItem(o) {
+  const [O, upd] = ctx(o), L = o.locked, K = ITEM_KINDS[o.kind];
+  const keep = fn => x => { const cx = x.x + x.w / 2, cy = x.y + x.h / 2; fn(x); syncDerived(x); x.x = r2(cx - x.w / 2); x.y = r2(cy - x.h / 2); };
+  const sel_ = (title, opts, get, put) => { const s_ = el('select', { title }, ...opts.map(([v, l]) => el('option', { value: v }, l))); bind(s_, get); s_.addEventListener('change', () => upd(null, keep(x => put(x, s_.value)))); return s_; };
+  const orient = sel_('Ориентация', o.kind === 'cards' ? [['h', 'Горизонтальный'], ['v', 'Вертикальный']] : [['v', 'Книжная'], ['h', 'Альбомная']], () => O().orient, (x, v) => x.orient = v);
+  const kids = [];
+  if (o.kind === 'flip') kids.push(row(sel_('Формат листа', [['A4', 'A4'], ['A3', 'A3']], () => O().fmt, (x, v) => x.fmt = v), orient),
+    el('div', { class: 'grid2' }, intField('Листов', () => O().pages, v => upd(null, x => x.pages = v), 1, 100), el('span')),
+    cap('Цвет рамок'), row(colorField(() => O().color, (v, k) => upd(k ? 'itemcolor' : null, x => x.color = v))));
+  if (o.kind === 'booklet') kids.push(row(sel_('Формат буклетов', [['A4', 'A4 — 210 × 297'], ['A5', 'A5 — 148 × 210'], ['euro', 'Евро — 99 × 210']], () => O().fmt, (x, v) => x.fmt = v)));
+  if (o.kind === 'cards') kids.push(row(orient));
+  if (o.kind === 'booklet' || o.kind === 'cards' || o.kind === 'notes') kids.push(el('div', { class: 'grid2' }, intField('Глубина', () => O().depth, v => upd(null, x => x.depth = v), 5, 200, 'мм'), el('span')));
+  if (o.kind === 'book') kids.push(row(sel_('Формат книги', [['A5', 'Книга A5'], ['A4', 'Книга A4']], () => O().fmt, (x, v) => x.fmt = v),
+    sel_('Как держится книга', Object.entries(BOOK_MOUNT).map(([v, l]) => [v, l[0].toUpperCase() + l.slice(1)]), () => O().mount, (x, v) => x.mount = v)));
+  if (itemSizable(o)) kids.push(el('div', { class: 'grid2' },
+    lenField('Ш', () => O().lw, (v, k) => upd(k, keep(x => x.lw = v)), { min: 20, max: 5000 }), lenField('В', () => O().lh, (v, k) => upd(k, keep(x => x.lh = v)), { min: 20, max: 5000 })));
+  const info = el('div', { class: 'info' }); bind(info, () => { const g = itemGeom(O()); return `На стенде: ${mmTxt(g.w)} × ${mmTxt(g.h)} мм`; }, 'textContent');
+  return [
+    sec(K.label,
+      el('fieldset', { disabled: L },
+        row(textField(() => O().name, v => upd(null, x => x.name = v), K.label)),
+        ...kids, info,
+        el('p', { class: 'hint', style: 'margin-top:0' }, 'Готовое изделие: в спецификации — отдельной строкой, цену вписывают от руки. Показано, как оно будет выглядеть на стенде.'))),
+    sec('Положение', el('fieldset', { disabled: L }, posGrid(O, upd), el('div', { class: 'btns' }, rotButton(o.id, 'Повернуть')))),
+    layerSection(o, O, upd),
+  ];
+}
+const MAKERS = { base: makeBase, shape: () => makeShape(), pocket: makePocket, holes: makeHoles, text: makeText, grid: makeGrid, qr: makeQR, item: makeItem }; // holes — только для чтения старых проектов
 const DEFAULT_TITLE = 'Конструктор стендов';
 const UNITS = { 'шт': ['count', 1], 'компл.': ['count', 1], 'лист': ['sheet', 1], 'упак.': ['count', 1], 'усл.': ['count', 1], 'ч': ['time', 1],
   'мм': ['len', 0.001], 'см': ['len', 0.01], 'м.пог.': ['len', 1], 'см²': ['area', 1e-4], 'м²': ['area', 1], 'кг': ['mass', 1], 'л': ['vol', 1] };
@@ -2832,12 +2950,13 @@ function tapedLen(o, stripW = 0) {
 function syncDerived(o) {
   let l = null;
   if (o.type === 'pocket') l = pocketGeom(o);
+  else if (o.type === 'item') l = itemGeom(o);
   else if (o.type === 'text') l = textLayout(o);
   if (!l) return;
   const q = o.rot % 180; o.w = r2(q ? l.h : l.w); o.h = r2(q ? l.w : l.h);
 }
 /* размеры элемента до поворота (в его собственной системе координат) */
-const localWH = o => o.type === 'pocket' ? pocketGeom(o) : (o.rot % 180 ? { w: o.h, h: o.w } : { w: o.w, h: o.h });
+const localWH = o => o.type === 'pocket' ? pocketGeom(o) : o.type === 'item' ? itemGeom(o) : (o.rot % 180 ? { w: o.h, h: o.w } : { w: o.w, h: o.h });
 function objTransform(o) {
   if (o.type === 'holes') return null;
   if (o.type === 'grid') return null;
@@ -2885,7 +3004,7 @@ function normalizeObj(raw, ids) {
   const o = Object.assign(MAKERS[raw.type](), raw);
   if (typeof o.id !== 'string' || ids.has(o.id)) o.id = uid();
   if (typeof o.group !== 'string' || !o.group) delete o.group;
-  if (o.type === 'pocket' || o.type === 'shape' || o.type === 'text' || o.type === 'qr') { const t = +o.tilt || 0; o.tilt = Math.abs(t) < 0.01 ? 0 : clamp(r2(t), -45, 45); } else delete o.tilt;
+  if (o.type === 'pocket' || o.type === 'shape' || o.type === 'text' || o.type === 'qr' || o.type === 'item') { const t = +o.tilt || 0; o.tilt = Math.abs(t) < 0.01 ? 0 : clamp(r2(t), -45, 45); } else delete o.tilt;
   for (const k of ['x', 'y']) if (!isFinite(o[k])) o[k] = 0;
   o.name = String(o.name || '').slice(0, 80) || MAKERS[o.type]().name;
   o.opacity = isFinite(o.opacity) ? clamp(+o.opacity, 0, 1) : 1;
@@ -2906,7 +3025,15 @@ function normalizeObj(raw, ids) {
       .map(l => ({ id: String(l.id || uid()), axis: l.axis, pos: clamp(+l.pos, 1, (l.axis === 'v' ? o.w : o.h) - 1) }));
     o.partMargin = isFinite(+o.partMargin) ? clamp(+o.partMargin, 0, 500) : 50;
   }
-  if (o.type === 'shape' || o.type === 'pocket' || o.type === 'text') o.rot = [0, 90, 180, 270].includes(+o.rot) ? +o.rot : 0;
+  if (o.type === 'shape' || o.type === 'pocket' || o.type === 'text' || o.type === 'item') o.rot = [0, 90, 180, 270].includes(+o.rot) ? +o.rot : 0;
+  if (o.type === 'item') {
+    if (!ITEM_KINDS[o.kind]) o.kind = 'booklet';
+    if (!PAPER[o.fmt]) o.fmt = 'A4'; if (o.kind === 'book' && !BOOK[o.fmt]) o.fmt = 'A5'; if (o.kind === 'flip' && !['A4', 'A3'].includes(o.fmt)) o.fmt = 'A4';
+    o.orient = o.orient === 'h' ? 'h' : 'v'; if (!BOOK_MOUNT[o.mount]) o.mount = 'pocket';
+    o.pages = clamp(Math.round(+o.pages || 10), 1, 100); o.depth = clamp(+o.depth || 20, 5, 200);
+    o.lw = clamp(+o.lw || 100, 20, 5000); o.lh = clamp(+o.lh || 150, 20, 5000); o.color = normHex(o.color) || '#374151';
+    syncDerived(o);
+  }
   if (o.type === 'shape' || o.type === 'pocket') o.flip = !!o.flip;
   if (o.type === 'qr') {
     o.text = String(o.text ?? '').slice(0, 1500); o.color = normHex(o.color) || '#111827'; o.bg = normHex(o.bg) || '#ffffff'; o.bgOn = o.bgOn !== false;
@@ -2931,7 +3058,7 @@ function normalizeObj(raw, ids) {
     o.radius = isFinite(o.radius) ? Math.max(0, +o.radius) : 0;
     const im = o.image; o.image = im && typeof im.asset === 'string' ? { asset: im.asset, opacity: isFinite(im.opacity) ? im.opacity : 1, fit: ['cover', 'contain', 'stretch'].includes(im.fit) ? im.fit : 'cover', ar: im.ar > 0 ? im.ar : 1 } : null;
   }
-  if (o.type === 'pocket') o.showName = o.showName !== false;
+  if (o.type === 'pocket') { o.showName = o.showName !== false; o.nameFs = clamp(+o.nameFs || 0, 0, 500); }
   if (o.type === 'pocket') {
     if (!(o.iw > 0 && o.ih > 0)) return null;
     const s = o.sides || {}; o.sides = { t: !!s.t, r: !!s.r, b: !!s.b, l: !!s.l };
@@ -3014,7 +3141,7 @@ function partsOf(b = base()) {
   return out;
 }
 const allHoles = () => { const h = holesCfg(); return h ? partsOf().flatMap(r => holePoints(h, r)) : []; };
-const isBox = o => !!o && (o.type === 'pocket' || o.type === 'shape' || o.type === 'text' || o.type === 'qr');
+const isBox = o => !!o && (o.type === 'pocket' || o.type === 'shape' || o.type === 'text' || o.type === 'qr' || o.type === 'item');
 const canFlip = o => !!o && (o.type === 'pocket' || o.type === 'shape');
 const gridCfg = () => doc.grid && doc.grid.on && !isClient() ? doc.grid : null;
 
@@ -3881,7 +4008,7 @@ function gridMarkup(o, exp) {
   for (let y = s; y < b.h - 0.01; y += s) d += `M0 ${r2(y)}H${b.w}`;
   return `<path d="${d}" fill="none" stroke="${o.color}" stroke-opacity="${o.lineOpacity}" stroke-width="${exp ? Math.max(0.4, Math.max(b.w, b.h) / 2500) : 1}"${exp ? '' : ' vector-effect="non-scaling-stroke"'}/>`;
 }
-const objMarkup = (o, exp) => o.type === 'qr' ? qrMarkup(o, exp) : o.type === 'pocket' ? pocketMarkup(o, exp) : o.type === 'holes' ? holesMarkup(o, exp) : o.type === 'shape' ? shapeMarkup(o, exp) : o.type === 'text' ? textMarkup(o, exp) : o.type === 'grid' ? gridMarkup(o, exp) : '';
+const objMarkup = (o, exp) => o.type === 'item' ? itemMarkup(o, exp) : o.type === 'qr' ? qrMarkup(o, exp) : o.type === 'pocket' ? pocketMarkup(o, exp) : o.type === 'holes' ? holesMarkup(o, exp) : o.type === 'shape' ? shapeMarkup(o, exp) : o.type === 'text' ? textMarkup(o, exp) : o.type === 'grid' ? gridMarkup(o, exp) : '';
 
 /* ================= export PNG ================= */
 /* ---- метки сборки на основе: Г-метки по углам карманов (лучи внутрь — их закроет скотч),
@@ -3889,9 +4016,9 @@ const objMarkup = (o, exp) => o.type === 'qr' ? qrMarkup(o, exp) : o.type === 'p
 function assemblyMarks() {
   const sw = 0.3, out = [];
   for (const o of doc.objects) {
-    if (o.type !== 'pocket' || !o.visible) continue;
+    if ((o.type !== 'pocket' && o.type !== 'item') || !o.visible) continue;
     const l = localWH(o), a = Math.min(12, l.w / 3, l.h / 3);
-    const open = ['t', 'b', 'l', 'r'].find(k => !o.sides[k]), cut = (o.notch === 'cornerL' || o.notch === 'cornerR') && open ? CORNER_OF[open][o.notch] : null;
+    const open = o.type === 'pocket' && ['t', 'b', 'l', 'r'].find(k => !o.sides[k]), cut = (o.notch === 'cornerL' || o.notch === 'cornerR') && open ? CORNER_OF[open][o.notch] : null;
     const C = { TL: `M0 ${a}V0H${a}`, TR: `M${l.w - a} 0H${l.w}V${a}`, BR: `M${l.w} ${l.h - a}V${l.h}H${l.w - a}`, BL: `M${a} ${l.h}H0V${l.h - a}` };
     const d = Object.entries(C).filter(([k]) => k !== cut).map(([, v]) => v).join('');
     out.push(`<g transform="${objTransform(o)}"><path d="${d}" fill="none" stroke="#000" stroke-width="${sw}" stroke-linecap="square"/></g>`);
@@ -3906,7 +4033,7 @@ function exportSVG(W, H, opts = {}) {
   const b = base(), bl = opts.bleed || 0, R = opts.region || { x: 0, y: 0, w: b.w, h: b.h };
   const off = opts.off != null ? opts.off : bl + (opts.pad || 0), VW = R.w + 2 * off, VH = R.h + 2 * off;
   const baseOnly = opts.content === 'base';
-  const parts = doc.objects.filter(o => o.visible && o.type !== 'grid' && !(baseOnly && o.type === 'pocket')).map(o => {
+  const parts = doc.objects.filter(o => o.visible && o.type !== 'grid' && !(baseOnly && (o.type === 'pocket' || o.type === 'item'))).map(o => {
     if (o.type === 'base') {
       // с вылетами фон подложки продлевается за край на величину вылета
       const i = o.image, href = i && assets[i.asset], c = 'c' + o.id;
@@ -4277,17 +4404,20 @@ const layerMenu = el('div', { class: 'menu', hidden: true },
   el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('solid'); } }, el('span', { class: 'grad', style: 'background:linear-gradient(90deg,#f59e0b 50%,#2563eb 50%,#a5f3fc)' }), 'Заливка / Градиент'),
   el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('empty'); } }, el('span', { class: 'grad', html: ic('empty'), style: 'color:#9ca3af' }), 'Пустой — для своей картинки'),
   el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addQR(); } }, el('span', { class: 'grad', html: ic('qr'), style: 'color:#111827' }), 'QR-код'));
-$('#layersFoot').append(layerMenu,
+const itemMenu = el('div', { class: 'menu', hidden: true },
+  ...ITEM_ORDER.map(k => el('button', { type: 'button', onclick: () => { itemMenu.hidden = true; addItem(k); } }, el('span', { class: 'grad', html: ic('item'), style: 'color:#4b5563' }), ITEM_KINDS[k].label)));
+$('#layersFoot').append(layerMenu, itemMenu,
   el('div', { class: 'grid' },
     B('layer', 'Слой', e => { e.stopPropagation(); layerMenu.hidden = !layerMenu.hidden; }, { cls: 'btn', title: 'Добавить слой с заливкой', after: ic('chev') }),
     B('pocket', 'Карман', addPocket, { cls: 'btn', title: 'Добавить карман' }),
     B('text', 'Текст', addText, { cls: 'btn', title: 'Добавить текст' }),
-    B('scissors', 'Раздел', addSplit, { cls: 'btn', title: 'Разделить подложку на части линией' })));
-document.addEventListener('pointerdown', e => { if (!layerMenu.hidden && !layerMenu.contains(e.target)) layerMenu.hidden = true; });
+    B('item', 'Элемент', e => { e.stopPropagation(); itemMenu.hidden = !itemMenu.hidden; }, { cls: 'btn', title: 'Перекидная система, карманы для буклетов и визиток, книга замечаний, ячейка для записок, доска', after: ic('chev') })));
+document.addEventListener('pointerdown', e => { if (!layerMenu.hidden && !layerMenu.contains(e.target)) layerMenu.hidden = true; if (!itemMenu.hidden && !itemMenu.contains(e.target)) itemMenu.hidden = true; });
 
 let renaming = false, dragLayer = null;
 function swatch(o) {
   if (o.type === 'qr') return el('span', { class: 'sw ico', html: ic('qr') });
+  if (o.type === 'item') return el('span', { class: 'sw ico', html: ic('item') });
   if (o.type === 'text') { const f = fontDef(o.font); return el('span', { class: 'sw txt', style: `font-family:"${f.css}";font-weight:700;color:${o.color}` }, 'Аа'); }
   if (o.type === 'grid') return el('span', { class: 'sw ico', html: ic('grid') });
   if (o.type === 'pocket' || o.type === 'holes') {
@@ -4303,6 +4433,7 @@ function swatch(o) {
 }
 function layerTag(o) {
   if (o.type === 'qr') return 'QR';
+  if (o.type === 'item') return itemTag(o);
   if (o.type === 'base') return 'фон';
   if (o.type === 'pocket') return formatName(o.iw, o.ih);
   if (o.type === 'holes') return o.count + ' шт';
@@ -4419,7 +4550,7 @@ function renderProps() {
   const sig = multi ? 'multi|' + selIds.join() + unit : o ? [o.id, o.type, o.locked, o.fillType, o.image ? o.image.asset : '-', unit, o.font, o.wrap, o.type === 'pocket' ? o.notch : '', o.type === 'base' ? o.holes.on + o.holes.finish + o.splits.map(l => l.id + l.axis).join() : '', o.type === 'text' ? o.shadow.on : ''].join('|') : 'none';
   if (sig !== propsSig) {
     propsSig = sig; bindings = [];
-    const build = { base: buildBase, shape: buildShape, pocket: buildPocket, holes: buildHoles, text: buildText, grid: buildGrid, qr: buildQR }[o && o.type];
+    const build = { base: buildBase, shape: buildShape, pocket: buildPocket, holes: buildHoles, text: buildText, grid: buildGrid, qr: buildQR, item: buildItem }[o && o.type];
     propsEl.replaceChildren(...(multi ? buildMulti() : build ? build(o) : buildEmpty()));
   } else {
     for (const b of bindings) {
@@ -5352,6 +5483,9 @@ stage.addEventListener('pointermove', e => {
       syncDerived(o); nw = o.w; nh = o.h;
     } else if (o.type === 'qr') { // QR всегда квадратный
       const side = Math.max(5, Math.round(mx && my ? Math.max(nw, nh) : mx ? nw : nh)); o.w = o.h = side; nw = nh = side;
+    } else if (o.type === 'item') { // у готовых изделий размер задаётся форматом; меняются только ячейка и доска
+      if (itemSizable(o)) { const q = o.rot % 180; o.lw = Math.max(20, Math.round(q ? nh : nw)); o.lh = Math.max(20, Math.round(q ? nw : nh)); }
+      syncDerived(o); nw = o.w; nh = o.h;
     } else if (o.type === 'pocket') {
       const g = pocketGeom({ ...o, iw: 0, ih: 0 }), q = o.rot % 180, lw = q ? nh : nw, lh = q ? nw : nh;
       o.iw = Math.max(10, Math.round(lw - g.w)); o.ih = Math.max(10, Math.round(lh - g.h)); syncDerived(o); nw = o.w; nh = o.h;
@@ -5787,7 +5921,7 @@ const STYLE_TXT = { pocket: 'рамка, проклейка, выемка', shap
 let styleClip = null;
 function copyStyle() {
   const o = selected().find(x => STYLE_KEYS[x.type]); if (!o) return toast('Выберите карман, слой или текст');
-  const st = {}; for (const k of STYLE_KEYS[o.type]) st[k] = JSON.parse(JSON.stringify(o[k]));
+  const st = {}; for (const k of STYLE_KEYS[o.type]) if (o[k] !== undefined) st[k] = JSON.parse(JSON.stringify(o[k]));
   if (o.type === 'pocket') st.vsides = visualSides(o); // стороны — как видны на стенде, независимо от поворота
   styleClip = { type: o.type, st };
   toast(`Стиль скопирован (${STYLE_TXT[o.type]}). Вставить — Ctrl+Alt+V или правой кнопкой`);
@@ -5883,6 +6017,7 @@ function canvasMenu(w) {
       { label: 'Заливка / Градиент', act: () => addHere(at, () => addShape('solid')), edit: true },
       { label: 'Пустой слой', act: () => addHere(at, () => addShape('empty')), edit: true },
       { label: 'QR-код', icon: 'qr', act: () => addHere(at, addQR), edit: true },
+      { label: 'Элемент', icon: 'item', sub: ITEM_ORDER.map(k => ({ label: ITEM_KINDS[k].label, act: () => addHere(at, () => addItem(k)), edit: true })) },
       { label: 'Картинку…', icon: 'image', act: () => chooseImage(null), edit: true }] },
     inside ? { label: 'Линия раздела здесь', icon: 'scissors', sub: [
       { label: `Вертикальная · X ${fmtLen(Math.round(w.x))} ${unitLabel()}`, act: () => splitHere(w, 'v'), edit: true },
@@ -6036,6 +6171,12 @@ function specSections() {
     rows: [...holes].sort((a, c) => a.y - c.y || a.x - c.x).map((p, i) => [String(i + 1), mmTxt(p.x), mmTxt(p.y)]) });
   if (T.length) secs.push({ title: 'Надписи', head: ['Текст', 'Шрифт', 'Размер, мм', 'Цвет'],
     rows: T.map(o => [o.text.replace(/\s+/g, ' ').trim().slice(0, 70), `${fontDef(o.font).label} ${fontWeight(o)}${o.italic ? ' курсив' : ''}`, mmTxt(o.size), o.color.toUpperCase()]) });
+  const IT = doc.objects.filter(o => o.type === 'item' && o.visible);
+  if (IT.length) { // готовые изделия: цену за штуку вписывают от руки
+    const grp = new Map(); for (const o of IT) { const k = ITEM_KINDS[o.kind].label + '|' + itemParams(o); grp.set(k, (grp.get(k) || 0) + 1); }
+    secs.push({ title: 'Изделия на стенд (цену за штуку — от руки)', head: ['Изделие', 'Параметры', 'Кол-во', 'Цена за шт.', 'Сумма'], num: [2],
+      rows: [...grp].map(([k, n]) => { const [a, b_] = k.split('|'); return [a, b_, String(n), '', '']; }) });
+  }
   const est = estimateLines();
   if (est.lines.some(l => l.price != null) || doc.pricing.custom.length) {
     const cur = doc.pricing.currency;
@@ -6111,6 +6252,7 @@ function specCSV(secs) {
 }
 /* ================= чертёж для цеха: лист A4 с размерами + листы с таблицами ================= */
 const workPockets = () => doc.objects.filter(o => o.type === 'pocket' && o.visible).sort((a, c) => { const ay = a.y + a.h / 2, cy = c.y + c.h / 2; return Math.abs(ay - cy) > Math.min(a.h, c.h) / 2 ? ay - cy : (a.x + a.w / 2) - (c.x + c.w / 2); });
+const workItems = () => doc.objects.filter(o => o.type === 'item' && o.visible).sort((a, c) => { const ay = a.y + a.h / 2, cy = c.y + c.h / 2; return Math.abs(ay - cy) > Math.min(a.h, c.h) / 2 ? ay - cy : (a.x + a.w / 2) - (c.x + c.w / 2); });
 const FINISH_TXT = { none: 'без отделки', sticker: 'заглушка-кругляш', white: 'шляпка Ø10 белая', silver: 'шляпка Ø10 «серебро»', gold: 'шляпка Ø10 «золото»' };
 function workSections() {
   const b = base(), P = workPockets(), h = holesCfg(), holes = allHoles(), secs = [];
@@ -6118,6 +6260,11 @@ function workSections() {
     head: ['№', 'Название', 'Вкладыш', 'Карман Ш × В', 'Слева', 'Сверху', 'Справа', 'Снизу', 'Угол'],
     rows: P.map((o, i) => { const a = AB(o), t = tiltOf(o), ang = angleOf(o), lw = localWH(o);
       return [String(i + 1), o.name, formatName(o.iw, o.ih), `${mmTxt(lw.w)} × ${mmTxt(lw.h)}`,
+        t ? mmTxt(o.x + o.w / 2) + ' ц' : mmTxt(a.x), t ? mmTxt(o.y + o.h / 2) + ' ц' : mmTxt(a.y), t ? '—' : mmTxt(b.w - a.x - a.w), t ? '—' : mmTxt(b.h - a.y - a.h), ang ? String(ang).replace('.', ',') + '°' : '—']; }) });
+  const I = workItems();
+  if (I.length) secs.push({ title: 'Изделия — координаты, мм (Э — номер на чертеже)', head: ['№', 'Изделие', 'Ш × В', 'Слева', 'Сверху', 'Справа', 'Снизу', 'Угол'],
+    rows: I.map((o, i) => { const a = AB(o), t = tiltOf(o), ang = angleOf(o), lw = localWH(o);
+      return ['Э' + (i + 1), o.name, `${mmTxt(lw.w)} × ${mmTxt(lw.h)}`,
         t ? mmTxt(o.x + o.w / 2) + ' ц' : mmTxt(a.x), t ? mmTxt(o.y + o.h / 2) + ' ц' : mmTxt(a.y), t ? '—' : mmTxt(b.w - a.x - a.w), t ? '—' : mmTxt(b.h - a.y - a.h), ang ? String(ang).replace('.', ',') + '°' : '—']; }) });
   if (holes.length) secs.push({ title: 'Отверстия под крепёж — центры, мм', head: ['№', 'X', 'Y', 'Сверло Ø', 'Чем закрыть'],
     rows: [...holes].sort((a, c) => a.y - c.y || a.x - c.x).map((p, i) => [String(i + 1), mmTxt(p.x), mmTxt(p.y), mmTxt(h.d), FINISH_TXT[h.finish] + (h.finish === 'sticker' ? ` Ø${mmTxt(h.stickerD)}` : '')]) });
@@ -6147,6 +6294,15 @@ async function drawingPage() {
     txt(String(i + 1), cx, cy + 1, { size: Math.round(r * 1.05), bold: true });
     txt(formatName(o.iw, o.ih), cx, cy + r + 14, { size: 13, color: '#6b7280' });
   });
+  // изделия — контур и номер «Э»
+  const I = workItems();
+  I.forEach((o, i) => {
+    const pts = cornersOf(o); g.beginPath(); pts.forEach((p, j) => j ? g.lineTo(X(p.x), Y(p.y)) : g.moveTo(X(p.x), Y(p.y))); g.closePath();
+    g.fillStyle = '#fff7ed'; g.fill(); g.strokeStyle = '#9a3412'; g.lineWidth = 1.4; g.setLineDash([8, 4]); g.stroke(); g.setLineDash([]);
+    const cx = X(o.x + o.w / 2), cy = Y(o.y + o.h / 2);
+    txt('Э' + (i + 1), cx, cy, { size: Math.round(Math.max(14, Math.min(26, Math.min(o.w, o.h) * k * 0.2))), bold: true, color: '#9a3412' });
+    txt(ITEM_KINDS[o.kind].short, cx, cy + Math.max(16, Math.min(28, Math.min(o.w, o.h) * k * 0.2)), { size: 12, color: '#9a3412' });
+  });
   // отверстия
   if (h) for (const p of allHoles()) { const cx = X(p.x), cy = Y(p.y); g.beginPath(); g.arc(cx, cy, Math.max(3, h.d / 2 * k), 0, 7); g.strokeStyle = '#111827'; g.lineWidth = 1.2; g.stroke(); line(cx - 9, cy, cx + 9, cy, 1); line(cx, cy - 9, cx, cy + 9, 1); }
   // размерные цепочки: отступы от краёв и расстояния между карманами (по неповёрнутым)
@@ -6162,7 +6318,7 @@ async function drawingPage() {
       horiz ? txt(label, X((v[i] + v[i - 1]) / 2), base_ - 13, { size: 15 }) : txt(label, base_ - 13, Y((v[i] + v[i - 1]) / 2), { size: 15, rot: -Math.PI / 2 });
     }
   };
-  const flat = P.filter(o => !tiltOf(o)).map(AB);
+  const flat = [...P, ...I].filter(o => !tiltOf(o)).map(AB);
   chain([0, b.w, ...flat.flatMap(a => [a.x, a.x + a.w])], true);
   chain([0, b.h, ...flat.flatMap(a => [a.y, a.y + a.h])], false);
   // габариты
@@ -6175,7 +6331,7 @@ async function drawingPage() {
   const ty = PH - M - TB + 10; line(M, ty - 10, PW - M, ty - 10, 1.2, '#9ca3af');
   txt(doc.title || DEFAULT_TITLE, M, ty + 20, { size: 26, bold: true, align: 'left' });
   txt(`Чертёж стенда · ${mmTxt(b.w)} × ${mmTxt(b.h)} мм · ПВХ ${b.thickness} мм · масштаб ≈ 1:${Math.round(1 / (k * 25.4 / 150))} · ${new Date().toLocaleDateString('ru-RU')}`, M, ty + 56, { size: 16, color: '#4b5563', align: 'left' });
-  txt('Размеры в мм. Номера карманов — как в таблице на следующем листе. «ц» в таблице — координаты центра наклонённого кармана.', PW - M, ty + 56, { size: 14, color: '#6b7280', align: 'right' });
+  txt('Размеры в мм. Номера карманов и изделий (Э) — как в таблицах на следующих листах. «ц» в таблице — координаты центра наклонённого кармана.', PW - M, ty + 56, { size: 14, color: '#6b7280', align: 'right' });
   if (h) txt(`Отверстия: ${allHoles().length} шт, сверло Ø${mmTxt(h.d)}, ${FINISH_TXT[h.finish]}`, PW - M, ty + 20, { size: 16, color: '#111827', align: 'right' });
   return c;
 }
@@ -7300,6 +7456,9 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-08k', date: '8 ноября 2026', items: [
+    'Кнопка «Элемент» внизу слева (вместо «Раздел» — разделы остались в свойствах подложки): перекидная система A4/A3, объёмные карманы для буклетов (A4, A5, евро) и визиток, книга замечаний и предложений (карман-ячейка, полочка или держатель), ячейка из оргстекла для записок, магнитно-маркерная доска.',
+    'Изделия видны на макете, попадают в спецификацию отдельной таблицей с пустой ценой за штуку (вписывают от руки) и на чертёж для цеха — с номерами Э1, Э2… и координатами. На основе для печати их нет, метки сборки под них есть.'] },
   { v: '2026-11-08j', date: '8 ноября 2026', items: [
     'Экспорт → «Что экспортировать»: «Основа для печати» — только то, что печатается на ПВХ, без карманов. Галочка «Печатать метки на основе» добавляет Г-образные уголки под карманы (у кармана с вырезом в углу — три уголка) и крестики центров отверстий.',
     'Чертёж для цеха: PDF A4 — лист с размерами стенда, цепочками отступов и зазоров, номерами карманов и отверстиями (лист сам поворачивается, чтобы чертёж был крупнее), дальше — таблицы координат карманов, отверстий (чем закрыть) и спецификация. Кнопка — в окне спецификации.',
