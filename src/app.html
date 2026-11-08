@@ -1750,8 +1750,7 @@ $('#layersFoot').append(layerMenu,
     B('layer', 'Слой', e => { e.stopPropagation(); layerMenu.hidden = !layerMenu.hidden; }, { cls: 'btn', title: 'Добавить слой с заливкой', after: ic('chev') }),
     B('pocket', 'Карман', addPocket, { cls: 'btn', title: 'Добавить карман' }),
     B('text', 'Текст', addText, { cls: 'btn', title: 'Добавить текст' }),
-    B('holes', 'Отверстия', addHoles, { cls: 'btn', title: 'Отверстия под крепёж — в свойствах подложки' }),
-    B('scissors', 'Раздел', addSplit, { cls: 'btn wide', title: 'Разделить подложку на части линией' })));
+    B('scissors', 'Раздел', addSplit, { cls: 'btn', title: 'Разделить подложку на части линией' })));
 document.addEventListener('pointerdown', e => { if (!layerMenu.hidden && !layerMenu.contains(e.target)) layerMenu.hidden = true; });
 
 let renaming = false, dragLayer = null;
@@ -2690,6 +2689,9 @@ stage.addEventListener('wheel', e => {
 }, { passive: false });
 stage.addEventListener('auxclick', e => e.preventDefault());
 stage.addEventListener('contextmenu', e => e.preventDefault());
+/* В Windows событие contextmenu приходит после отпускания кнопки — уже над нашим меню. Глушим системное меню
+   над холстом, нашим меню и списком слоёв; в полях ввода оно остаётся (вставить, проверка орфографии) */
+document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('#stage, #ctxMenu, #layerList, #elTools') && !/INPUT|TEXTAREA/.test(e.target.tagName)) e.preventDefault(); });
 stage.addEventListener('dblclick', e => {
   const hit = e.target.closest && e.target.closest('[data-id]'), o = hit && byId(hit.dataset.id);
   if (o && o.type === 'text' && !o.locked) { select(o.id); focusText(); }
