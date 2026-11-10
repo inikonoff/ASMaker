@@ -291,6 +291,7 @@ fieldset:disabled{opacity:.5}
 .row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
 .row:last-child{margin-bottom:0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.wh-swap{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;margin-bottom:8px;align-items:center}.wh-swap>.btn{padding:0 6px;min-width:0}
 .cap{color:var(--muted);font-size:12px;margin-bottom:4px}
 .info{font-size:12px;color:var(--text);background:var(--panel2);border-radius:7px;padding:6px 8px;margin-bottom:8px;font-variant-numeric:tabular-nums}
 input.txt,textarea.txt,select{height:30px;border:1px solid var(--line);border-radius:7px;padding:0 8px;font:inherit;background:var(--input);color:inherit;width:100%;min-width:0}
@@ -2904,8 +2905,9 @@ function buildItem(o) {
   if (o.kind === 'booklet' || o.kind === 'cards' || o.kind === 'notes') kids.push(el('div', { class: 'grid2' }, intField('Глубина', () => O().depth, v => upd(null, x => x.depth = v), 5, 200, 'мм'), el('span')));
   if (o.kind === 'book') kids.push(row(sel_('Формат книги', [['A5', 'Книга A5'], ['A4', 'Книга A4']], () => O().fmt, (x, v) => x.fmt = v),
     sel_('Как держится книга', Object.entries(BOOK_MOUNT).map(([v, l]) => [v, l[0].toUpperCase() + l.slice(1)]), () => O().mount, (x, v) => x.mount = v)));
-  if (itemSizable(o)) kids.push(el('div', { class: 'grid2' },
-    lenField('Ш', () => O().lw, (v, k) => upd(k, keep(x => x.lw = v)), { min: 20, max: 5000 }), lenField('В', () => O().lh, (v, k) => upd(k, keep(x => x.lh = v)), { min: 20, max: 5000 })));
+  if (itemSizable(o)) kids.push(el('div', { class: 'wh-swap' },
+    lenField('Ш', () => O().lw, (v, k) => upd(k, keep(x => x.lw = v)), { min: 20, max: 5000 }),
+    B('swap', '', () => upd(null, keep(x => { [x.lw, x.lh] = [x.lh, x.lw]; })), { cls: 'btn', title: 'Поменять ширину и высоту местами' }), lenField('В', () => O().lh, (v, k) => upd(k, keep(x => x.lh = v)), { min: 20, max: 5000 })));
   const info = el('div', { class: 'info' }); bind(info, () => { const g = itemGeom(O()); return `На стенде: ${mmTxt(g.w)} × ${mmTxt(g.h)} мм`; }, 'textContent');
   return [
     sec(K.label,
@@ -3776,7 +3778,11 @@ function holesMarkup(o, exp, mode = view_.mode) {
   const pts = allHoles(), r = o.d / 2, bad = exp || mode === 'client' ? new Set() : badHoles(o, pts), vs = exp ? '' : ' vector-effect="non-scaling-stroke"';
   if (mode !== 'client') { // производство: центр сверления с крестиком, пунктиром — чем закроют
     const fr = o.finish === 'sticker' ? o.stickerD / 2 : o.finish !== 'none' ? CAP_D / 2 : 0, sw = exp ? 0.3 : 1, c = r * 0.9;
-    return pts.map((p, i) => (fr ? `<circle cx="${p.x}" cy="${p.y}" r="${fr}" fill="none" stroke="#9ca3af" stroke-width="${sw}" stroke-dasharray="${exp ? '1 0.8' : '3 2'}"${vs}/>` : '') +
+    const G = CAP_GRAD[o.finish], gid = 'capp-' + o.finish + (exp ? 'x' : ''); // отделку видно и тут: шляпка или кругляш, поверх — отверстие с крестиком
+    const look = p => G ? `<circle cx="${p.x}" cy="${p.y}" r="${fr}" fill="url(#${gid})" stroke="rgba(0,0,0,.3)" stroke-width="${sw}"${vs}/>`
+      : o.finish === 'sticker' ? `<circle cx="${p.x}" cy="${p.y}" r="${fr}" fill="${o.stickerColor}" stroke="#9ca3af" stroke-width="${sw}" stroke-dasharray="${exp ? '1 0.8' : '3 2'}"${vs}/>` : '';
+    return (G ? `<defs><radialGradient id="${gid}" cx=".5" cy=".5" r=".55" fx=".36" fy=".3"><stop offset="0" stop-color="${G[0]}"/><stop offset=".55" stop-color="${G[1]}"/><stop offset="1" stop-color="${G[2]}"/></radialGradient></defs>` : '') +
+      pts.map((p, i) => look(p) +
       `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${o.color}" fill-opacity=".85" stroke="#fff" stroke-opacity=".7" stroke-width="${exp ? 0.4 : 1}"${vs}/>` +
       `<path d="M${p.x - c} ${p.y}H${p.x + c}M${p.x} ${p.y - c}V${p.y + c}" stroke="#fff" stroke-width="${sw}"${vs}/>` +
       (bad.has(i) ? `<circle cx="${p.x}" cy="${p.y}" r="${Math.max(r, fr) + 3}" fill="none" stroke="#e11d48" stroke-width="2"${vs}/>` : '')).join('');
@@ -4884,8 +4890,9 @@ function buildPocket(o) {
         row(checkField('Отображать имя на кармане', () => O().showName, v => upd(null, x => x.showName = v))),
         cap('Формат вкладыша'),
         row(fmtSel, flipButton(o.id), rotButton(o.id)),
-        el('div', { class: 'grid2' },
+        el('div', { class: 'wh-swap' },
           lenField('Ш', () => O().iw, (v, k) => upd(k, x => x.iw = v), { min: 10, max: 5000, title: 'Ширина вкладыша' }),
+          B('swap', '', () => upd(null, x => { const cx = x.x + x.w / 2, cy = x.y + x.h / 2; [x.iw, x.ih] = [x.ih, x.iw]; syncDerived(x); x.x = r2(cx - x.w / 2); x.y = r2(cy - x.h / 2); }), { cls: 'btn', title: 'Поменять ширину и высоту местами' }),
           lenField('В', () => O().ih, (v, k) => upd(k, x => x.ih = v), { min: 10, max: 5000, title: 'Высота вкладыша' })),
         outer,
         posGrid(O, upd),
@@ -7456,6 +7463,9 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-11a', date: '11 ноября 2026', items: [
+    'Отделка отверстий видна и в виде «Производство»: шляпка или кругляш, поверх — точка сверления с крестиком.',
+    'Между «Ш» и «В» вкладыша — кнопка ⇆: меняет ширину и высоту местами, карман остаётся на месте по центру. Такая же — у ячейки для записок и доски.'] },
   { v: '2026-11-08k', date: '8 ноября 2026', items: [
     'Кнопка «Элемент» внизу слева (вместо «Раздел» — разделы остались в свойствах подложки): перекидная система A4/A3, объёмные карманы для буклетов (A4, A5, евро) и визиток, книга замечаний и предложений (карман-ячейка, полочка или держатель), ячейка из оргстекла для записок, магнитно-маркерная доска.',
     'Изделия видны на макете, попадают в спецификацию отдельной таблицей с пустой ценой за штуку (вписывают от руки) и на чертёж для цеха — с номерами Э1, Э2… и координатами. На основе для печати их нет, метки сборки под них есть.'] },
