@@ -2303,8 +2303,8 @@ function sliderField(get, set, { min = 0, max = 100, key, suffix = '%', def, inM
   if (def != null) r.addEventListener('dblclick', () => set(def, null));
   const n = el('input', { type: 'text', inputmode: 'numeric' });
   bind(r, () => String(Math.round(get()))); bind(n, () => String(Math.round(get())));
-  r.addEventListener('input', () => set(+r.value, key));
-  n.addEventListener('change', () => { const v = parseFloat(n.value.replace(',', '.')); if (isFinite(v)) set(clamp(v, min, inMax ?? max), null); n.value = String(Math.round(get())); });
+  r.addEventListener('input', () => { set(+r.value, key); n.value = String(Math.round(get())); }); // цифра сразу, даже где панель не перерисовывается (окно экспорта)
+  n.addEventListener('change', () => { const v = parseFloat(n.value.replace(',', '.')); if (isFinite(v)) set(clamp(v, min, inMax ?? max), null); n.value = r.value = String(Math.round(get())); });
   n.addEventListener('keydown', e => { if (e.key === 'Enter') n.blur(); });
   return el('div', { class: 'slider' }, r, el('label', { class: 'nf' }, n, el('i', {}, suffix)));
 }
@@ -5166,6 +5166,7 @@ function renderSharedBar() {
 const WHATS_NEW = [
   { v: '2026-11-11a', date: '11 ноября 2026', items: [
     'Отделка отверстий видна и в виде «Производство»: шляпка или кругляш, поверх — точка сверления с крестиком.',
+    'Экспорт: цифра качества JPEG меняется вместе с ползунком.',
     'Между «Ш» и «В» вкладыша — кнопка ⇆: меняет ширину и высоту местами, карман остаётся на месте по центру. Такая же — у ячейки для записок и доски.'] },
   { v: '2026-11-08k', date: '8 ноября 2026', items: [
     'Кнопка «Элемент» внизу слева (вместо «Раздел» — разделы остались в свойствах подложки): перекидная система A4/A3, объёмные карманы для буклетов (A4, A5, евро) и визиток, книга замечаний и предложений (карман-ячейка, полочка или держатель), ячейка из оргстекла для записок, магнитно-маркерная доска.',
