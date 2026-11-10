@@ -341,6 +341,7 @@ kbd{font:11px/1 ui-monospace,monospace;border:1px solid var(--line);border-botto
 @media (max-width:1100px){.hide-sm{display:none}}
 .seg button.soon{opacity:.45;font-style:italic}
 .row select.fs-sel{flex:0 0 auto;width:auto}
+.info.strong{font-weight:600;color:var(--text,#111827)}
 </style>
 </head>
 <body>
@@ -1986,7 +1987,8 @@ function renderOverlay() {
         }
       } else {
         const a = angleOf(o);
-        K.push(svText(`${fmtLen(o.w)} × ${fmtLen(o.h)}` + (a ? ` · ${String(r2(a)).replace('.', ',')}°` : ''), o.x + o.w / 2, o.y + o.h + 16 / z, 11 / z, 'dim acc', 'middle'));
+        const cs = contentSize(o);
+        K.push(svText(`${fmtLen(o.w)} × ${fmtLen(o.h)}` + (cs ? ` · видно ${fmtLen(cs.w)} × ${fmtLen(cs.h)}` : '') + (a ? ` · ${String(r2(a)).replace('.', ',')}°` : ''), o.x + o.w / 2, o.y + o.h + 16 / z, 11 / z, 'dim acc', 'middle'));
         if (!o.locked) {
           handles(K, o.x, o.y, o.w, o.h, o.type === 'text' ? (o.rot % 180 ? ['n', 's'] : ['e', 'w']) : undefined);
           // ручка поворота над верхней стороной
@@ -2484,12 +2486,50 @@ function buildBase(o) {
     layerSection(o, O, upd),
   ];
 }
+/* видимое содержимое слоя: картинка после «Вписать/Заполнить» и без прозрачных полей PNG */
+const alphaBoxes = new Map(); // asset → доли {x0,y0,x1,y1} непрозрачной части или 'wait'
+function alphaBox(asset) {
+  if (alphaBoxes.has(asset)) { const v = alphaBoxes.get(asset); return v === 'wait' ? null : v; }
+  alphaBoxes.set(asset, 'wait');
+  const img = new Image();
+  img.onload = () => {
+    let box = { x0: 0, y0: 0, x1: 1, y1: 1 };
+    try {
+      const k = Math.min(1, 1500 / Math.max(img.naturalWidth, img.naturalHeight)), W = Math.max(1, Math.round(img.naturalWidth * k)), H = Math.max(1, Math.round(img.naturalHeight * k));
+      const c = el('canvas'); c.width = W; c.height = H; const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, W, H);
+      const d = x.getImageData(0, 0, W, H).data; let x0 = W, y0 = H, x1 = -1, y1 = -1;
+      for (let y = 0; y < H; y++) for (let i = 0; i < W; i++) if (d[(y * W + i) * 4 + 3] > 12) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      if (x1 >= 0) box = { x0: x0 / W, y0: y0 / H, x1: (x1 + 1) / W, y1: (y1 + 1) / H };
+    } catch {}
+    alphaBoxes.set(asset, box); invalidate('overlay', 'props');
+  };
+  img.onerror = () => alphaBoxes.set(asset, { x0: 0, y0: 0, x1: 1, y1: 1 });
+  img.src = assets[asset];
+  return null;
+}
+function contentSize(o) { // размер видимой части в мм (как на экране) или null, если совпадает с рамкой
+  if (o.type !== 'shape' || !o.image || !assets[o.image.asset]) return null;
+  const a = alphaBox(o.image.asset); if (!a) return null;
+  const l = localWH(o), ar = o.image.ar || 1, fit = o.image.fit;
+  let iw = l.w, ih = l.h;
+  if (fit === 'contain') { if (ar > l.w / l.h) ih = l.w / ar; else iw = l.h * ar; }
+  else if (fit === 'cover') { if (ar > l.w / l.h) iw = l.h * ar; else ih = l.w / ar; }
+  const ox = (l.w - iw) / 2, oy = (l.h - ih) / 2;
+  const x0 = Math.max(0, ox + a.x0 * iw), x1 = Math.min(l.w, ox + a.x1 * iw), y0 = Math.max(0, oy + a.y0 * ih), y1 = Math.min(l.h, oy + a.y1 * ih);
+  let w = Math.max(0, x1 - x0), h = Math.max(0, y1 - y0);
+  if (Math.abs(w - l.w) < 1 && Math.abs(h - l.h) < 1) return null;
+  if (o.rot % 180) [w, h] = [h, w];
+  return { w: Math.round(w), h: Math.round(h) };
+}
 function buildShape(o) {
   const [O, upd] = ctx(o);
   return [
     sec('Слой',
       el('fieldset', { disabled: o.locked },
         row(textField(() => O().name, v => upd(null, x => x.name = v), 'Слой')),
+        (() => { const i = el('div', { class: 'info strong' }); bind(i, () => { const c = contentSize(O()); i.hidden = !c; return c ? `Видимая часть: ${fmtLen(c.w)} × ${fmtLen(c.h)} ${unitLabel()}` : ''; }, 'textContent');
+          i.title = 'Размер самой картинки — без пустых полей, прозрачного фона PNG и того, что обрезано рамкой'; return i; })(),
+        cap('Рамка слоя'),
         el('div', { class: 'grid2' },
           lenField('Ш', () => O().w, (v, k) => upd(k, x => x.w = v), { min: 1, max: 20000 }),
           lenField('В', () => O().h, (v, k) => upd(k, x => x.h = v), { min: 1, max: 20000 })),
@@ -5167,6 +5207,7 @@ const WHATS_NEW = [
   { v: '2026-11-11a', date: '11 ноября 2026', items: [
     'Отделка отверстий видна и в виде «Производство»: шляпка или кругляш, поверх — точка сверления с крестиком.',
     'Экспорт: цифра качества JPEG меняется вместе с ползунком.',
+    'Слой с картинкой: в свойствах и под выделением показывается размер видимой части — без пустых полей, прозрачного фона PNG и обрезанного рамкой. Поля Ш и В — по-прежнему размер рамки.',
     'Между «Ш» и «В» вкладыша — кнопка ⇆: меняет ширину и высоту местами, карман остаётся на месте по центру. Такая же — у ячейки для записок и доски.'] },
   { v: '2026-11-08k', date: '8 ноября 2026', items: [
     'Кнопка «Элемент» внизу слева (вместо «Раздел» — разделы остались в свойствах подложки): перекидная система A4/A3, объёмные карманы для буклетов (A4, A5, евро) и визиток, книга замечаний и предложений (карман-ячейка, полочка или держатель), ячейка из оргстекла для записок, магнитно-маркерная доска.',
