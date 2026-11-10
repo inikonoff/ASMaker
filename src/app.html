@@ -761,6 +761,7 @@ function normalizeObj(raw, ids) {
   if (o.type === 'shape') {
     o.radius = isFinite(o.radius) ? Math.max(0, +o.radius) : 0;
     const im = o.image; o.image = im && typeof im.asset === 'string' ? { asset: im.asset, opacity: isFinite(im.opacity) ? im.opacity : 1, fit: ['cover', 'contain', 'stretch'].includes(im.fit) ? im.fit : 'cover', ar: im.ar > 0 ? im.ar : 1 } : null;
+    if (o.image && Array.isArray(im.crop) && im.crop.length === 4 && im.crop.every(v => isFinite(v)) && im.crop[2] > im.crop[0] && im.crop[3] > im.crop[1]) o.image.crop = im.crop.map(v => clamp(+v, 0, 1));
   }
   if (o.type === 'pocket') { o.showName = o.showName !== false; o.nameFs = clamp(+o.nameFs || 0, 0, 500); }
   if (o.type === 'pocket') {
@@ -1526,9 +1527,11 @@ function shapeMarkup(o, exp) {
   if (p.fill !== 'none') m += `<rect width="${l.w}" height="${l.h}" rx="${o.radius}" fill="${p.fill}" fill-opacity="${o.fillOpacity}"/>`;
   else if (!exp) m += `<rect width="${l.w}" height="${l.h}" rx="${o.radius}" fill="transparent"/>`;
   if (href) {
-    const cid = 'sc-' + o.id, clip = o.radius > 0;
+    const cr = o.image.crop, cid = 'sc-' + o.id + (exp ? 'x' : ''), clip = o.radius > 0 || !!cr;
+    const ir = imageRect(o, l); // при обрезке картинка больше рамки и сдвинута; лишнее срезает clipPath
     m += (clip ? `<clipPath id="${cid}"><rect width="${l.w}" height="${l.h}" rx="${o.radius}"/></clipPath>` : '') +
-      `<image href="${href}"${exp ? ` xlink:href="${href}"` : ''} width="${l.w}" height="${l.h}" preserveAspectRatio="${FIT_PAR[o.image.fit]}" opacity="${o.image.opacity}"${clip ? ` clip-path="url(#${cid})"` : ''}/>`;
+      (cr ? `<g clip-path="url(#${cid})"><image href="${href}"${exp ? ` xlink:href="${href}"` : ''} x="${r2(ir.x)}" y="${r2(ir.y)}" width="${r2(ir.w)}" height="${r2(ir.h)}" preserveAspectRatio="none" opacity="${o.image.opacity}"/></g>`
+        : `<image href="${href}"${exp ? ` xlink:href="${href}"` : ''} width="${l.w}" height="${l.h}" preserveAspectRatio="${FIT_PAR[o.image.fit]}" opacity="${o.image.opacity}"${clip ? ` clip-path="url(#${cid})"` : ''}/>`);
   } else if (!exp && p.fill === 'none') {
     m += `<rect width="${l.w}" height="${l.h}" rx="${o.radius}" fill="none" stroke="#9ca3af" stroke-width="1" stroke-dasharray="6 4" vector-effect="non-scaling-stroke"/>` +
       `<text x="${l.w / 2}" y="${l.h / 2}" font-size="${Math.min(l.w, l.h) * 0.09}" text-anchor="middle" dominant-baseline="central" fill="#9ca3af" font-family="system-ui,sans-serif">пустой слой</text>`;
@@ -2507,19 +2510,45 @@ function alphaBox(asset) {
   img.src = assets[asset];
   return null;
 }
-function contentSize(o) { // размер видимой части в мм (как на экране) или null, если совпадает с рамкой
-  if (o.type !== 'shape' || !o.image || !assets[o.image.asset]) return null;
-  const a = alphaBox(o.image.asset); if (!a) return null;
-  const l = localWH(o), ar = o.image.ar || 1, fit = o.image.fit;
-  let iw = l.w, ih = l.h;
+function imageRect(o, l = localWH(o)) { // где лежит вся картинка в рамке слоя (локальные мм)
+  const cr = o.image.crop;
+  if (cr) { const iw = l.w / (cr[2] - cr[0]), ih = l.h / (cr[3] - cr[1]); return { x: -cr[0] * iw, y: -cr[1] * ih, w: iw, h: ih }; }
+  const ar = o.image.ar || 1, fit = o.image.fit; let iw = l.w, ih = l.h;
   if (fit === 'contain') { if (ar > l.w / l.h) ih = l.w / ar; else iw = l.h * ar; }
   else if (fit === 'cover') { if (ar > l.w / l.h) iw = l.h * ar; else ih = l.w / ar; }
-  const ox = (l.w - iw) / 2, oy = (l.h - ih) / 2;
-  const x0 = Math.max(0, ox + a.x0 * iw), x1 = Math.min(l.w, ox + a.x1 * iw), y0 = Math.max(0, oy + a.y0 * ih), y1 = Math.min(l.h, oy + a.y1 * ih);
-  let w = Math.max(0, x1 - x0), h = Math.max(0, y1 - y0);
-  if (Math.abs(w - l.w) < 1 && Math.abs(h - l.h) < 1) return null;
-  if (o.rot % 180) [w, h] = [h, w];
+  return { x: (l.w - iw) / 2, y: (l.h - ih) / 2, w: iw, h: ih };
+}
+function contentRect(o) { // видимая часть в локальных мм рамки, или null — ещё не посчитано / нет картинки
+  if (o.type !== 'shape' || !o.image || !assets[o.image.asset]) return null;
+  const a = alphaBox(o.image.asset); if (!a) return null;
+  const l = localWH(o), ir = imageRect(o, l);
+  const x0 = Math.max(0, ir.x + a.x0 * ir.w), x1 = Math.min(l.w, ir.x + a.x1 * ir.w), y0 = Math.max(0, ir.y + a.y0 * ir.h), y1 = Math.min(l.h, ir.y + a.y1 * ir.h);
+  return { x: x0, y: y0, w: Math.max(0, x1 - x0), h: Math.max(0, y1 - y0), l, ir };
+}
+function contentSize(o) { // размер видимой части в мм (как на экране) или null, если совпадает с рамкой
+  const c = contentRect(o); if (!c || (Math.abs(c.w - c.l.w) < 1 && Math.abs(c.h - c.l.h) < 1)) return null;
+  let w = c.w, h = c.h; if (o.rot % 180) [w, h] = [h, w];
   return { w: Math.round(w), h: Math.round(h) };
+}
+function fitFrameToContent(x) { // рамка = видимая часть; картинка остаётся на том же месте стенда
+  const c = contentRect(x); if (!c || c.w < 1 || c.h < 1) return false;
+  const { l, ir } = c;
+  x.image.crop = [(c.x - ir.x) / ir.w, (c.y - ir.y) / ir.h, (c.x + c.w - ir.x) / ir.w, (c.y + c.h - ir.y) / ir.h].map(v => Math.round(clamp(v, 0, 1) * 1e5) / 1e5);
+  let dx = c.x + c.w / 2 - l.w / 2, dy = c.y + c.h / 2 - l.h / 2; // сдвиг центра: поворот → отражение → наклон, как в objTransform
+  const R = (v, deg) => { const a = deg * Math.PI / 180; return [v[0] * Math.cos(a) - v[1] * Math.sin(a), v[0] * Math.sin(a) + v[1] * Math.cos(a)]; };
+  let v = R([dx, dy], x.rot); if (x.flip) v[0] = -v[0]; v = R(v, tiltOf(x));
+  const cx = x.x + x.w / 2 + v[0], cy = x.y + x.h / 2 + v[1];
+  const q = x.rot % 180; x.w = r2(q ? c.h : c.w); x.h = r2(q ? c.w : c.h);
+  x.x = r2(cx - x.w / 2); x.y = r2(cy - x.h / 2);
+  return true;
+}
+function contentInfo(O) {
+  const i = el('div', { class: 'info strong' }); bind(i, () => { const c = contentSize(O()); i.hidden = !c; return c ? `Видимая часть: ${fmtLen(c.w)} × ${fmtLen(c.h)} ${unitLabel()}` : ''; }, 'textContent');
+  i.title = 'Размер самой картинки — без пустых полей, прозрачного фона PNG и того, что обрезано рамкой'; return i;
+}
+function fitFrameBtn(O, upd) {
+  const b_ = B('fit', 'Подогнать рамку по картинке', () => upd(null, x => { if (!fitFrameToContent(x)) toast('Картинка ещё считается — попробуйте через секунду'); }), { cls: 'btn', title: 'Рамка сожмётся до видимой части картинки — прозрачные края и пустые поля уйдут, сама картинка останется на месте' });
+  const w = el('div', { class: 'btns', style: 'margin-bottom:8px' }, b_); bindFn(() => !!contentSize(O()), on => { w.hidden = !on; }); return w;
 }
 function buildShape(o) {
   const [O, upd] = ctx(o);
@@ -2527,8 +2556,7 @@ function buildShape(o) {
     sec('Слой',
       el('fieldset', { disabled: o.locked },
         row(textField(() => O().name, v => upd(null, x => x.name = v), 'Слой')),
-        (() => { const i = el('div', { class: 'info strong' }); bind(i, () => { const c = contentSize(O()); i.hidden = !c; return c ? `Видимая часть: ${fmtLen(c.w)} × ${fmtLen(c.h)} ${unitLabel()}` : ''; }, 'textContent');
-          i.title = 'Размер самой картинки — без пустых полей, прозрачного фона PNG и того, что обрезано рамкой'; return i; })(),
+        contentInfo(O),
         cap('Рамка слоя'),
         el('div', { class: 'grid2' },
           lenField('Ш', () => O().w, (v, k) => upd(k, x => x.w = v), { min: 1, max: 20000 }),
@@ -2550,17 +2578,17 @@ function shapeImageSection(o, O, upd) {
     el('div', { class: 'drop' }, B('image', 'Выбрать изображение', () => chooseImage(o.id), { cls: 'btn' }), el('div', {}, 'или перетащите файл прямо на слой'))));
   const t = el('div', { class: 'thumb' }); t.style.backgroundImage = `url("${assets[i.asset]}")`;
   const fitSeg = el('div', { class: 'seg full' }, [['cover', 'Заполнить'], ['contain', 'Вписать'], ['stretch', 'Растянуть']].map(([v, l]) => {
-    const b = el('button', { type: 'button' }, l); b.addEventListener('click', () => upd(null, x => x.image && (x.image.fit = v)));
+    const b = el('button', { type: 'button' }, l); b.addEventListener('click', () => upd(null, x => { if (x.image) { x.image.fit = v; delete x.image.crop; } }));
     bindFn(() => O().image?.fit === v, on => b.classList.toggle('on', on)); return b;
   }));
   return sec('Изображение', el('fieldset', { disabled: o.locked },
-    t,
+    t, contentInfo(O), fitFrameBtn(O, upd),
     el('div', { class: 'btns', style: 'margin-bottom:10px' },
       B('folder', 'Заменить', () => chooseImage(o.id), { cls: 'btn' }),
       B('trash', 'Убрать', () => upd(null, x => x.image = null), { cls: 'btn' })),
     row(fitSeg),
     el('div', { class: 'btns', style: 'margin-bottom:10px' }, el('button', { type: 'button', class: 'btn', title: 'Изменить высоту слоя так, чтобы пропорции совпали с картинкой',
-      onclick: () => upd(null, x => { const ar = x.image.ar || 1, q = x.rot % 180; if (q) x.w = Math.round(x.h * ar); else x.h = Math.round(x.w / ar); }) }, 'Пропорции как у картинки')),
+      onclick: () => upd(null, x => { const cr = x.image.crop, ar = cr ? (x.image.ar || 1) * (cr[2] - cr[0]) / (cr[3] - cr[1]) : x.image.ar || 1, q = x.rot % 180; if (q) x.w = Math.round(x.h * ar); else x.h = Math.round(x.w / ar); }) }, 'Пропорции как у картинки')),
     cap('Прозрачность изображения'),
     row(sliderField(() => O().image ? O().image.opacity * 100 : 100, (v, k) => upd(k, x => x.image && (x.image.opacity = v / 100)), { key: 'shImgOp', def: 100 }))));
 }
@@ -5207,7 +5235,7 @@ const WHATS_NEW = [
   { v: '2026-11-11a', date: '11 ноября 2026', items: [
     'Отделка отверстий видна и в виде «Производство»: шляпка или кругляш, поверх — точка сверления с крестиком.',
     'Экспорт: цифра качества JPEG меняется вместе с ползунком.',
-    'Слой с картинкой: в свойствах и под выделением показывается размер видимой части — без пустых полей, прозрачного фона PNG и обрезанного рамкой. Поля Ш и В — по-прежнему размер рамки.',
+    'Слой с картинкой: в свойствах и под выделением показывается размер видимой части — без пустых полей, прозрачного фона PNG и обрезанного рамкой. Поля Ш и В — по-прежнему размер рамки. Кнопка «Подогнать рамку по картинке» сжимает рамку до видимой части, картинка остаётся на месте.',
     'Между «Ш» и «В» вкладыша — кнопка ⇆: меняет ширину и высоту местами, карман остаётся на месте по центру. Такая же — у ячейки для записок и доски.'] },
   { v: '2026-11-08k', date: '8 ноября 2026', items: [
     'Кнопка «Элемент» внизу слева (вместо «Раздел» — разделы остались в свойствах подложки): перекидная система A4/A3, объёмные карманы для буклетов (A4, A5, евро) и визиток, книга замечаний и предложений (карман-ячейка, полочка или держатель), ячейка из оргстекла для записок, магнитно-маркерная доска.',
