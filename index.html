@@ -342,6 +342,8 @@ kbd{font:11px/1 ui-monospace,monospace;border:1px solid var(--line);border-botto
 .seg button.soon{opacity:.45;font-style:italic}
 .row select.fs-sel{flex:0 0 auto;width:auto}
 .info.strong{font-weight:600;color:var(--text,#111827)}
+.menu-sep{height:1px;background:var(--line,#e5e7eb);margin:4px 0}
+.plate-presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.plate-presets .btn{font-size:12px;padding:4px 8px}
 </style>
 </head>
 <body>
@@ -2722,6 +2724,9 @@ const ICON = {
   share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
   download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  shuffle: '<path d="M3 7h4l10 10h4M3 17h4l10-10h4M18 4l3 3-3 3M18 14l3 3-3 3"/>',
+  divider: '<path d="M3 12h6M15 12h6"/><path d="M12 9l3 3-3 3-3-3z"/>',
+  plate: '<path d="M6 7h12l3 5-3 5H6l-3-5z"/>',
   item: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 12h16M9 7h6"/>',
   archive: '<path d="M4 7h16v13H4zM3 3h18v4H3zM10 11h4"/>',
   folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/>',
@@ -2793,12 +2798,12 @@ const HOLES_DEFAULT = () => ({ on: false, count: 4, d: 6, inset: 20, color: '#37
 const makeBase = () => ({ ...common(), type: 'base', name: 'База', x: 0, y: 0, w: 1000, h: 700, thickness: 4, ...fillDefaults('#ffffff', '#dbe4ff'), image: null, holes: HOLES_DEFAULT(), splits: [], partMargin: 50 });
 const makeShape = (kind = 'solid') => ({ ...common(), type: 'shape', name: 'Слой', x: 0, y: 0, w: 300, h: 200, rot: 0, radius: 0, image: null,
   ...fillDefaults(kind === 'grad' ? '#2563eb' : '#f59e0b', '#a5f3fc', kind === 'grad' ? 'linear' : kind === 'empty' ? 'none' : 'solid') });
-const makePocket = () => ({ ...common(), type: 'pocket', name: 'Карман', x: 0, y: 0, w: 0, h: 0, rot: 0, iw: 210, ih: 297,
+const makePocket = () => ({ ...common(), type: 'pocket', name: 'Карман', x: 0, y: 0, w: 0, h: 0, rot: 0, iw: 210, ih: 297, fill: 'none', fillSeed: 1 + Math.floor(Math.random() * 1e6), fillAccent: '#1f2937',
   sides: { t: false, r: true, b: true, l: true }, tape: 10, tapeColor: '#ffffff', gap: 2, notch: 'round', notchSize: 20, showName: true, nameFs: 0, film: true, filmW: 15, image: null });
 const makeText = () => ({ ...common(), type: 'text', name: 'Текст', x: 0, y: 0, w: 0, h: 0, rot: 0,
   text: 'Заголовок стенда', font: 'Montserrat', size: 60, weight: 700, italic: false, underline: false, strike: false, caps: false,
   align: 'center', lh: 1.2, ls: 0, skew: 0, color: '#1f2937', colorOpacity: 1, strokeW: 0, strokeColor: '#ffffff', wrap: false, boxW: 600,
-  shadow: { on: false, color: '#000000', opacity: 0.5, dx: 2, dy: 3, blur: 2 } });
+  shadow: { on: false, color: '#000000', opacity: 0.5, dx: 2, dy: 3, blur: 2 }, plate: { ...PLATE_DEF } });
 const makeGrid = () => ({ ...common(), type: 'grid', name: 'Сетка', x: 0, y: 0, w: 0, h: 0, step: 50, color: '#2563eb', lineOpacity: 0.35, snap: true, export: false });
 const makeHoles = () => ({ ...common(), type: 'holes', name: 'Отверстия', x: 0, y: 0, w: 0, h: 0, count: 4, d: 6, inset: 20, color: '#374151' });
 const makeQR = () => ({ ...common(), type: 'qr', name: 'QR-код', x: 0, y: 0, w: 120, h: 120, rot: 0, text: 'https://inikonoff.github.io/ASMaker/', color: '#111827', bg: '#ffffff', bgOn: true, ecl: 'M', margin: 2 });
@@ -2920,7 +2925,7 @@ function buildItem(o) {
     layerSection(o, O, upd),
   ];
 }
-const MAKERS = { base: makeBase, shape: () => makeShape(), pocket: makePocket, holes: makeHoles, text: makeText, grid: makeGrid, qr: makeQR, item: makeItem }; // holes — только для чтения старых проектов
+const MAKERS = { base: makeBase, shape: () => makeShape(), pocket: makePocket, holes: makeHoles, text: makeText, grid: makeGrid, qr: makeQR, item: makeItem, divider: () => makeDivider() }; // holes — только для чтения старых проектов
 const DEFAULT_TITLE = 'Конструктор стендов';
 const UNITS = { 'шт': ['count', 1], 'компл.': ['count', 1], 'лист': ['sheet', 1], 'упак.': ['count', 1], 'усл.': ['count', 1], 'ч': ['time', 1],
   'мм': ['len', 0.001], 'см': ['len', 0.01], 'м.пог.': ['len', 1], 'см²': ['area', 1e-4], 'м²': ['area', 1], 'кг': ['mass', 1], 'л': ['vol', 1] };
@@ -2954,12 +2959,13 @@ function syncDerived(o) {
   let l = null;
   if (o.type === 'pocket') l = pocketGeom(o);
   else if (o.type === 'item') l = itemGeom(o);
+  else if (o.type === 'divider') l = { w: o.lw, h: o.lh };
   else if (o.type === 'text') l = textLayout(o);
   if (!l) return;
   const q = o.rot % 180; o.w = r2(q ? l.h : l.w); o.h = r2(q ? l.w : l.h);
 }
 /* размеры элемента до поворота (в его собственной системе координат) */
-const localWH = o => o.type === 'pocket' ? pocketGeom(o) : o.type === 'item' ? itemGeom(o) : (o.rot % 180 ? { w: o.h, h: o.w } : { w: o.w, h: o.h });
+const localWH = o => o.type === 'pocket' ? pocketGeom(o) : o.type === 'item' ? itemGeom(o) : o.type === 'divider' ? { w: o.lw, h: o.lh } : (o.rot % 180 ? { w: o.h, h: o.w } : { w: o.w, h: o.h });
 function objTransform(o) {
   if (o.type === 'holes') return null;
   if (o.type === 'grid') return null;
@@ -3007,7 +3013,7 @@ function normalizeObj(raw, ids) {
   const o = Object.assign(MAKERS[raw.type](), raw);
   if (typeof o.id !== 'string' || ids.has(o.id)) o.id = uid();
   if (typeof o.group !== 'string' || !o.group) delete o.group;
-  if (o.type === 'pocket' || o.type === 'shape' || o.type === 'text' || o.type === 'qr' || o.type === 'item') { const t = +o.tilt || 0; o.tilt = Math.abs(t) < 0.01 ? 0 : clamp(r2(t), -45, 45); } else delete o.tilt;
+  if (o.type === 'pocket' || o.type === 'shape' || o.type === 'text' || o.type === 'qr' || o.type === 'item' || o.type === 'divider') { const t = +o.tilt || 0; o.tilt = Math.abs(t) < 0.01 ? 0 : clamp(r2(t), -45, 45); } else delete o.tilt;
   for (const k of ['x', 'y']) if (!isFinite(o[k])) o[k] = 0;
   o.name = String(o.name || '').slice(0, 80) || MAKERS[o.type]().name;
   o.opacity = isFinite(o.opacity) ? clamp(+o.opacity, 0, 1) : 1;
@@ -3028,7 +3034,11 @@ function normalizeObj(raw, ids) {
       .map(l => ({ id: String(l.id || uid()), axis: l.axis, pos: clamp(+l.pos, 1, (l.axis === 'v' ? o.w : o.h) - 1) }));
     o.partMargin = isFinite(+o.partMargin) ? clamp(+o.partMargin, 0, 500) : 50;
   }
-  if (o.type === 'shape' || o.type === 'pocket' || o.type === 'text' || o.type === 'item') o.rot = [0, 90, 180, 270].includes(+o.rot) ? +o.rot : 0;
+  if (o.type === 'shape' || o.type === 'pocket' || o.type === 'text' || o.type === 'item' || o.type === 'divider') o.rot = [0, 90, 180, 270].includes(+o.rot) ? +o.rot : 0;
+  if (o.type === 'divider') {
+    if (!DIV_STYLES.some(d => d[0] === o.style)) o.style = 'line'; if (!ORNAMENTS.some(d => d[0] === o.orn) || o.orn === 'none') o.orn = 'flower';
+    o.color = normHex(o.color) || '#a16207'; o.weight = clamp(+o.weight || 1.5, 0.3, 10); o.lw = clamp(+o.lw || 600, 10, 10000); o.lh = clamp(+o.lh || 24, 2, 500); syncDerived(o);
+  }
   if (o.type === 'item') {
     if (!ITEM_KINDS[o.kind]) o.kind = 'booklet';
     if (!PAPER[o.fmt]) o.fmt = 'A4'; if (o.kind === 'book' && !BOOK[o.fmt]) o.fmt = 'A5'; if (o.kind === 'flip' && !['A4', 'A3'].includes(o.fmt)) o.fmt = 'A4';
@@ -3053,6 +3063,7 @@ function normalizeObj(raw, ids) {
     o.colorOpacity = isFinite(o.colorOpacity) ? clamp(+o.colorOpacity, 0, 1) : 1; o.strokeW = clamp(+o.strokeW || 0, 0, 100);
     o.boxW = clamp(+o.boxW || 600, 10, 20000);
     const sh = o.shadow && typeof o.shadow === 'object' ? o.shadow : {};
+    o.plate = normPlate(o.plate);
     o.shadow = { on: !!sh.on, color: normHex(sh.color) || '#000000', opacity: isFinite(sh.opacity) ? clamp(+sh.opacity, 0, 1) : 0.5, dx: isFinite(sh.dx) ? clamp(+sh.dx, -200, 200) : 2, dy: isFinite(sh.dy) ? clamp(+sh.dy, -200, 200) : 3, blur: isFinite(sh.blur) ? clamp(+sh.blur, 0, 100) : 2 };
     syncDerived(o);
   }
@@ -3062,7 +3073,8 @@ function normalizeObj(raw, ids) {
     const im = o.image; o.image = im && typeof im.asset === 'string' ? { asset: im.asset, opacity: isFinite(im.opacity) ? im.opacity : 1, fit: ['cover', 'contain', 'stretch'].includes(im.fit) ? im.fit : 'cover', ar: im.ar > 0 ? im.ar : 1 } : null;
     if (o.image && Array.isArray(im.crop) && im.crop.length === 4 && im.crop.every(v => isFinite(v)) && im.crop[2] > im.crop[0] && im.crop[3] > im.crop[1]) o.image.crop = im.crop.map(v => clamp(+v, 0, 1));
   }
-  if (o.type === 'pocket') { o.showName = o.showName !== false; o.nameFs = clamp(+o.nameFs || 0, 0, 500); }
+  if (o.type === 'pocket') { o.showName = o.showName !== false; o.nameFs = clamp(+o.nameFs || 0, 0, 500);
+    if (!FILL_KEYS.includes(o.fill)) o.fill = 'none'; o.fillSeed = (+o.fillSeed >>> 0) || 1 + Math.floor(Math.random() * 1e6); o.fillAccent = normHex(o.fillAccent) || '#1f2937'; }
   if (o.type === 'pocket') {
     if (!(o.iw > 0 && o.ih > 0)) return null;
     const s = o.sides || {}; o.sides = { t: !!s.t, r: !!s.r, b: !!s.b, l: !!s.l };
@@ -3145,7 +3157,7 @@ function partsOf(b = base()) {
   return out;
 }
 const allHoles = () => { const h = holesCfg(); return h ? partsOf().flatMap(r => holePoints(h, r)) : []; };
-const isBox = o => !!o && (o.type === 'pocket' || o.type === 'shape' || o.type === 'text' || o.type === 'qr' || o.type === 'item');
+const isBox = o => !!o && (o.type === 'pocket' || o.type === 'shape' || o.type === 'text' || o.type === 'qr' || o.type === 'item' || o.type === 'divider');
 const canFlip = o => !!o && (o.type === 'pocket' || o.type === 'shape');
 const gridCfg = () => doc.grid && doc.grid.on && !isClient() ? doc.grid : null;
 
@@ -3727,12 +3739,118 @@ function plasticPath(o, w, h) {
 }
 let textCtx; // ширина строки при кегле 1 — чтобы название кармана помещалось
 function textW(t, weight = 400) { textCtx ||= document.createElement('canvas').getContext('2d'); textCtx.font = `${weight} 100px system-ui, sans-serif`; return textCtx.measureText(t).width / 100; }
+/* ================= наполнение кармана: схема листа — заголовок, «волоски» текста, мягкие пейзажи ================= */
+const FILLS = [['none', 'Нет — только название'], ['text', 'Текст с заголовком'], ['img-tl', 'Текст, картинка слева вверху'], ['img-br', 'Текст, картинка справа внизу'],
+  ['img-diag', 'Текст, две картинки по диагонали'], ['img-pair', 'Текст, две картинки рядом'], ['cols', 'Две колонки с разделителем'], ['list', 'Список'], ['poster', 'Афиша'], ['photo', 'Фото во весь вкладыш']];
+const FILL_KEYS = FILLS.map(f => f[0]);
+function rngOf(seed) { let a = (seed >>> 0) || 1; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const SCENES = [ // небо сверху/у горизонта, солнце, слои земли от дальнего к ближнему
+  { sky: ['#9ec9ea', '#e8f3fb'], sun: '#fff4c2', land: ['#b9d3c2', '#8fbf8f', '#6aa56b'] },
+  { sky: ['#f6c7a1', '#fde9d3'], sun: '#fff1d6', land: ['#d7b8b0', '#b98f8a', '#8f6a6e'] },
+  { sky: ['#a9c4e8', '#eef2fb'], sun: '#ffffff', land: ['#9fb3cf', '#7f99bf', '#5b7aa8'], sea: true },
+  { sky: ['#c9b8e8', '#f3eefb'], sun: '#fff7e0', land: ['#b8a6d6', '#9a86c2', '#7a66a6'] },
+  { sky: ['#bfe0e0', '#f1faf6'], sun: '#fffbe6', land: ['#c7dba9', '#a8c784', '#86ad61'], trees: true },
+  { sky: ['#f2d49b', '#fbf1dc'], sun: '#fffaf0', land: ['#e0bf86', '#cf9f5f', '#b07b42'], trees: true },
+  { sky: ['#b7d7ef', '#f4f9fd'], sun: '#ffffff', land: ['#c5ccd6', '#9aa6b5', '#748296'], peaks: true },
+];
+function sceneMarkup(x, y, w, h, rnd, id) {
+  const S = SCENES[Math.floor(rnd() * SCENES.length)], hz = y + h * (0.45 + rnd() * 0.15), r2_ = v => Math.round(v * 100) / 100;
+  let m = `<defs><linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${S.sky[0]}"/><stop offset="1" stop-color="${S.sky[1]}"/></linearGradient>` +
+    `<radialGradient id="${id}u"><stop offset="0" stop-color="${S.sun}"/><stop offset=".45" stop-color="${S.sun}" stop-opacity=".9"/><stop offset="1" stop-color="${S.sun}" stop-opacity="0"/></radialGradient>` +
+    `<clipPath id="${id}c"><rect x="${r2_(x)}" y="${r2_(y)}" width="${r2_(w)}" height="${r2_(h)}"/></clipPath></defs><g clip-path="url(#${id}c)">` +
+    `<rect x="${r2_(x)}" y="${r2_(y)}" width="${r2_(w)}" height="${r2_(h)}" fill="url(#${id}s)"/>`;
+  const sr = Math.min(w, h) * (0.12 + rnd() * 0.06), sx = x + w * (0.2 + rnd() * 0.6), sy = y + (hz - y) * (0.35 + rnd() * 0.3);
+  m += `<circle cx="${r2_(sx)}" cy="${r2_(sy)}" r="${r2_(sr * 2.2)}" fill="url(#${id}u)"/>`;
+  for (let i = 0, n = 1 + Math.floor(rnd() * 3); i < n; i++) { // облака
+    const cx = x + rnd() * w, cy = y + (hz - y) * (0.15 + rnd() * 0.45), cw = w * (0.12 + rnd() * 0.12);
+    m += `<g fill="#ffffff" fill-opacity=".75"><ellipse cx="${r2_(cx)}" cy="${r2_(cy)}" rx="${r2_(cw)}" ry="${r2_(cw * 0.22)}"/><ellipse cx="${r2_(cx - cw * 0.3)}" cy="${r2_(cy - cw * 0.12)}" rx="${r2_(cw * 0.45)}" ry="${r2_(cw * 0.25)}"/></g>`;
+  }
+  const layer = (base, amp, col, k) => { // мягкая волнистая гряда
+    const ph = rnd() * 6.28, fr = 1 + rnd() * 1.6, pts = [];
+    for (let i = 0; i <= 24; i++) { const t = i / 24; pts.push([x + t * w, base - amp * (0.5 + 0.5 * Math.sin(ph + t * fr * 3.14 * (1 + k * 0.4))) ]); }
+    let d = `M${r2_(x)} ${r2_(y + h)}L${r2_(pts[0][0])} ${r2_(pts[0][1])}`;
+    for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], q = pts[i]; d += `Q${r2_(p[0])} ${r2_(p[1])} ${r2_((p[0] + q[0]) / 2)} ${r2_((p[1] + q[1]) / 2)}`; }
+    return `<path d="${d}L${r2_(x + w)} ${r2_(y + h)}Z" fill="${col}"/>`;
+  };
+  if (S.peaks) { // дальние горы
+    let d = `M${r2_(x)} ${r2_(hz)}`; for (let i = 0, n = 3 + Math.floor(rnd() * 3); i < n; i++) { const px = x + (i + 0.5) / n * w, pk = hz - h * (0.15 + rnd() * 0.2); d += `L${r2_(px)} ${r2_(pk)}L${r2_(x + (i + 1) / n * w)} ${r2_(hz)}`; }
+    m += `<path d="${d}Z" fill="${S.land[0]}" stroke="${S.land[0]}" stroke-linejoin="round" stroke-width="${r2_(w * 0.02)}"/>`;
+  }
+  if (S.sea) m += `<rect x="${r2_(x)}" y="${r2_(hz)}" width="${r2_(w)}" height="${r2_(h)}" fill="${S.land[1]}" fill-opacity=".85"/>` +
+    `<path d="M${r2_(x + w * 0.1)} ${r2_(hz + h * 0.06)}H${r2_(x + w * 0.4)}M${r2_(x + w * 0.55)} ${r2_(hz + h * 0.12)}H${r2_(x + w * 0.85)}" stroke="#ffffff" stroke-opacity=".6" stroke-width="${r2_(h * 0.01)}" stroke-linecap="round"/>` +
+    layer(y + h * 0.95, h * 0.12, S.land[2], 1);
+  else S.land.forEach((c, k) => { m += layer(hz + k * h * 0.14, h * (0.12 - k * 0.025), c, k); });
+  if (S.trees) for (let i = 0, n = 2 + Math.floor(rnd() * 3); i < n; i++) { // деревья-шарики
+    const tx = x + w * (0.08 + rnd() * 0.84), ty = hz + h * (0.12 + rnd() * 0.12), tr = Math.min(w, h) * (0.05 + rnd() * 0.04);
+    m += `<rect x="${r2_(tx - tr * 0.08)}" y="${r2_(ty)}" width="${r2_(tr * 0.16)}" height="${r2_(tr * 0.9)}" fill="#7a5b3a" fill-opacity=".7"/><circle cx="${r2_(tx)}" cy="${r2_(ty - tr * 0.2)}" r="${r2_(tr)}" fill="${S.land[2]}"/>`;
+  }
+  return m + '</g>';
+}
+function fillMarkup(o, g, exp) { // всё — в пределах вкладыша (g.ix, g.iy, o.iw × o.ih)
+  const kind = o.fill; if (!kind || kind === 'none') return '';
+  const rnd = rngOf(o.fillSeed || 1), X = g.ix, Y = g.iy, W = o.iw, H = o.ih, id = `fl${o.id}${exp ? 'x' : ''}`, r2_ = v => Math.round(v * 100) / 100;
+  if (kind === 'photo') return sceneMarkup(X, Y, W, H, rnd, id + 'p');
+  const mn = Math.min(W, H), M = Math.max(3, mn * 0.08), L = clamp(mn * 0.045, 1.6, 12), acc = o.fillAccent || '#1f2937';
+  let m = `<rect x="${r2_(X)}" y="${r2_(Y)}" width="${r2_(W)}" height="${r2_(H)}" fill="#ffffff"/>`;
+  const x0 = X + M, y0 = Y + M, w0 = W - 2 * M, y1 = Y + H - M;
+  const bar = (x, y, w, h, col, op = 1) => w > 0 && h > 0 ? `<rect x="${r2_(x)}" y="${r2_(y)}" width="${r2_(w)}" height="${r2_(h)}" rx="${r2_(h / 2)}" fill="${col}" fill-opacity="${op}"/>` : '';
+  const lines = (x, y, w, yEnd, { center = false } = {}) => { // абзацы «волосков»
+    let s = '', left = 2 + Math.floor(rnd() * 4);
+    for (; y + L * 0.5 <= yEnd; y += L) {
+      const last = --left <= 0, lw = w * (last ? 0.25 + rnd() * 0.45 : 0.82 + rnd() * 0.18);
+      s += bar(center ? x + (w - lw) / 2 : x, y, lw, L * 0.32, '#c3c8cf');
+      if (last) { left = 2 + Math.floor(rnd() * 5); y += L * 0.5; }
+    }
+    return s;
+  };
+  const head = (y, { size = 1, center = true, w = w0 } = {}) => { // заголовок: строка и, если длинный, вторая покороче
+    const hh = L * 0.75 * size, hw = w * (0.45 + rnd() * 0.35), two = rnd() < 0.35 && size >= 1;
+    let s = bar(center ? x0 + (w0 - hw) / 2 : x0, y, hw, hh, acc);
+    if (two) { const hw2 = hw * (0.5 + rnd() * 0.3); s += bar(center ? x0 + (w0 - hw2) / 2 : x0, y + hh * 1.5, hw2, hh, acc); }
+    return { s, y: y + hh * (two ? 2.5 : 1) + L * 0.9 };
+  };
+  const pic = (x, y, w, h, k) => w > 2 && h > 2 ? sceneMarkup(x, y, w, h, rngOf((o.fillSeed || 1) * 31 + k), id + k) : '';
+  const gap = L * 0.8;
+  if (W / H > 3.2 || y1 - y0 < L * 1.5) { // полоска-подпись: одна строка заголовка по центру
+    const hh = Math.min(H * 0.32, W * 0.08), hw = Math.min(w0, W * (0.45 + rnd() * 0.3)); return m + bar(X + (W - hw) / 2, Y + (H - hh) / 2, hw, hh, acc); }
+  if (kind === 'text') { const h_ = head(y0); m += h_.s + lines(x0, h_.y, w0, y1); }
+  else if (kind === 'img-tl' || kind === 'img-br' || kind === 'img-diag') {
+    const h_ = head(y0), iw = w0 * 0.46, ih = Math.min((y1 - h_.y) * 0.38, iw * 0.8);
+    m += h_.s;
+    if (kind === 'img-br') { const iy = y1 - ih; m += lines(x0, h_.y, w0, iy - gap) + pic(x0 + w0 - iw, iy, iw, ih, 1) + lines(x0, iy, w0 - iw - gap, y1); }
+    else {
+      m += pic(x0, h_.y, iw, ih, 1) + lines(x0 + iw + gap, h_.y, w0 - iw - gap, h_.y + ih);
+      if (kind === 'img-diag') { const iy = y1 - ih; m += lines(x0, h_.y + ih + gap, w0, iy - gap) + pic(x0 + w0 - iw, iy, iw, ih, 2) + lines(x0, iy, w0 - iw - gap, y1); }
+      else m += lines(x0, h_.y + ih + gap, w0, y1);
+    }
+  } else if (kind === 'img-pair') {
+    const h_ = head(y0), iw = (w0 - gap) / 2, ih = Math.min((y1 - h_.y) * 0.4, iw * 0.75);
+    m += h_.s + pic(x0, h_.y, iw, ih, 1) + pic(x0 + iw + gap, h_.y, iw, ih, 2) + lines(x0, h_.y + ih + gap, w0, y1);
+  } else if (kind === 'cols') {
+    const h_ = head(y0), cw = (w0 - gap * 2) / 2, xs = [x0, x0 + cw + gap * 2];
+    m += h_.s + `<path d="M${r2_(x0 + w0 / 2)} ${r2_(h_.y)}V${r2_(y1)}" stroke="${acc}" stroke-opacity=".35" stroke-width="${r2_(L * 0.12)}"/>`;
+    for (const cx of xs) { const sub = bar(cx, h_.y, cw * (0.4 + rnd() * 0.35), L * 0.55, acc, 0.75); m += sub + lines(cx, h_.y + L * 1.4, cw, y1); }
+  } else if (kind === 'list') {
+    const h_ = head(y0), ncol = w0 > (y1 - h_.y) * 1.1 ? 2 : 1, cw = (w0 - gap * (ncol - 1)) / ncol;
+    m += h_.s;
+    for (let c = 0; c < ncol; c++) for (let y = h_.y; y + L * 0.5 <= y1; y += L * 1.5) {
+      const cx = x0 + c * (cw + gap); m += `<circle cx="${r2_(cx + L * 0.25)}" cy="${r2_(y + L * 0.16)}" r="${r2_(L * 0.18)}" fill="${acc}" fill-opacity=".7"/>` + bar(cx + L * 0.8, y, (cw - L) * (0.35 + rnd() * 0.45), L * 0.32, '#c3c8cf');
+    }
+  } else if (kind === 'poster') {
+    const h_ = head(y0, { size: 1.8 }), ih = (y1 - h_.y) * 0.5;
+    m += h_.s + pic(x0, h_.y, w0, ih, 1);
+    const dy = h_.y + ih + gap; m += bar(x0 + w0 * 0.3, dy, w0 * 0.4, L * 0.7, acc, 0.85) + lines(x0, dy + L * 1.6, w0, y1, { center: true });
+  }
+  return m;
+}
 function pocketMarkup(o, exp) {
   const g = pocketGeom(o), t = o.tape, s = o.sides, w = g.w, h = g.h, vs = exp ? '' : ' vector-effect="non-scaling-stroke"';
   let m = '';
   const href = o.image && assets[o.image.asset];
   if (href) m += `<image href="${href}"${exp ? ` xlink:href="${href}"` : ''} x="${g.ix}" y="${g.iy}" width="${o.iw}" height="${o.ih}" preserveAspectRatio="xMidYMid slice" opacity="${o.image.opacity}"/>`;
-  else if (!exp && !isClient()) {
+  else if (o.fill && o.fill !== 'none') { // наполнение не зеркалим при отражении кармана
+    const f = fillMarkup(o, g, exp); m += o.flip ? `<g transform="translate(${w} 0) scale(-1 1)">${f}</g>` : f;
+  } else if (!exp && !isClient()) {
     const vw = o.iw, vh = o.ih, mn = Math.min(vw, vh); // подписи поворачиваются вместе с карманом
     const fs = mn * 0.075, pad = mn * 0.06, withName = o.showName && o.name;
     const cf = o.flip ? ' scale(-1 1)' : ''; // поворот — вместе с карманом, зеркалить текст не даём
@@ -3858,6 +3976,126 @@ function wrapLine(line, maxW, measure) {
   for (const w of words) { const t = cur ? cur + ' ' + w : w; if (cur && measure(t) > maxW) { out.push(cur); cur = w; } else cur = t; }
   out.push(cur); return out;
 }
+/* ================= плашки заголовков (подложка у текста) и орнаменты ================= */
+const PLATE_STYLES = [['none', 'Без плашки'], ['rect', 'Прямоугольник'], ['round', 'Скруглённая'], ['cut', 'Срезанные углы'], ['ribbon', 'Лента с хвостами'], ['flag', 'Флажок'], ['under', 'Подчёркивание']];
+const ORNAMENTS = [['none', 'Без орнамента'], ['flower', 'Цветок'], ['diamond', 'Ромб'], ['cross', 'Крест'], ['dot', 'Точка'], ['curl', 'Завиток']];
+const PLATE_DEF = { style: 'none', fill: '#3f4a2a', border: 'double', bColor: '#c9a646', orn: 'flower', oColor: '#c9a646', padX: 0.9, padY: 0.45 };
+const PLATE_PRESETS = [
+  ['Зелёная с золотом', { style: 'cut', fill: '#3f4a2a', border: 'double', bColor: '#c9a646', orn: 'flower', oColor: '#c9a646' }, '#f5ecd2'],
+  ['Синяя лента', { style: 'ribbon', fill: '#1e3a8a', border: 'single', bColor: '#dbeafe', orn: 'none', oColor: '#ffffff' }, '#ffffff'],
+  ['Белая в рамке', { style: 'round', fill: '#ffffff', border: 'double', bColor: '#1f2937', orn: 'diamond', oColor: '#1f2937' }, '#1f2937'],
+  ['Бордовый флажок', { style: 'flag', fill: '#7f1d1d', border: 'none', bColor: '#fde68a', orn: 'dot', oColor: '#fde68a' }, '#fff7ed'],
+  ['Подчёркнутый', { style: 'under', fill: '#000000', border: 'double', bColor: '#a16207', orn: 'curl', oColor: '#a16207' }, '#3f2d14'],
+];
+const normPlate = p => { p = p && typeof p === 'object' ? p : {}; const d = PLATE_DEF;
+  return { style: PLATE_STYLES.some(s => s[0] === p.style) ? p.style : 'none', fill: normHex(p.fill) || d.fill, border: ['none', 'single', 'double'].includes(p.border) ? p.border : d.border,
+    bColor: normHex(p.bColor) || d.bColor, orn: ORNAMENTS.some(s => s[0] === p.orn) ? p.orn : d.orn, oColor: normHex(p.oColor) || d.oColor,
+    padX: isFinite(p.padX) ? clamp(+p.padX, 0.2, 4) : d.padX, padY: isFinite(p.padY) ? clamp(+p.padY, 0.1, 2) : d.padY }; };
+function plateBox(o) { // поля вокруг текста; null — плашки нет
+  const p = o.plate; if (!p || p.style === 'none') return null;
+  const s = o.size, orn = p.orn !== 'none' ? s * 1.1 : 0, tail = p.style === 'ribbon' ? s * 1.1 : p.style === 'flag' ? s * 0.6 : 0;
+  const px = p.padX * s + orn, pt = p.padY * s, drop = p.style === 'ribbon' ? s * 0.35 : 0, pb = p.style === 'under' ? p.padY * s + s * 0.35 : pt + drop;
+  return { px, pt, pb, tail, orn, drop };
+}
+function ornMarkup(kind, cx, cy, r, col) {
+  const R = v => Math.round(v * 100) / 100;
+  if (kind === 'dot') return `<circle cx="${R(cx)}" cy="${R(cy)}" r="${R(r * 0.35)}" fill="${col}"/>`;
+  if (kind === 'diamond') return `<path d="M${R(cx)} ${R(cy - r * 0.6)}L${R(cx + r * 0.4)} ${R(cy)}L${R(cx)} ${R(cy + r * 0.6)}L${R(cx - r * 0.4)} ${R(cy)}Z" fill="${col}"/>`;
+  if (kind === 'cross') { const a = r * 0.6, t = r * 0.14; return `<path d="M${R(cx - t)} ${R(cy - a)}h${R(2 * t)}v${R(a - t)}h${R(a - t)}v${R(2 * t)}h${R(-(a - t))}v${R(a - t)}h${R(-2 * t)}v${R(-(a - t))}h${R(-(a - t))}v${R(-2 * t)}h${R(a - t)}Z" fill="${col}"/>`; }
+  if (kind === 'flower') return [0, 90, 180, 270].map(a => `<ellipse cx="${R(cx)}" cy="${R(cy - r * 0.34)}" rx="${R(r * 0.17)}" ry="${R(r * 0.3)}" fill="${col}" transform="rotate(${a} ${R(cx)} ${R(cy)})"/>`).join('') +
+    [45, 135, 225, 315].map(a => `<circle cx="${R(cx)}" cy="${R(cy - r * 0.5)}" r="${R(r * 0.07)}" fill="${col}" transform="rotate(${a} ${R(cx)} ${R(cy)})"/>`).join('') + `<circle cx="${R(cx)}" cy="${R(cy)}" r="${R(r * 0.12)}" fill="${col}"/>`;
+  if (kind === 'curl') return `<path d="M${R(cx - r * 0.6)} ${R(cy)}C${R(cx - r * 0.3)} ${R(cy - r * 0.6)} ${R(cx + r * 0.3)} ${R(cy - r * 0.6)} ${R(cx + r * 0.15)} ${R(cy - r * 0.1)}C${R(cx)} ${R(cy + r * 0.25)} ${R(cx - r * 0.3)} ${R(cy + r * 0.05)} ${R(cx - r * 0.1)} ${R(cy - r * 0.15)}M${R(cx - r * 0.6)} ${R(cy)}H${R(cx + r * 0.6)}" fill="none" stroke="${col}" stroke-width="${R(r * 0.1)}" stroke-linecap="round"/>`;
+  return '';
+}
+function plateMarkup(o, W, H) { // W×H — вся плашка
+  const p = o.plate, B_ = plateBox(o), s = o.size, R = v => Math.round(v * 100) / 100, t = B_.tail;
+  const shape = (ins, h = H) => { // контур тела плашки с отступом внутрь
+    const x0 = t + ins, x1 = W - t - ins, y0 = ins, y1 = h - ins, c = Math.max(0, h * 0.28 - ins * 0.4);
+    if (p.style === 'round') { const r = Math.max(0, (h / 2) * 0.55 - ins * 0.5); return `M${R(x0 + r)} ${R(y0)}H${R(x1 - r)}Q${R(x1)} ${R(y0)} ${R(x1)} ${R(y0 + r)}V${R(y1 - r)}Q${R(x1)} ${R(y1)} ${R(x1 - r)} ${R(y1)}H${R(x0 + r)}Q${R(x0)} ${R(y1)} ${R(x0)} ${R(y1 - r)}V${R(y0 + r)}Q${R(x0)} ${R(y0)} ${R(x0 + r)} ${R(y0)}Z`; }
+    if (p.style === 'cut') return `M${R(x0 + c)} ${R(y0)}H${R(x1 - c)}L${R(x1)} ${R(y0 + c)}V${R(y1 - c)}L${R(x1 - c)} ${R(y1)}H${R(x0 + c)}L${R(x0)} ${R(y1 - c)}V${R(y0 + c)}Z`;
+    if (p.style === 'flag') { const n = h * 0.3; return `M${R(x0)} ${R(y0)}H${R(W - ins)}L${R(W - ins - n)} ${R((y0 + y1) / 2)}L${R(W - ins)} ${R(y1)}H${R(x0)}Z`; }
+    return `M${R(x0)} ${R(y0)}H${R(x1)}V${R(y1)}H${R(x0)}Z`;
+  };
+  let m = '';
+  if (p.style === 'under') {
+    const y = H - s * 0.3, w = s * 0.07;
+    m += `<path d="M${R(B_.orn * 0.9)} ${R(y)}H${R(W - B_.orn * 0.9)}" stroke="${p.bColor}" stroke-width="${R(w * (p.border === 'none' ? 1 : 1.4))}"/>`;
+    if (p.border === 'double') m += `<path d="M${R(B_.orn * 1.4)} ${R(y + s * 0.16)}H${R(W - B_.orn * 1.4)}" stroke="${p.bColor}" stroke-width="${R(w * 0.6)}"/>`;
+    if (p.orn !== 'none') m += ornMarkup(p.orn, B_.orn * 0.45, y, s * 0.45, p.oColor) + ornMarkup(p.orn, W - B_.orn * 0.45, y, s * 0.45, p.oColor);
+    return m;
+  }
+  const bh = H - B_.drop;
+  if (p.style === 'ribbon') { // хвосты ленты — темнее и ниже тела
+    const y0 = B_.drop, nx = t * 0.45;
+    const tails = `M${R(t + s * 0.4)} ${R(y0)}H0L${R(nx)} ${R((y0 + H) / 2)}L0 ${R(H)}H${R(t + s * 0.4)}ZM${R(W - t - s * 0.4)} ${R(y0)}H${R(W)}L${R(W - nx)} ${R((y0 + H) / 2)}L${R(W)} ${R(H)}H${R(W - t - s * 0.4)}Z`;
+    m += `<path d="${tails}" fill="${p.fill}"/><path d="${tails}" fill="#000" fill-opacity=".28"/>` +
+      `<path d="M${R(t)} ${R(bh)}L${R(t + s * 0.4)} ${R(H)}V${R(bh)}ZM${R(W - t)} ${R(bh)}L${R(W - t - s * 0.4)} ${R(H)}V${R(bh)}Z" fill="#000" fill-opacity=".45"/>`;
+  }
+  m += `<path d="${shape(0, bh)}" fill="${p.fill}"/>`;
+  const sw = s * 0.06;
+  if (p.border !== 'none') m += `<path d="${shape(s * 0.12, bh)}" fill="none" stroke="${p.bColor}" stroke-width="${R(sw)}"/>`;
+  if (p.border === 'double') m += `<path d="${shape(s * 0.24, bh)}" fill="none" stroke="${p.bColor}" stroke-width="${R(sw * 0.5)}"/>`;
+  if (p.orn !== 'none') { const cy = bh / 2, r = s * 0.42, ox = t + p.padX * s * 0.45 + B_.orn * 0.5; m += ornMarkup(p.orn, ox, cy, r, p.oColor) + ornMarkup(p.orn, W - (p.style === 'flag' ? bh * 0.3 : 0) - ox, cy, r, p.oColor); }
+  return m;
+}
+function plateSection(o, O, upd) {
+  const sel_ = (title, opts, get, put) => { const s_ = el('select', { title }, ...opts.map(([v, l]) => el('option', { value: v }, l))); bind(s_, get); s_.addEventListener('change', () => upd(null, x => { x.plate = normPlate({ ...x.plate, ...put(s_.value) }); })); return s_; };
+  const rest = el('div'); bindFn(() => O().plate.style !== 'none', on => { rest.hidden = !on; });
+  const P = k => () => O().plate[k], setP = (k, key) => (v, kk) => upd(kk ? key : null, x => { x.plate = normPlate({ ...x.plate, [k]: v }); });
+  rest.append(
+    cap('Заливка'), row(colorField(P('fill'), setP('fill', 'plfill'))),
+    cap('Рамка'), row(sel_('Рамка плашки', [['none', 'Без рамки'], ['single', 'Одинарная'], ['double', 'Двойная']], P('border'), v => ({ border: v }))),
+    row(colorField(P('bColor'), setP('bColor', 'plb'))),
+    cap('Орнамент по краям'), row(sel_('Орнамент', ORNAMENTS, P('orn'), v => ({ orn: v }))), row(colorField(P('oColor'), setP('oColor', 'plo'))),
+    cap('Поля по бокам, % кегля'), row(sliderField(() => O().plate.padX * 100, (v, k) => upd(k, x => { x.plate = normPlate({ ...x.plate, padX: v / 100 }); }), { min: 20, max: 400, key: 'plpx', def: 90 })),
+    cap('Поля сверху и снизу, % кегля'), row(sliderField(() => O().plate.padY * 100, (v, k) => upd(k, x => { x.plate = normPlate({ ...x.plate, padY: v / 100 }); }), { min: 10, max: 200, key: 'plpy', def: 45 })));
+  return sec('Плашка', el('fieldset', { disabled: o.locked },
+    cap('Готовые стили'),
+    el('div', { class: 'plate-presets' }, ...PLATE_PRESETS.map(([n, p, tc]) => el('button', { type: 'button', class: 'btn', title: 'Применить стиль — дальше можно донастроить', onclick: () => upd(null, x => { x.plate = normPlate({ ...x.plate, ...p }); x.color = tc; }) }, n))),
+    cap('Форма'), row(sel_('Форма плашки', PLATE_STYLES, P('style'), v => ({ style: v }))), rest,
+    el('p', { class: 'hint', style: 'margin-top:0' }, 'Плашка растёт вместе с текстом. Сделайте одну — и перенесите стиль на остальные: правая кнопка → «Копировать стиль».')));
+}
+function addPlate() {
+  const o = makeText(); o.text = 'Заголовок раздела'; o.name = 'Плашка'; o.font = 'PT Serif'; o.weight = 400; o.size = 30;
+  o.plate = normPlate({ ...PLATE_PRESETS[0][1], style: 'cut' }); o.color = PLATE_PRESETS[0][2];
+  syncDerived(o); placeInView(o); mutate(null, () => insertObj(o)); select(o.id);
+}
+/* ================= разделители ================= */
+const DIV_STYLES = [['line', 'Линия'], ['double', 'Двойная линия'], ['orn', 'Линия с орнаментом'], ['fade', 'Тающая к краям'], ['wave', 'Волна'], ['dots', 'Точки']];
+const makeDivider = () => ({ ...common(), type: 'divider', name: 'Разделитель', x: 0, y: 0, w: 0, h: 0, rot: 0, lw: 600, lh: 24, style: 'orn', color: '#a16207', weight: 1.5, orn: 'flower' });
+function dividerMarkup(o, exp) {
+  const W = o.lw, H = o.lh, cy = H / 2, c = o.color, t = o.weight, R = v => Math.round(v * 100) / 100, id = 'dv' + o.id + (exp ? 'x' : '');
+  let m = exp ? '' : `<rect width="${W}" height="${H}" fill="transparent"/>`;
+  if (o.style === 'line') m += `<path d="M0 ${R(cy)}H${R(W)}" stroke="${c}" stroke-width="${t}"/>`;
+  else if (o.style === 'double') m += `<path d="M0 ${R(cy - t * 1.6)}H${R(W)}" stroke="${c}" stroke-width="${t}"/><path d="M0 ${R(cy + t * 1.6)}H${R(W)}" stroke="${c}" stroke-width="${R(t * 0.5)}"/>`;
+  else if (o.style === 'orn') { const r = Math.min(H * 0.5, W * 0.1), g = r * 1.4;
+    m += `<path d="M0 ${R(cy)}H${R(W / 2 - g)}M${R(W / 2 + g)} ${R(cy)}H${R(W)}" stroke="${c}" stroke-width="${t}"/>` + ornMarkup(o.orn === 'none' ? 'diamond' : o.orn, W / 2, cy, r, c) +
+      `<circle cx="${R(W / 2 - g * 1.4)}" cy="${R(cy)}" r="${R(t * 1.2)}" fill="${c}"/><circle cx="${R(W / 2 + g * 1.4)}" cy="${R(cy)}" r="${R(t * 1.2)}" fill="${c}"/>`; }
+  else if (o.style === 'fade') m += `<defs><linearGradient id="${id}"><stop offset="0" stop-color="${c}" stop-opacity="0"/><stop offset=".5" stop-color="${c}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient></defs><rect y="${R(cy - t / 2)}" width="${W}" height="${t}" fill="url(#${id})"/>`;
+  else if (o.style === 'wave') { const n = Math.max(2, Math.round(W / (H * 2.5))), st = W / n, a = H * 0.3; let d = `M0 ${R(cy)}`; for (let i = 0; i < n; i++) d += `q${R(st / 4)} ${R(-a)} ${R(st / 2)} 0t${R(st / 2)} 0`; m += `<path d="${d}" fill="none" stroke="${c}" stroke-width="${t}" stroke-linecap="round"/>`; }
+  else { const n = Math.max(2, Math.round(W / (t * 5))); for (let i = 0; i <= n; i++) m += `<circle cx="${R(i / n * W)}" cy="${R(cy)}" r="${R(t * 0.9)}" fill="${c}"/>`; }
+  return m;
+}
+function addDivider() { const o = makeDivider(); syncDerived(o); placeInView(o); mutate(null, () => insertObj(o)); select(o.id); }
+function buildDivider(o) {
+  const [O, upd] = ctx(o), L = o.locked;
+  const st = el('select', { title: 'Вид разделителя' }, ...DIV_STYLES.map(([v, l]) => el('option', { value: v }, l))); bind(st, () => O().style); st.addEventListener('change', () => upd(null, x => x.style = st.value));
+  const on = el('select', { title: 'Орнамент в центре' }, ...ORNAMENTS.filter(x => x[0] !== 'none').map(([v, l]) => el('option', { value: v }, l))); bind(on, () => O().orn); on.addEventListener('change', () => upd(null, x => x.orn = on.value));
+  const ornRow = row(on); bindFn(() => O().style === 'orn', v => { ornRow.hidden = !v; });
+  const keep = fn => x => { const cx = x.x + x.w / 2, cy = x.y + x.h / 2; fn(x); syncDerived(x); x.x = r2(cx - x.w / 2); x.y = r2(cy - x.h / 2); };
+  return [
+    sec('Разделитель', el('fieldset', { disabled: L },
+      row(textField(() => O().name, v => upd(null, x => x.name = v), 'Разделитель')), row(st), ornRow,
+      cap('Цвет'), row(colorField(() => O().color, (v, k) => upd(k ? 'dvc' : null, x => x.color = v))),
+      el('div', { class: 'grid2' },
+        lenField('Длина', () => O().lw, (v, k) => upd(k, keep(x => x.lw = v)), { min: 10, max: 10000 }),
+        lenField('Высота', () => O().lh, (v, k) => upd(k, keep(x => x.lh = v)), { min: 2, max: 500, title: 'Высота полосы: места под орнамент и волну' })),
+      cap('Толщина линии, десятые мм'), row(sliderField(() => O().weight * 10, (v, k) => upd(k, x => x.weight = v / 10), { min: 3, max: 100, key: 'dvw', suffix: '', def: 15 })),
+      el('p', { class: 'hint', style: 'margin-top:0' }, 'Вертикальный разделитель — поверните на 90° (R).'))),
+    sec('Положение', el('fieldset', { disabled: L }, posGrid(O, upd), el('div', { class: 'btns' }, rotButton(o.id, 'Повернуть')))),
+    layerSection(o, O, upd),
+  ];
+}
 function textLayout(o) {
   ensureFont(o);
   const size = o.size, str = o.caps ? o.text.toUpperCase() : o.text;
@@ -3869,7 +4107,8 @@ function textLayout(o) {
   const tw = o.wrap ? Math.max(o.boxW, ...widths) : Math.max(size * 0.3, ...widths), th = Math.max(lineH * lines.length, size * 0.5);
   const mm = mctx.measureText('HЖgу'), asc = (mm.fontBoundingBoxAscent || 90) / 100 * size, desc = (mm.fontBoundingBoxDescent || 22) / 100 * size;
   const skewPad = th * Math.abs(Math.tan(o.skew * Math.PI / 180));
-  return { lines, tw, th, lineH, base0: (lineH - asc - desc) / 2 + asc, padX: skewPad / 2, w: tw + skewPad, h: th };
+  const pb = plateBox(o), ox = pb ? pb.px + pb.tail : 0, oy = pb ? pb.pt : 0; // плашка — поля вокруг текста
+  return { lines, tw, th, lineH, base0: (lineH - asc - desc) / 2 + asc, padX: skewPad / 2, ox, oy, tw0: tw + skewPad, th0: th, w: tw + skewPad + 2 * ox, h: th + oy + (pb ? pb.pb : 0) };
 }
 let relayoutT = 0;
 function relayoutTexts() {
@@ -3883,12 +4122,13 @@ function textMarkup(o, exp) {
   const spans = L.lines.map((s, i) => `<tspan x="${r2(ax)}" y="${r2(L.base0 + i * L.lineH)}">${esc(s) || ' '}</tspan>`).join('');
   const deco = [o.underline && 'underline', o.strike && 'line-through'].filter(Boolean).join(' ');
   const stroke = o.strokeW > 0 ? ` stroke="${o.strokeColor}" stroke-width="${o.strokeW}" stroke-linejoin="round" paint-order="stroke"` : '';
-  const sk = o.skew ? ` transform="translate(${r2(L.w / 2)} ${r2(L.h / 2)}) skewX(${-o.skew}) translate(${r2(-L.w / 2)} ${r2(-L.h / 2)})"` : '';
+  const sk = o.skew ? ` transform="translate(${r2(L.tw0 / 2)} ${r2(L.th0 / 2)}) skewX(${-o.skew}) translate(${r2(-L.tw0 / 2)} ${r2(-L.th0 / 2)})"` : '';
   const sh = o.shadow && o.shadow.on ? o.shadow : null, fid = 'tsh-' + o.id + (exp ? 'x' : '');
   const shDef = sh ? `<defs><filter id="${fid}" x="-50%" y="-50%" width="200%" height="200%" filterUnits="objectBoundingBox"><feDropShadow dx="${sh.dx}" dy="${sh.dy}" stdDeviation="${sh.blur / 2}" flood-color="${sh.color}" flood-opacity="${sh.opacity}"/></filter></defs>` : '';
-  return (exp ? '' : `<rect width="${L.w}" height="${L.h}" fill="transparent"/>`) + shDef +
+  const pl = L.ox || L.oy ? plateMarkup(o, L.w, L.h) : '';
+  return (exp ? '' : `<rect width="${L.w}" height="${L.h}" fill="transparent"/>`) + shDef + pl + (pl ? `<g transform="translate(${r2(L.ox)} ${r2(L.oy)})">` : '') +
     `<g${sk}${sh ? ` filter="url(#${fid})"` : ''}><text font-family="'${f.css}', sans-serif" font-size="${o.size}" font-weight="${fontWeight(o)}" font-style="${o.italic ? 'italic' : 'normal'}"` +
-    ` letter-spacing="${r2(o.ls * o.size)}" text-anchor="${anchor}" fill="${o.color}" fill-opacity="${o.colorOpacity}"${stroke}${deco ? ` text-decoration="${deco}"` : ''} style="white-space:pre">${spans}</text></g>`;
+    ` letter-spacing="${r2(o.ls * o.size)}" text-anchor="${anchor}" fill="${o.color}" fill-opacity="${o.colorOpacity}"${stroke}${deco ? ` text-decoration="${deco}"` : ''} style="white-space:pre">${spans}</text></g>` + (pl ? '</g>' : '');
 }
 function fontFaceCSS(labels) {
   return FONT_DB.filter(f => labels ? labels.has(f.label) : !f.custom).flatMap(f => f.faces.map(x =>
@@ -4018,7 +4258,7 @@ function gridMarkup(o, exp) {
   for (let y = s; y < b.h - 0.01; y += s) d += `M0 ${r2(y)}H${b.w}`;
   return `<path d="${d}" fill="none" stroke="${o.color}" stroke-opacity="${o.lineOpacity}" stroke-width="${exp ? Math.max(0.4, Math.max(b.w, b.h) / 2500) : 1}"${exp ? '' : ' vector-effect="non-scaling-stroke"'}/>`;
 }
-const objMarkup = (o, exp) => o.type === 'item' ? itemMarkup(o, exp) : o.type === 'qr' ? qrMarkup(o, exp) : o.type === 'pocket' ? pocketMarkup(o, exp) : o.type === 'holes' ? holesMarkup(o, exp) : o.type === 'shape' ? shapeMarkup(o, exp) : o.type === 'text' ? textMarkup(o, exp) : o.type === 'grid' ? gridMarkup(o, exp) : '';
+const objMarkup = (o, exp) => o.type === 'divider' ? dividerMarkup(o, exp) : o.type === 'item' ? itemMarkup(o, exp) : o.type === 'qr' ? qrMarkup(o, exp) : o.type === 'pocket' ? pocketMarkup(o, exp) : o.type === 'holes' ? holesMarkup(o, exp) : o.type === 'shape' ? shapeMarkup(o, exp) : o.type === 'text' ? textMarkup(o, exp) : o.type === 'grid' ? gridMarkup(o, exp) : '';
 
 /* ================= export PNG ================= */
 /* ---- метки сборки на основе: Г-метки по углам карманов (лучи внутрь — их закроет скотч),
@@ -4416,6 +4656,9 @@ const layerMenu = el('div', { class: 'menu', hidden: true },
   el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('empty'); } }, el('span', { class: 'grad', html: ic('empty'), style: 'color:#9ca3af' }), 'Пустой — для своей картинки'),
   el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addQR(); } }, el('span', { class: 'grad', html: ic('qr'), style: 'color:#111827' }), 'QR-код'));
 const itemMenu = el('div', { class: 'menu', hidden: true },
+  el('button', { type: 'button', onclick: () => { itemMenu.hidden = true; addPlate(); } }, el('span', { class: 'grad', html: ic('plate'), style: 'color:#4b5563' }), 'Плашка заголовка'),
+  el('button', { type: 'button', onclick: () => { itemMenu.hidden = true; addDivider(); } }, el('span', { class: 'grad', html: ic('divider'), style: 'color:#4b5563' }), 'Разделитель'),
+  el('div', { class: 'menu-sep' }),
   ...ITEM_ORDER.map(k => el('button', { type: 'button', onclick: () => { itemMenu.hidden = true; addItem(k); } }, el('span', { class: 'grad', html: ic('item'), style: 'color:#4b5563' }), ITEM_KINDS[k].label)));
 $('#layersFoot').append(layerMenu, itemMenu,
   el('div', { class: 'grid' },
@@ -4429,7 +4672,8 @@ let renaming = false, dragLayer = null;
 function swatch(o) {
   if (o.type === 'qr') return el('span', { class: 'sw ico', html: ic('qr') });
   if (o.type === 'item') return el('span', { class: 'sw ico', html: ic('item') });
-  if (o.type === 'text') { const f = fontDef(o.font); return el('span', { class: 'sw txt', style: `font-family:"${f.css}";font-weight:700;color:${o.color}` }, 'Аа'); }
+  if (o.type === 'divider') return el('span', { class: 'sw ico', html: ic('divider') });
+  if (o.type === 'text') { const f = fontDef(o.font), pl = o.plate && o.plate.style !== 'none' && o.plate.style !== 'under' ? `;background:${o.plate.fill};border-radius:3px` : ''; return el('span', { class: 'sw txt', style: `font-family:"${f.css}";font-weight:700;color:${o.color}${pl}` }, 'Аа'); }
   if (o.type === 'grid') return el('span', { class: 'sw ico', html: ic('grid') });
   if (o.type === 'pocket' || o.type === 'holes') {
     const sw = el('span', { class: 'sw ico', html: ic(o.type) });
@@ -4445,6 +4689,7 @@ function swatch(o) {
 function layerTag(o) {
   if (o.type === 'qr') return 'QR';
   if (o.type === 'item') return itemTag(o);
+  if (o.type === 'divider') return 'линия';
   if (o.type === 'base') return 'фон';
   if (o.type === 'pocket') return formatName(o.iw, o.ih);
   if (o.type === 'holes') return o.count + ' шт';
@@ -4561,7 +4806,7 @@ function renderProps() {
   const sig = multi ? 'multi|' + selIds.join() + unit : o ? [o.id, o.type, o.locked, o.fillType, o.image ? o.image.asset : '-', unit, o.font, o.wrap, o.type === 'pocket' ? o.notch : '', o.type === 'base' ? o.holes.on + o.holes.finish + o.splits.map(l => l.id + l.axis).join() : '', o.type === 'text' ? o.shadow.on : ''].join('|') : 'none';
   if (sig !== propsSig) {
     propsSig = sig; bindings = [];
-    const build = { base: buildBase, shape: buildShape, pocket: buildPocket, holes: buildHoles, text: buildText, grid: buildGrid, qr: buildQR, item: buildItem }[o && o.type];
+    const build = { base: buildBase, shape: buildShape, pocket: buildPocket, holes: buildHoles, text: buildText, grid: buildGrid, qr: buildQR, item: buildItem, divider: buildDivider }[o && o.type];
     propsEl.replaceChildren(...(multi ? buildMulti() : build ? build(o) : buildEmpty()));
   } else {
     for (const b of bindings) {
@@ -4991,6 +5236,14 @@ function buildPocket(o) {
         })(),
         o.notch === 'cornerL' || o.notch === 'cornerR' ? row(lenField('Уголок', () => O().notchSize, (v, k) => upd(k, x => x.notchSize = v), { min: 3, max: 100, title: 'Размер катета скошенного уголка' })) : null,
         (() => { const h = el('p', { class: 'hint', style: 'margin-top:0' }); bind(h, () => { const x = O(); return CW.every(k => x.sides[k]) ? 'Карман проклеен со всех сторон — выемка не нужна.' : (x.notch === 'cornerL' || x.notch === 'cornerR') && ['l', 'r'].includes(['t', 'b', 'l', 'r'].find(k => !x.sides[k])) ? 'У кармана, открытого сбоку, «слева» — верхний угол, «справа» — нижний (до поворота кармана).' : ''; }, 'textContent'); return h; })())),
+    sec('Наполнение', el('fieldset', { disabled: L },
+      (() => { const f_ = el('select', { title: 'Схема того, что будет вложено в карман' }, ...FILLS.map(([v, l_]) => el('option', { value: v }, l_)));
+        bind(f_, () => O().fill); f_.addEventListener('change', () => upd(null, x => x.fill = f_.value)); return row(f_); })(),
+      (() => { const w_ = el('div'); bindFn(() => O().fill !== 'none', on => { w_.hidden = !on; });
+        w_.append(cap('Цвет заголовка'), row(colorField(() => O().fillAccent, (v, k) => upd(k ? 'fillacc' : null, x => x.fillAccent = v))),
+          el('div', { class: 'btns', style: 'margin-bottom:8px' }, B('shuffle', 'Другой вариант', () => upd(null, x => x.fillSeed = 1 + Math.floor(Math.random() * 1e6)), { cls: 'btn', title: 'Другие строки и картинки той же схемы' })));
+        return w_; })(),
+      el('p', { class: 'hint', style: 'margin-top:0' }, 'Схема вложенного листа: заголовок, строки текста, нейтральные картинки. Подстраивается под размер вкладыша. Своя картинка во вкладыше — важнее.'))),
     sec('Вкладыш', el('fieldset', { disabled: L }, ins)),
     sec('Массив карманов',
       el('fieldset', { disabled: L },
@@ -5068,6 +5321,7 @@ function buildText(o) {
         cap('Обводка'),
         row(colorField(() => O().strokeColor, (v, k) => upd(k ? 'scolor' : null, x => x.strokeColor = v))),
         row(lenField('Толщина', () => O().strokeW, (v, k) => upd(k, x => x.strokeW = v), { min: 0, max: 100, title: '0 — без обводки' })))),
+    plateSection(o, O, upd),
     sec('Тень',
       el('fieldset', { disabled: L },
         row(checkField('Тень у текста', () => O().shadow.on, v => upd(null, x => x.shadow.on = v))),
@@ -5558,6 +5812,8 @@ stage.addEventListener('pointermove', e => {
       syncDerived(o); nw = o.w; nh = o.h;
     } else if (o.type === 'qr') { // QR всегда квадратный
       const side = Math.max(5, Math.round(mx && my ? Math.max(nw, nh) : mx ? nw : nh)); o.w = o.h = side; nw = nh = side;
+    } else if (o.type === 'divider') {
+      const q = o.rot % 180; o.lw = Math.max(10, Math.round(q ? nh : nw)); o.lh = Math.max(2, Math.round(q ? nw : nh)); syncDerived(o); nw = o.w; nh = o.h;
     } else if (o.type === 'item') { // у готовых изделий размер задаётся форматом; меняются только ячейка и доска
       if (itemSizable(o)) { const q = o.rot % 180; o.lw = Math.max(20, Math.round(q ? nh : nw)); o.lh = Math.max(20, Math.round(q ? nw : nh)); }
       syncDerived(o); nw = o.w; nh = o.h;
@@ -5987,10 +6243,11 @@ async function menuPaste(at) {
 
 /* ---- стиль: перенос настроек между элементами одного типа ---- */
 const STYLE_KEYS = {
-  pocket: ['tape', 'tapeColor', 'gap', 'notch', 'notchSize', 'showName', 'nameFs', 'film', 'filmW'],
+  pocket: ['tape', 'tapeColor', 'gap', 'notch', 'notchSize', 'showName', 'nameFs', 'fill', 'fillAccent', 'film', 'filmW'],
   qr: ['color', 'bg', 'bgOn', 'ecl', 'margin'],
   shape: ['fillType', 'fill', 'fill2', 'angle', 'fillOpacity', 'radius', 'opacity'],
-  text: ['font', 'size', 'weight', 'italic', 'underline', 'strike', 'caps', 'align', 'lh', 'ls', 'skew', 'color', 'colorOpacity', 'strokeW', 'strokeColor', 'shadow'],
+  text: ['font', 'size', 'weight', 'italic', 'underline', 'strike', 'caps', 'align', 'lh', 'ls', 'skew', 'color', 'colorOpacity', 'strokeW', 'strokeColor', 'shadow', 'plate'],
+  divider: ['style', 'color', 'weight', 'orn', 'lh'],
 };
 const STYLE_TXT = { pocket: 'рамка, проклейка, выемка', shape: 'заливка и скругление', text: 'шрифт, размер, цвет', qr: 'цвета и надёжность' };
 let styleClip = null;
@@ -6092,7 +6349,7 @@ function canvasMenu(w) {
       { label: 'Заливка / Градиент', act: () => addHere(at, () => addShape('solid')), edit: true },
       { label: 'Пустой слой', act: () => addHere(at, () => addShape('empty')), edit: true },
       { label: 'QR-код', icon: 'qr', act: () => addHere(at, addQR), edit: true },
-      { label: 'Элемент', icon: 'item', sub: ITEM_ORDER.map(k => ({ label: ITEM_KINDS[k].label, act: () => addHere(at, () => addItem(k)), edit: true })) },
+      { label: 'Элемент', icon: 'item', sub: [{ label: 'Плашка заголовка', act: () => addHere(at, addPlate), edit: true }, { label: 'Разделитель', act: () => addHere(at, addDivider), edit: true }].concat(ITEM_ORDER.map(k => ({ label: ITEM_KINDS[k].label, act: () => addHere(at, () => addItem(k)), edit: true }))) },
       { label: 'Картинку…', icon: 'image', act: () => chooseImage(null), edit: true }] },
     inside ? { label: 'Линия раздела здесь', icon: 'scissors', sub: [
       { label: `Вертикальная · X ${fmtLen(Math.round(w.x))} ${unitLabel()}`, act: () => splitHere(w, 'v'), edit: true },
@@ -7531,6 +7788,10 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-11b', date: '11 ноября 2026', items: [
+    'Наполнение карманов: в свойствах кармана — «Наполнение». Схема вложенного листа: текст с заголовком, текст с картинками (слева вверху, справа внизу, по диагонали, рядом), две колонки, список, афиша или фото во весь вкладыш. Картинки — мягкие цветные пейзажи. Подстраивается под размер кармана; «Другой вариант» — другие строки и картинки.',
+    'Плашки заголовков: «Элемент» → «Плашка заголовка». Пять готовых стилей и донастройка: форма (прямоугольник, скруглённая, срезанные углы, лента, флажок, подчёркивание), заливка, одинарная или двойная рамка, орнамент по краям. Плашка растёт вместе с текстом. Плашку можно включить у любого текста — в его свойствах.',
+    'Разделители: «Элемент» → «Разделитель» — линия, двойная, с орнаментом в центре, тающая к краям, волна, точки. Вертикальный — поворотом на 90°.'] },
   { v: '2026-11-11a', date: '11 ноября 2026', items: [
     'Отделка отверстий видна и в виде «Производство»: шляпка или кругляш, поверх — точка сверления с крестиком.',
     'Экспорт: цифра качества JPEG меняется вместе с ползунком.',
