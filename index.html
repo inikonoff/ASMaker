@@ -358,6 +358,21 @@ kbd{font:11px/1 ui-monospace,monospace;border:1px solid var(--line);border-botto
 #selBar button{display:flex;align-items:center;gap:6px;height:30px;padding:0 8px;border:0;border-radius:7px;background:transparent;color:var(--text);cursor:pointer;font-size:13px;white-space:nowrap}
 #selBar button svg{width:18px;height:18px}#selBar button:hover{background:var(--acc);color:#fff}#selBar button.danger:hover{background:#dc2626}
 #fillPop{padding:8px;width:300px}#fillPop .fill-grid{margin:0}
+#leftTabs{border-bottom:1px solid var(--line)}
+#libPane{flex:1;overflow:auto;padding:4px 10px 12px}#libPane[hidden],#layerList[hidden],#layersFoot[hidden]{display:none}
+.lib-h{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:12px 2px 6px}
+.lib-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.lib-grid button{height:auto;padding:6px 3px 4px;border:1px solid var(--line);border-radius:8px;background:var(--panel);cursor:grab;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;color:var(--text)}
+.lib-grid button:hover{border-color:var(--acc);background:var(--acc-soft,rgba(37,99,235,.08))}
+.lib-grid button svg{width:100%;height:46px;flex:none;pointer-events:none}.lib-grid button svg.lib-ic{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;padding:8px 0;color:var(--muted)}
+.lib-grid button span{font-size:10.5px;line-height:1.15;text-align:center;color:var(--muted);pointer-events:none;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.layers-foot>button{width:100%}
+.theme-chip{display:inline-flex;align-items:center;gap:4px}.theme-chip i{width:10px;height:10px;border-radius:50%;display:inline-block;border:1px solid rgba(0,0,0,.2)}
+#varBar{position:absolute;left:50%;top:8px;transform:translateX(-50%);z-index:3;display:flex;gap:4px;padding:3px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+#varBar:empty{display:none}
+.var-chip{height:26px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.var-chip:hover{color:var(--text)}.var-chip.on{background:var(--acc);color:#fff}.var-chip.add{font-weight:500}
+.var-x{opacity:.7;font-size:15px;line-height:1}.var-x:hover{opacity:1}.var-in{width:110px;height:20px;border:0;border-radius:4px;padding:0 4px;font:inherit;color:#111}
 </style>
 </head>
 <body>
@@ -365,8 +380,10 @@ kbd{font:11px/1 ui-monospace,monospace;border:1px solid var(--line);border-botto
 <main>
   <button type="button" class="rail" id="railL"></button>
   <aside id="layersPane">
-    <div class="pane-h">Слои <span id="layerHint" style="text-transform:none;letter-spacing:0;font-weight:400">тяните, чтобы менять порядок</span></div>
+    <div class="ptabs" id="leftTabs"><button type="button" data-t="layers" class="on">Слои</button><button type="button" data-t="lib">Библиотека</button></div>
+    <span id="layerHint" hidden></span>
     <div id="layerList"></div>
+    <div id="libPane" hidden></div>
     <div class="layers-foot" id="layersFoot"></div>
   </aside>
   <section id="stage">
@@ -3152,6 +3169,12 @@ function normalize(d) {
   if (oldHoles && !(d.objects.find(o => o && o.type === 'base') || {}).holes) b.holes = normHoles({ ...oldHoles, on: oldHoles.visible });
   const groups = (Array.isArray(d.groups) ? d.groups : []).filter(g => g && typeof g.id === 'string').map(g => ({ id: g.id, name: String(g.name || 'Группа').slice(0, 80), collapsed: !!g.collapsed }));
   const nd = { version: 5, title: String(d.title || DEFAULT_TITLE).slice(0, 120), pricing: normPricing(d.pricing), grid, groups, objects: [b, ...under, ...rest.filter(o => o.type !== 'holes' && o.type !== 'grid')] };
+  if (d.theme) nd.theme = normTheme(d.theme);
+  if (d.vars && Array.isArray(d.vars.names) && Array.isArray(d.vars.store) && d.vars.names.length === d.vars.store.length && d.vars.names.length > 1) { // варианты макета: неактивные лежат в store
+    const store = d.vars.store.map(x => { const n_ = x && normalize({ objects: x.objects, groups: x.groups }); return n_ ? { objects: n_.objects, groups: n_.groups } : null; });
+    const cur = store.indexOf(null);
+    if (cur >= 0 && store.filter(x => !x).length === 1) nd.vars = { cur, names: d.vars.names.map((n_, i) => String(n_ || 'Вариант ' + (i + 1)).slice(0, 40)), store };
+  }
   const keep = doc; doc = nd; cleanGroups(); doc = keep; // cleanGroups работает с doc
   return nd;
 }
@@ -3218,9 +3241,10 @@ function undo() { if (readOnly || !past.length) return; future.push(JSON.stringi
 function redo() { if (readOnly || !future.length) return; past.push(JSON.stringify(doc)); restore(future.pop()); }
 
 /* ================= persistence ================= */
-function usedAssets() { const a = {}; for (const o of doc.objects) if (o.image && assets[o.image.asset]) a[o.image.asset] = assets[o.image.asset]; return a; }
+const allObjects = () => doc.vars ? doc.objects.concat(...doc.vars.store.filter(Boolean).map(v => v.objects)) : doc.objects; // со всеми вариантами
+function usedAssets() { const a = {}; for (const o of allObjects()) if (o.image && assets[o.image.asset]) a[o.image.asset] = assets[o.image.asset]; return a; }
 function usedCustomFonts() {
-  const used = new Set(doc.objects.filter(o => o.type === 'text').map(o => o.font));
+  const used = new Set(allObjects().filter(o => o.type === 'text').map(o => o.font));
   return FONT_DB.filter(f => f.custom && used.has(f.label)).flatMap(f => f.faces.map(x => ({ label: f.label, fmt: x.fmt, data: FONT_DATA[x.file], weight: x.weight, style: x.style })));
 }
 const serialize = (withAssets = true) => ({ app: 'stand-designer', version: 4, id: pid, saved: Date.now(), unit, doc, assets: withAssets ? usedAssets() : {}, fonts: withAssets ? usedCustomFonts() : [] });
@@ -3492,7 +3516,7 @@ function addQR() {
   mutate(null, () => insertObj(o)); select(o.id);
 }
 function addPocket() {
-  const o = makePocket(); o.name = nextName('pocket', 'Карман'); syncDerived(o); placeInView(o);
+  const o = makePocket(); o.name = nextName('pocket', 'Карман'); o.fillAccent = standTheme().accent; syncDerived(o); placeInView(o);
   mutate(null, () => insertObj(o)); select(o.id);
 }
 function addText() {
@@ -4081,7 +4105,7 @@ function plateSection(o, O, upd) {
 }
 function addPlate() {
   const o = makeText(); o.text = 'Заголовок раздела'; o.name = 'Плашка'; o.font = 'PT Serif'; o.weight = 400; o.size = 30;
-  o.plate = normPlate({ ...PLATE_PRESETS[0][1], style: 'cut' }); o.color = PLATE_PRESETS[0][2];
+  const t = standTheme(); o.font = t.font; o.plate = themePlate(); o.color = t.plate === 'under' ? t.accent : t.text;
   syncDerived(o); placeInView(o); mutate(null, () => insertObj(o)); select(o.id);
 }
 /* ================= разделители ================= */
@@ -4100,7 +4124,7 @@ function dividerMarkup(o, exp) {
   else { const n = Math.max(2, Math.round(W / (t * 5))); for (let i = 0; i <= n; i++) m += `<circle cx="${R(i / n * W)}" cy="${R(cy)}" r="${R(t * 0.9)}" fill="${c}"/>`; }
   return m;
 }
-function addDivider() { const o = makeDivider(); syncDerived(o); placeInView(o); mutate(null, () => insertObj(o)); select(o.id); }
+function addDivider() { const o = makeDivider(); o.color = standTheme().accent2; if (standTheme().orn !== 'none') o.orn = standTheme().orn; syncDerived(o); placeInView(o); mutate(null, () => insertObj(o)); select(o.id); }
 function buildDivider(o) {
   const [O, upd] = ctx(o), L = o.locked;
   const st = el('select', { title: 'Вид разделителя' }, ...DIV_STYLES.map(([v, l]) => el('option', { value: v }, l))); bind(st, () => O().style); st.addEventListener('change', () => upd(null, x => x.style = st.value));
@@ -4680,22 +4704,8 @@ function renderTop() {
 function setUnit(u) { if (unit === u) return; unit = u; nodes.forEach(n => n.sig = null); invalidate('scene', 'overlay', 'props', 'layers'); scheduleSave(); }
 
 /* ================= layers panel ================= */
-const layerMenu = el('div', { class: 'menu', hidden: true },
-  el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('solid'); } }, el('span', { class: 'grad', style: 'background:linear-gradient(90deg,#f59e0b 50%,#2563eb 50%,#a5f3fc)' }), 'Заливка / Градиент'),
-  el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addShape('empty'); } }, el('span', { class: 'grad', html: ic('empty'), style: 'color:#9ca3af' }), 'Пустой — для своей картинки'),
-  el('button', { type: 'button', onclick: () => { layerMenu.hidden = true; addQR(); } }, el('span', { class: 'grad', html: ic('qr'), style: 'color:#111827' }), 'QR-код'));
-const itemMenu = el('div', { class: 'menu', hidden: true },
-  el('button', { type: 'button', onclick: () => { itemMenu.hidden = true; addPlate(); } }, el('span', { class: 'grad', html: ic('plate'), style: 'color:#4b5563' }), 'Плашка заголовка'),
-  el('button', { type: 'button', onclick: () => { itemMenu.hidden = true; addDivider(); } }, el('span', { class: 'grad', html: ic('divider'), style: 'color:#4b5563' }), 'Разделитель'),
-  el('div', { class: 'menu-sep' }),
-  ...ITEM_ORDER.map(k => el('button', { type: 'button', onclick: () => { itemMenu.hidden = true; addItem(k); } }, el('span', { class: 'grad', html: ic('item'), style: 'color:#4b5563' }), ITEM_KINDS[k].label)));
-$('#layersFoot').append(layerMenu, itemMenu,
-  el('div', { class: 'grid' },
-    B('layer', 'Слой', e => { e.stopPropagation(); layerMenu.hidden = !layerMenu.hidden; }, { cls: 'btn', title: 'Добавить слой с заливкой', after: ic('chev') }),
-    B('pocket', 'Карман', addPocket, { cls: 'btn', title: 'Добавить карман' }),
-    B('text', 'Текст', addText, { cls: 'btn', title: 'Добавить текст' }),
-    B('item', 'Элемент', e => { e.stopPropagation(); itemMenu.hidden = !itemMenu.hidden; }, { cls: 'btn', title: 'Перекидная система, карманы для буклетов и визиток, книга замечаний, ячейка для записок, доска', after: ic('chev') })));
-document.addEventListener('pointerdown', e => { if (!layerMenu.hidden && !layerMenu.contains(e.target)) layerMenu.hidden = true; if (!itemMenu.hidden && !itemMenu.contains(e.target)) itemMenu.hidden = true; });
+$('#layersFoot').append(B('plus', 'Добавить элемент', () => setLeftTab('lib'), { cls: 'btn', title: 'Карманы, тексты, плашки, разделители, изделия — во вкладке «Библиотека»' }));
+for (const b_ of document.querySelectorAll('#leftTabs button')) b_.addEventListener('click', () => setLeftTab(b_.dataset.t));
 
 let renaming = false, dragLayer = null;
 function swatch(o) {
@@ -4728,6 +4738,7 @@ function layerTag(o) {
   return { solid: '', none: 'пустой', linear: 'градиент', radial: 'градиент' }[o.fillType];
 }
 function renderLayers() {
+  renderVarBar(); if (leftTab === 'lib') renderLib();
   if (renaming) return;
   const list = $('#layerList'), shownGroups = new Set(), rows = [];
   for (const o of doc.objects.slice().reverse()) {
@@ -5539,8 +5550,8 @@ function intField(label, get, set, min, max, suffix = 'шт') {
 }
 function buildEmpty() {
   const k = (...a) => a.map((s, i) => [i ? ' + ' : '', el('kbd', {}, s)]);
-  return [sec('Ничего не выбрано', el('div', { class: 'empty' },
-    el('p', {}, 'Выберите слой на холсте или в панели слоёв. Новые элементы — кнопками под списком слоёв.'),
+  return [...standSections(), sec('Подсказки', el('div', { class: 'empty' },
+    el('p', {}, 'Выберите слой на холсте или в панели слоёв. Новые элементы — во вкладке «Библиотека» слева.'),
     el('dl', { class: 'keys' },
       el('dt', {}, 'Колесо'), el('dd', {}, 'масштаб'),
       el('dt', {}, k('Alt'), ' + колесо'), el('dd', {}, 'точный масштаб, шаг 1%'),
@@ -5606,6 +5617,167 @@ function placeRot() {
   elTools.style.setProperty('--py', view.y + (o.y + o.h / 2) * view.z + 'px');
 }
 function hideTip() { clearTimeout(tipT); rotTip.hidden = true; }
+/* ================= стиль стенда: цвета, шрифт и вид плашек — один раз на весь стенд ================= */
+const THEME_PRESETS = [
+  ['Графит с золотом', { accent: '#1f2937', accent2: '#c9a646', text: '#ffffff' }],
+  ['Зелёный с золотом', { accent: '#3f4a2a', accent2: '#c9a646', text: '#f5ecd2' }],
+  ['Синий', { accent: '#1e3a8a', accent2: '#93c5fd', text: '#ffffff' }],
+  ['Бордо', { accent: '#7f1d1d', accent2: '#e7c873', text: '#fff7ed' }],
+  ['Тёплый коричневый', { accent: '#5b3a1e', accent2: '#d9a441', text: '#fdf3e0' }],
+  ['Бирюза', { accent: '#0f5c63', accent2: '#f2c14e', text: '#ffffff' }],
+];
+const THEME_DEF = { accent: '#1f2937', accent2: '#c9a646', text: '#ffffff', font: 'PT Serif', plate: 'cut', border: 'double', orn: 'flower' };
+const normTheme = t => { t = t && typeof t === 'object' ? t : {}; const d = THEME_DEF;
+  return { accent: normHex(t.accent) || d.accent, accent2: normHex(t.accent2) || d.accent2, text: normHex(t.text) || d.text, font: typeof t.font === 'string' && t.font ? t.font : d.font,
+    plate: PLATE_STYLES.some(s => s[0] === t.plate && s[0] !== 'none') ? t.plate : d.plate, border: ['none', 'single', 'double'].includes(t.border) ? t.border : d.border, orn: ORNAMENTS.some(s => s[0] === t.orn) ? t.orn : d.orn }; };
+const standTheme = () => doc.theme || THEME_DEF;
+const themePlate = () => { const t = standTheme(); return normPlate({ style: t.plate, fill: t.accent, border: t.border, bColor: t.accent2, orn: t.orn, oColor: t.accent2 }); };
+function applyStandTheme(keys) { // меняем только то, что связано с изменённой настройкой
+  const t = standTheme(), has = k => !keys || keys.includes(k);
+  for (const o of doc.objects) {
+    if (o.locked) continue;
+    if (o.type === 'pocket' && has('accent')) o.fillAccent = t.accent;
+    if (o.type === 'divider') { if (has('accent2')) o.color = t.accent2; if (has('orn') && t.orn !== 'none') o.orn = t.orn; }
+    if (o.type === 'text' && o.plate && o.plate.style !== 'none') { const p = o.plate;
+      if (has('accent')) p.fill = t.accent; if (has('accent2')) { p.bColor = t.accent2; p.oColor = t.accent2; }
+      if (has('text') || has('plate')) o.color = (has('plate') ? t.plate : p.style) === 'under' ? t.accent : t.text;
+      if (has('font')) o.font = t.font; if (has('plate')) p.style = t.plate; if (has('border')) p.border = t.border; if (has('orn')) p.orn = t.orn; }
+  }
+}
+function setStandTheme(patch, key) { mutate(key || null, () => { doc.theme = normTheme({ ...standTheme(), ...patch }); applyStandTheme(Object.keys(patch)); }); }
+/* ---- наполнить все карманы: схема подбирается по формату и названию ---- */
+function autoFillKind(o, i) {
+  const n = (o.name || '').toLowerCase(), r = o.iw / o.ih;
+  if (r > 3.2 || r < 1 / 3.2) return 'text';
+  if (/фото|снимк/.test(n) || /^Фото/.test(formatName(o.iw, o.ih))) return 'photo';
+  if (/именин|помним|список|график|расписан|состав|дежур/.test(n)) return 'list';
+  if (/афиш|анонс|объявл|поздравл/.test(n)) return 'poster';
+  if (o.iw * o.ih < 110 * 160) return 'photo';
+  if (r > 1.15) return ['cols', 'img-pair', 'img-tl'][i % 3];
+  return ['text', 'img-tl', 'img-br', 'list', 'img-diag', 'img-pair', 'poster'][i % 7];
+}
+function autoFill(clear) {
+  let n = 0;
+  mutate(null, () => { for (const o of doc.objects) if (o.type === 'pocket' && !o.locked && (clear ? o.fill !== 'none' : o.fill === 'none' && !(o.image && assets[o.image.asset]))) { o.fill = clear ? 'none' : autoFillKind(o, n); if (!clear) o.fillAccent = standTheme().accent; n++; } });
+  toast(clear ? (n ? `Наполнение убрано: ${n}` : 'Наполнения и так нет') : n ? `Наполнено карманов: ${n}. Уже наполненные и со своей картинкой не тронуты` : 'Пустых карманов нет');
+}
+function standSections() {
+  const T = k => () => standTheme()[k], sel_ = (title, opts, k) => { const s_ = el('select', { title }, ...opts.map(([v, l]) => el('option', { value: v }, l))); bind(s_, T(k)); s_.addEventListener('change', () => setStandTheme({ [k]: s_.value })); return s_; };
+  return [
+    sec('Стенд целиком', el('fieldset', { disabled: readOnly },
+      el('div', { class: 'btns', style: 'margin-bottom:8px' }, B('image', 'Наполнить все карманы', () => autoFill(false), { cls: 'btn', title: 'Пустым карманам подберётся схема по формату и названию: фото, текст, список, афиша' })),
+      el('div', { class: 'btns' }, B('trash', 'Убрать наполнение', () => autoFill(true), { cls: 'btn' })))),
+    sec('Стиль стенда', el('fieldset', { disabled: readOnly },
+      el('div', { class: 'plate-presets' }, ...THEME_PRESETS.map(([n, p]) => el('button', { type: 'button', class: 'btn theme-chip', title: 'Перекрасить весь стенд', onclick: () => setStandTheme(p) },
+        el('i', { style: `background:${p.accent}` }), el('i', { style: `background:${p.accent2}` }), n))),
+      cap('Основной цвет — плашки, заголовки в карманах'), row(colorField(T('accent'), (v, k) => setStandTheme({ accent: v }, k ? 'th1' : null))),
+      cap('Акцент — рамки, орнаменты, разделители'), row(colorField(T('accent2'), (v, k) => setStandTheme({ accent2: v }, k ? 'th2' : null))),
+      cap('Текст на плашках'), row(colorField(T('text'), (v, k) => setStandTheme({ text: v }, k ? 'th3' : null))),
+      cap('Шрифт плашек'), row(sel_('Шрифт плашек', FONT_DB.map(f => [f.label, f.label]), 'font')),
+      cap('Плашки: форма, рамка, орнамент'), row(sel_('Форма плашек', PLATE_STYLES.filter(s => s[0] !== 'none'), 'plate')),
+      row(sel_('Рамка плашек', [['none', 'Без рамки'], ['single', 'Одинарная'], ['double', 'Двойная']], 'border'), sel_('Орнамент', ORNAMENTS, 'orn')),
+      el('p', { class: 'hint', style: 'margin-top:0' }, 'Меняется сразу у всех плашек, разделителей и наполнения карманов. Новые элементы берут этот стиль. Заблокированные слои не трогаются.'))),
+  ];
+}
+/* ================= библиотека элементов: миниатюры, клик — добавить, можно перетащить на стенд ================= */
+const pk = (iw, ih, name) => () => { const o = makePocket(); o.iw = iw; o.ih = ih; if (name) o.name = name; return o; };
+const tx = (text, size, weight, plate) => () => { const o = makeText(); o.text = text; o.size = size; o.weight = weight; o.name = plate ? 'Плашка' : 'Текст';
+  if (plate) { const t = standTheme(); o.font = t.font; o.weight = 400; o.plate = normPlate({ ...themePlate(), ...plate }); o.color = o.plate.style === 'under' ? t.accent : t.text; } return o; };
+const LIB = [
+  ['Карманы', [['A4', pk(210, 297)], ['A4 альбомный', pk(297, 210)], ['A3', pk(297, 420)], ['A5', pk(148, 210)], ['A6', pk(105, 148)], ['Фото 10×15', pk(150, 100, 'Фото 10×15')], ['Фото 15×21', pk(210, 150, 'Фото 15×21')], ['Подпись', pk(210, 40, 'Подпись')]]],
+  ['Текст и плашки', [['Заголовок', tx('Заголовок', 60, 700)], ['Текст', tx('Текст', 30, 400)], ['Плашка', tx('Раздел', 30, 400, {})], ['Лента', tx('Раздел', 30, 400, { style: 'ribbon', orn: 'none', border: 'single' })], ['Флажок', tx('Раздел', 30, 400, { style: 'flag', orn: 'none', border: 'none' })], ['Подчёркнутый', tx('Раздел', 30, 400, { style: 'under' })]]],
+  ['Разделители', DIV_STYLES.map(([k, l]) => [l.replace('Линия с орнаментом', 'С орнаментом').replace('Тающая к краям', 'Тающая').replace('Двойная линия', 'Двойная'), () => { const o = makeDivider(); o.style = k; o.color = standTheme().accent2; if (standTheme().orn !== 'none') o.orn = standTheme().orn; return o; }])],
+  ['Изделия', ITEM_ORDER.map(k => [ITEM_KINDS[k].short, () => makeItem(k)])],
+  ['Слои', [['Заливка / градиент', () => { const o = makeShape('solid'); o.w = 400; o.h = 300; return o; }, 'layer'], ['Своя картинка', () => { const o = makeShape('empty'); o.w = 400; o.h = 300; return o; }, 'image'], ['QR-код', () => makeQR()]]],
+];
+function addFromLib(make) {
+  const o = make();
+  if (o.type === 'pocket') { if (o.name === 'Карман') o.name = nextName('pocket', 'Карман'); o.fillAccent = standTheme().accent; }
+  else { const n = doc.objects.filter(x => x.type === o.type && (o.type !== 'item' || x.kind === o.kind)).length; if (n) o.name += ' ' + (n + 1); }
+  syncDerived(o); placeInView(o); mutate(null, () => insertObj(o)); select(o.id);
+}
+let libDrag = null;
+function renderLib() {
+  const pane = $('#libPane'); if (pane.hidden) return;
+  pane.replaceChildren(...LIB.flatMap(([title, items]) => [el('div', { class: 'lib-h' }, title), el('div', { class: 'lib-grid' }, ...items.map(([label, make, icon]) => {
+    let pic; if (icon) pic = `<svg class="lib-ic" viewBox="0 0 24 24">${ICON[icon] || ''}</svg>`;
+    else { const o = make(); if (o.type === 'pocket') { o.showName = false; o.fill = /Фото/.test(label) ? 'photo' : o.ih <= 40 ? 'none' : 'text'; o.fillSeed = 5; o.fillAccent = standTheme().accent; }
+      if (o.type === 'divider') { o.lw = 160; o.lh = 30; o.weight = 2.5; }
+      syncDerived(o); const l = localWH(o); pic = `<svg viewBox="${-l.w * 0.03} ${-l.h * 0.03} ${l.w * 1.06} ${l.h * 1.06}">${objMarkup(o, false)}</svg>`; }
+    const b = el('button', { type: 'button', draggable: 'true', title: label + ' — клик или перетащите на стенд', html: pic + `<span>${esc(label)}</span>` });
+    b.addEventListener('click', () => { if (readOnly) return roToast(); addFromLib(make); });
+    b.addEventListener('dragstart', e => { libDrag = make; e.dataTransfer.setData('text/plain', label); e.dataTransfer.effectAllowed = 'copy'; });
+    b.addEventListener('dragend', () => { libDrag = null; });
+    return b; }))]));
+}
+let leftTab = 'layers';
+function setLeftTab(t) {
+  leftTab = t; $('#layerList').hidden = t !== 'layers'; $('#layersFoot').hidden = t !== 'layers'; $('#libPane').hidden = t !== 'lib';
+  for (const b of document.querySelectorAll('#leftTabs button')) b.classList.toggle('on', b.dataset.t === t);
+  renderLib();
+}
+stage.addEventListener('dragover', e => { if (libDrag) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
+stage.addEventListener('drop', e => { if (!libDrag) return; e.preventDefault(); e.stopImmediatePropagation(); const make = libDrag; libDrag = null; if (readOnly) return roToast();
+  const r = stage.getBoundingClientRect(); addHere({ x: (e.clientX - r.left - view.x) / view.z, y: (e.clientY - r.top - view.y) / view.z }, () => addFromLib(make)); }, true);
+/* ================= варианты макета в одном проекте ================= */
+const VAR_LET = 'АБВГДЕЖЗИК';
+const varCount = () => doc.vars ? doc.vars.names.length : 1;
+function swapVar(i) { const v = doc.vars; v.store[v.cur] = { objects: doc.objects, groups: doc.groups }; doc.objects = v.store[i].objects; doc.groups = v.store[i].groups; v.store[i] = null; v.cur = i; }
+function switchVar(i) { const v = doc.vars; if (!v || i === v.cur || !v.store[i]) return; select(null); mutate(null, () => swapVar(i)); sel = null; selIds = []; changed(); }
+function addVar() {
+  if (readOnly) return roToast(); if (varCount() >= VAR_LET.length) return toast('Вариантов слишком много');
+  mutate(null, () => { if (!doc.vars) doc.vars = { cur: 0, names: ['Вариант А'], store: [null] }; const v = doc.vars;
+    v.store[v.cur] = JSON.parse(JSON.stringify({ objects: doc.objects, groups: doc.groups })); // прежний остаётся как был, работаем в копии
+    let n = v.names.length; while (v.names.includes('Вариант ' + VAR_LET[n % VAR_LET.length])) n++; v.names.push('Вариант ' + VAR_LET[n % VAR_LET.length]); v.store.push(null); v.cur = v.names.length - 1; });
+  toast(`Создан «${doc.vars.names[doc.vars.cur]}» — копия предыдущего. Меняйте смело`);
+}
+async function deleteVar(i) {
+  const v = doc.vars; if (!v || v.names.length < 2 || readOnly) return;
+  if (!await ask('Удалить вариант?', `«${v.names[i]}» будет удалён. Это можно отменить (Ctrl+Z).`, 'Удалить', 'Отмена')) return;
+  select(null); mutate(null, () => { if (i === v.cur) swapVar(i ? i - 1 : 1); v.names.splice(i, 1); v.store.splice(i, 1); v.cur = v.store.indexOf(null); if (v.names.length < 2) delete doc.vars; }); sel = null; selIds = []; changed();
+}
+function renameVar(i, chip) {
+  if (readOnly) return; const inp = el('input', { type: 'text', class: 'var-in', value: doc.vars.names[i], maxlength: 40 });
+  const done = ok => { const t = inp.value.trim(); if (ok && t && t !== doc.vars.names[i]) mutate(null, () => { doc.vars.names[i] = t; }); else renderVarBar(); };
+  inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') done(true); if (e.key === 'Escape') done(false); }); inp.addEventListener('blur', () => done(true));
+  chip.replaceChildren(inp); inp.focus(); inp.select();
+}
+const varBar = el('div', { id: 'varBar' }); stage.append(varBar);
+for (const ev of ['pointerdown', 'dblclick', 'wheel', 'contextmenu']) varBar.addEventListener(ev, e => e.stopPropagation());
+function renderVarBar() {
+  const v = doc.vars, kids = [];
+  if (v) v.names.forEach((n, i) => { const chip = el('button', { type: 'button', class: 'var-chip' + (i === v.cur ? ' on' : ''), title: 'Клик — открыть, двойной клик — переименовать' }, n);
+    chip.addEventListener('click', e => { if (e.detail === 1) switchVar(i); }); chip.addEventListener('dblclick', () => { if (i === doc.vars.cur) renameVar(i, chip); });
+    if (i === v.cur && !readOnly) chip.append(el('span', { class: 'var-x', title: 'Удалить вариант', onclick: e => { e.stopPropagation(); deleteVar(i); } }, '×'));
+    kids.push(chip); });
+  if (!readOnly) kids.push(el('button', { type: 'button', class: 'var-chip add', title: 'Ещё один вариант расположения — копия текущего. Варианты хранятся в одном проекте', onclick: addVar }, v ? '+' : '+ Вариант'));
+  if (v) kids.push(el('button', { type: 'button', class: 'var-chip add', title: 'PDF для клиента: все варианты, по одному на лист', onclick: exportVariantsPDF }, 'PDF'));
+  varBar.replaceChildren(...kids);
+}
+async function exportVariantsPDF() {
+  const v = doc.vars, n = varCount(), keepCur = v ? v.cur : 0, keepMode = view_.mode, keepOpts = { ...expOpts }, F = '"Inter Variable", system-ui, sans-serif', pages = [];
+  toast('Собираю PDF для клиента…', 8000);
+  try {
+    try { await Promise.all([document.fonts.load(`400 20px ${F}`, 'Аа'), document.fonts.load(`700 20px ${F}`, 'Аа')]); } catch {}
+    view_.mode = 'client'; Object.assign(expOpts, { content: 'full', parts: false, marks: false, bleed: 0 });
+    for (let i = 0; i < n; i++) {
+      if (v && i !== v.cur) swapVar(i);
+      const b = base(); expOpts.dpi = Math.max(20, Math.min(150, Math.round(2400 / Math.max(b.w, b.h) * 25.4)));
+      const img = await renderExportCanvas(exportGeom(), false);
+      const land = b.w >= b.h, PW = land ? 1754 : 1240, PH = land ? 1240 : 1754, M = 70, c = el('canvas'); c.width = PW; c.height = PH;
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH); g.textBaseline = 'alphabetic';
+      g.fillStyle = '#111827'; g.font = `700 34px ${F}`; g.fillText(doc.title || DEFAULT_TITLE, M, M + 30);
+      g.fillStyle = '#4b5563'; g.font = `400 20px ${F}`; g.fillText((v ? v.names[i] + ' · ' : '') + `${mmTxt(b.w)} × ${mmTxt(b.h)} мм`, M, M + 64);
+      const top = M + 96, aw = PW - 2 * M, ah = PH - top - M - 30, k = Math.min(aw / img.width, ah / img.height), w = img.width * k, h = img.height * k, x = (PW - w) / 2, y = top + (ah - h) / 2;
+      g.shadowColor = 'rgba(0,0,0,.22)'; g.shadowBlur = 24; g.shadowOffsetY = 6; g.fillStyle = '#fff'; g.fillRect(x, y, w, h); g.shadowColor = 'transparent';
+      g.imageSmoothingQuality = 'high'; g.drawImage(img, x, y, w, h); img.width = img.height = 0;
+      g.fillStyle = '#9ca3af'; g.font = `400 16px ${F}`; g.fillText(new Date().toLocaleDateString('ru-RU'), M, PH - M / 2); g.textAlign = 'right'; g.fillText(`${i + 1} / ${n}`, PW - M, PH - M / 2);
+      pages.push(c);
+    }
+  } catch (e) { console.error(e); toast('Не удалось собрать PDF'); return; }
+  finally { if (v && doc.vars.cur !== keepCur) swapVar(keepCur); view_.mode = keepMode; Object.assign(expOpts, keepOpts); changed(); }
+  if (await download(await makePDF(pages), fileBase() + (n > 1 ? ' — варианты.pdf' : ' — макет.pdf'))) toast(n > 1 ? `PDF сохранён: вариантов ${n}` : 'PDF сохранён');
+}
 /* ================= вкладки свойств: Вид / Размер / Цех ================= */
 const TABS = [['look', 'Вид'], ['deco', 'Оформление'], ['size', 'Размер'], ['prod', 'Цех']];
 const SEC_TAB = { 'Плашка': 'deco', 'Тень': 'deco', 'Формат и положение': 'size', 'Положение': 'size', 'Размер и положение': 'size', 'Выравнивание': 'size', 'Подложка': 'size',
@@ -7315,6 +7487,7 @@ function openExport() {
     el('div', { class: 'dlg-h' }, el('span', {}, 'Экспорт: ' + fileBase()), B('', '✕', () => { m.hidden = true; m.replaceChildren(); }, { cls: 'icon', title: 'Закрыть (Esc)' })),
     el('div', { class: 'dlg-b', style: 'padding-top:14px' }, body),
     el('div', { class: 'dlg-f' },
+      B('file', varCount() > 1 ? 'PDF вариантов для клиента' : 'PDF для клиента', () => { m.hidden = true; m.replaceChildren(); exportVariantsPDF(); }, { cls: 'btn', title: 'Лист A4 на каждый вариант макета: вид для клиента, название и размер' }),
       f.raster || expOpts.fmt === 'svg' ? B('archive', 'Пакет для цеха', runWorkPack, { cls: 'btn', id: 'packGo', title: 'ZIP: основа для печати (по частям, с метками сборки — по галочке выше) в этом формате и разрешении + чертёж A4 с размерами, координатами карманов и спецификацией' }) : null,
       B('download', 'Экспортировать', runExport, { cls: 'btn primary', id: 'expGo', disabled: tooBig }))));
   m.hidden = false;
@@ -7912,6 +8085,11 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-11d', date: '11 ноября 2026', items: [
+    'Слева — вкладка «Библиотека»: карманы всех форматов, тексты и плашки, разделители, изделия, слои. Клик добавляет элемент, можно перетащить прямо на стенд. Кнопки под списком слоёв заменила одна — «Добавить элемент».',
+    '«Стиль стенда» — в свойствах, когда ничего не выбрано: готовые палитры, основной цвет, акцент, шрифт и вид плашек. Меняется сразу весь стенд, новые элементы берут этот стиль.',
+    '«Наполнить все карманы» там же: пустым карманам схема подбирается по формату и названию.',
+    'Варианты макета: кнопка «+ Вариант» над стендом делает копию расположения в том же проекте. Переключение — по вкладкам, «PDF» — все варианты для клиента, по листу на каждый.'] },
   { v: '2026-11-11c', date: '11 ноября 2026', items: [
     'Свойства разложены по вкладкам: «Вид» (название, наполнение, цвета, плашка), «Размер» (формат, положение, выравнивание) и «Цех» (проклейка, выемка, массив, отверстия). Вкладка запоминается.',
     'Над выделенным элементом — панель с частыми действиями: наполнение, поворот, дублировать, копировать и вставить стиль, удалить.',
