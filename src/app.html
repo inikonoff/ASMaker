@@ -344,6 +344,20 @@ kbd{font:11px/1 ui-monospace,monospace;border:1px solid var(--line);border-botto
 .info.strong{font-weight:600;color:var(--text,#111827)}
 .menu-sep{height:1px;background:var(--line,#e5e7eb);margin:4px 0}
 .plate-presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.plate-presets .btn{font-size:12px;padding:4px 8px}
+.sec[hidden]{display:none}
+.ptabs{position:sticky;top:0;z-index:2;display:flex;gap:4px;padding:8px 10px;background:var(--panel);border-bottom:1px solid var(--line)}
+.ptabs button{flex:1;padding:6px 4px;border-radius:8px;border:0;background:transparent;color:var(--muted);font-weight:600;font-size:13px;cursor:pointer}
+.ptabs button:hover{color:var(--text)}.ptabs button.on{background:var(--acc-soft,rgba(37,99,235,.12));color:var(--acc)}
+.fill-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px}
+.fill-grid button{height:auto!important;padding:3px;border:1.5px solid var(--line);border-radius:6px;background:var(--panel);cursor:pointer;display:flex;flex-direction:column;gap:2px;align-items:center;min-width:0}
+.fill-grid button svg{width:100%!important;height:auto!important;display:block;flex:none;border-radius:3px;border:1px solid var(--line);fill:initial;stroke:initial}
+.fill-grid button span{display:none}
+.fill-grid button:hover{border-color:var(--acc)}.fill-grid button.on{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc-soft,rgba(37,99,235,.2))}
+#selBar,#fillPop{position:absolute;left:0;top:0;z-index:4;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.18)}
+#selBar{display:flex;gap:2px;padding:4px}#selBar[hidden],#fillPop[hidden]{display:none}
+#selBar button{display:flex;align-items:center;gap:6px;height:30px;padding:0 8px;border:0;border-radius:7px;background:transparent;color:var(--text);cursor:pointer;font-size:13px;white-space:nowrap}
+#selBar button svg{width:18px;height:18px}#selBar button:hover{background:var(--acc);color:#fff}#selBar button.danger:hover{background:#dc2626}
+#fillPop{padding:8px;width:300px}#fillPop .fill-grid{margin:0}
 </style>
 </head>
 <body>
@@ -425,6 +439,8 @@ const ICON = {
   share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
   download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  brush: '<path d="M14 4l6 6-8 8H6v-6z"/><path d="M4 20h16"/>',
+  paste: '<rect x="6" y="5" width="12" height="16" rx="2"/><path d="M9 5V3h6v2M9 12h6M9 16h4"/>',
   shuffle: '<path d="M3 7h4l10 10h4M3 17h4l10-10h4M18 4l3 3-3 3M18 14l3 3-3 3"/>',
   divider: '<path d="M3 12h6M15 12h6"/><path d="M12 9l3 3-3 3-3-3z"/>',
   plate: '<path d="M6 7h12l3 5-3 5H6l-3-5z"/>',
@@ -1680,7 +1696,7 @@ function wrapLine(line, maxW, measure) {
 /* ================= плашки заголовков (подложка у текста) и орнаменты ================= */
 const PLATE_STYLES = [['none', 'Без плашки'], ['rect', 'Прямоугольник'], ['round', 'Скруглённая'], ['cut', 'Срезанные углы'], ['ribbon', 'Лента с хвостами'], ['flag', 'Флажок'], ['under', 'Подчёркивание']];
 const ORNAMENTS = [['none', 'Без орнамента'], ['flower', 'Цветок'], ['diamond', 'Ромб'], ['cross', 'Крест'], ['dot', 'Точка'], ['curl', 'Завиток']];
-const PLATE_DEF = { style: 'none', fill: '#3f4a2a', border: 'double', bColor: '#c9a646', orn: 'flower', oColor: '#c9a646', padX: 0.9, padY: 0.45 };
+const PLATE_DEF = { style: 'none', fill: '#3f4a2a', border: 'double', bColor: '#c9a646', orn: 'flower', oColor: '#c9a646', padX: 0.9, padY: 0.45, hLock: false, hVal: 50, wAuto: true, wVal: 200 };
 const PLATE_PRESETS = [
   ['Зелёная с золотом', { style: 'cut', fill: '#3f4a2a', border: 'double', bColor: '#c9a646', orn: 'flower', oColor: '#c9a646' }, '#f5ecd2'],
   ['Синяя лента', { style: 'ribbon', fill: '#1e3a8a', border: 'single', bColor: '#dbeafe', orn: 'none', oColor: '#ffffff' }, '#ffffff'],
@@ -1691,7 +1707,8 @@ const PLATE_PRESETS = [
 const normPlate = p => { p = p && typeof p === 'object' ? p : {}; const d = PLATE_DEF;
   return { style: PLATE_STYLES.some(s => s[0] === p.style) ? p.style : 'none', fill: normHex(p.fill) || d.fill, border: ['none', 'single', 'double'].includes(p.border) ? p.border : d.border,
     bColor: normHex(p.bColor) || d.bColor, orn: ORNAMENTS.some(s => s[0] === p.orn) ? p.orn : d.orn, oColor: normHex(p.oColor) || d.oColor,
-    padX: isFinite(p.padX) ? clamp(+p.padX, 0.2, 4) : d.padX, padY: isFinite(p.padY) ? clamp(+p.padY, 0.1, 2) : d.padY }; };
+    padX: isFinite(p.padX) ? clamp(+p.padX, 0.2, 4) : d.padX, padY: isFinite(p.padY) ? clamp(+p.padY, 0.1, 2) : d.padY,
+    hLock: !!p.hLock, hVal: isFinite(p.hVal) ? clamp(+p.hVal, 2, 2000) : d.hVal, wAuto: p.wAuto !== false, wVal: isFinite(p.wVal) ? clamp(+p.wVal, 5, 10000) : d.wVal }; };
 function plateBox(o) { // поля вокруг текста; null — плашки нет
   const p = o.plate; if (!p || p.style === 'none') return null;
   const s = o.size, orn = p.orn !== 'none' ? s * 1.1 : 0, tail = p.style === 'ribbon' ? s * 1.1 : p.style === 'flag' ? s * 0.6 : 0;
@@ -1748,6 +1765,13 @@ function plateSection(o, O, upd) {
     cap('Рамка'), row(sel_('Рамка плашки', [['none', 'Без рамки'], ['single', 'Одинарная'], ['double', 'Двойная']], P('border'), v => ({ border: v }))),
     row(colorField(P('bColor'), setP('bColor', 'plb'))),
     cap('Орнамент по краям'), row(sel_('Орнамент', ORNAMENTS, P('orn'), v => ({ orn: v }))), row(colorField(P('oColor'), setP('oColor', 'plo'))),
+    ...(() => { const one = x => { const L_ = textLayout({ ...x, plate: { ...x.plate, hLock: false } }); return Math.round(L_.h - (L_.lines.length - 1) * L_.lineH); };
+      const hf = row(lenField('Высота одной строки', P('hVal'), (v, k) => upd(k, x => { x.plate = normPlate({ ...x.plate, hVal: v }); }), { min: 2, max: 2000 })); bindFn(P('hLock'), on => { hf.hidden = !on; });
+      const wf = row(lenField('Ширина не меньше', P('wVal'), (v, k) => upd(k, x => { x.plate = normPlate({ ...x.plate, wVal: v }); }), { min: 5, max: 10000 })); bindFn(P('wAuto'), on => { wf.hidden = on; });
+      return [cap('Размер плашки'),
+        row(checkField('Фиксировать высоту', P('hLock'), v => upd(null, x => { x.plate = normPlate({ ...x.plate, hLock: v, hVal: v ? one(x) : x.plate.hVal }); }))), hf,
+        row(checkField('Ширина по тексту', P('wAuto'), v => upd(null, x => { x.plate = normPlate({ ...x.plate, wAuto: v, wVal: v ? x.plate.wVal : Math.round(localWH(x).w) }); }))), wf,
+        el('p', { class: 'hint', style: 'margin-top:0' }, 'С фиксированной высотой все плашки одного роста, какой бы ни был шрифт. Вторая строка текста добавляет высоту. Размер можно тянуть и за ручки на стенде.')]; })(),
     cap('Поля по бокам, % кегля'), row(sliderField(() => O().plate.padX * 100, (v, k) => upd(k, x => { x.plate = normPlate({ ...x.plate, padX: v / 100 }); }), { min: 20, max: 400, key: 'plpx', def: 90 })),
     cap('Поля сверху и снизу, % кегля'), row(sliderField(() => O().plate.padY * 100, (v, k) => upd(k, x => { x.plate = normPlate({ ...x.plate, padY: v / 100 }); }), { min: 10, max: 200, key: 'plpy', def: 45 })));
   return sec('Плашка', el('fieldset', { disabled: o.locked },
@@ -1808,8 +1832,12 @@ function textLayout(o) {
   const tw = o.wrap ? Math.max(o.boxW, ...widths) : Math.max(size * 0.3, ...widths), th = Math.max(lineH * lines.length, size * 0.5);
   const mm = mctx.measureText('HЖgу'), asc = (mm.fontBoundingBoxAscent || 90) / 100 * size, desc = (mm.fontBoundingBoxDescent || 22) / 100 * size;
   const skewPad = th * Math.abs(Math.tan(o.skew * Math.PI / 180));
-  const pb = plateBox(o), ox = pb ? pb.px + pb.tail : 0, oy = pb ? pb.pt : 0; // плашка — поля вокруг текста
-  return { lines, tw, th, lineH, base0: (lineH - asc - desc) / 2 + asc, padX: skewPad / 2, ox, oy, tw0: tw + skewPad, th0: th, w: tw + skewPad + 2 * ox, h: th + oy + (pb ? pb.pb : 0) };
+  const pb = plateBox(o); let ox = pb ? pb.px + pb.tail : 0, oy = pb ? pb.pt : 0, w = tw + skewPad + 2 * ox, h = th + oy + (pb ? pb.pb : 0); // плашка — поля вокруг текста
+  if (pb) { const p = o.plate;
+    if (!p.wAuto && p.wVal > w) { ox += (p.wVal - w) / 2; w = p.wVal; } // ширина «не меньше»: длинный текст всё равно раздвигает плашку
+    if (p.hLock) { const H = Math.max(p.hVal + (lines.length - 1) * lineH, th + pb.drop + (p.style === 'under' ? size * 0.35 : 0)); oy += (H - h) / 2; h = H; } // высота задана для одной строки; каждая следующая добавляет свою
+  }
+  return { lines, tw, th, lineH, base0: (lineH - asc - desc) / 2 + asc, padX: skewPad / 2, ox, oy, tw0: tw + skewPad, th0: th, w, h };
 }
 let relayoutT = 0;
 function relayoutTexts() {
@@ -2233,7 +2261,7 @@ function renderOverlay() {
         const cs = contentSize(o);
         K.push(svText(`${fmtLen(o.w)} × ${fmtLen(o.h)}` + (cs ? ` · видно ${fmtLen(cs.w)} × ${fmtLen(cs.h)}` : '') + (a ? ` · ${String(r2(a)).replace('.', ',')}°` : ''), o.x + o.w / 2, o.y + o.h + 16 / z, 11 / z, 'dim acc', 'middle'));
         if (!o.locked) {
-          handles(K, o.x, o.y, o.w, o.h, o.type === 'text' ? (o.rot % 180 ? ['n', 's'] : ['e', 'w']) : undefined);
+          handles(K, o.x, o.y, o.w, o.h, o.type === 'text' && !plateBox(o) ? (o.rot % 180 ? ['n', 's'] : ['e', 'w']) : undefined);
           // ручка поворота над верхней стороной
           const cx = o.x + o.w / 2, hy = o.y - 26 / z;
           K.push(sv('line', { class: 'rot-stem', x1: cx, y1: o.y, x2: cx, y2: hy + 6 / z }),
@@ -2245,6 +2273,7 @@ function renderOverlay() {
   }
   if (drag && drag.guides) for (const g of drag.guides) kids.push(sv('line', Object.assign({ class: 'guide' }, g, g.class === 'guide gap' ? { 'stroke-dasharray': `${4 / z} ${3 / z}` } : {})));
   overlay.replaceChildren(...kids);
+  placeSelBar();
   const showGhost = drag && drag.moved && (drag.type === 'move' || drag.type === 'resize');
   const go = showGhost && byId(drag.id), gi = go && go.image, gh = gi && assets[gi.asset];
   if (gh) {
@@ -2508,7 +2537,8 @@ function renderProps() {
   if (sig !== propsSig) {
     propsSig = sig; bindings = [];
     const build = { base: buildBase, shape: buildShape, pocket: buildPocket, holes: buildHoles, text: buildText, grid: buildGrid, qr: buildQR, item: buildItem, divider: buildDivider }[o && o.type];
-    propsEl.replaceChildren(...(multi ? buildMulti() : build ? build(o) : buildEmpty()));
+    propsEl.replaceChildren(...(multi ? buildMulti() : build ? build(o) : buildEmpty()).flat(3).filter(x => x != null));
+    applyTabs(!multi && !!o && (isBox(o) || o.type === 'base'));
   } else {
     for (const b of bindings) {
       if (b.apply) { const v = b.read(); if (v !== b.last) { b.last = v; b.apply(v); } continue; }
@@ -2519,11 +2549,11 @@ function renderProps() {
 }
 /* разделы свойств сворачиваются; состояние запоминается по названию раздела */
 const SEC_KEY = STORE + ':secs';
-const SEC_CLOSED = new Set(['Рамка', 'Выемка под палец', 'Вкладыш', 'Массив карманов', 'Слой', 'Абзац', 'Тень']);
+const SEC_CLOSED = new Set(['Рамка', 'Вкладыш', 'Массив карманов', 'Слой', 'Абзац', 'Тень']);
 const secState = (() => { try { return JSON.parse(localStorage.getItem(SEC_KEY)) || {}; } catch { return {}; } })();
 const sec = (title, ...kids) => {
   const key = String(title).replace(/[:·].*$/, '').trim(), closed = key in secState ? secState[key] : SEC_CLOSED.has(key);
-  const s_ = el('section', { class: 'sec' + (closed ? ' closed' : '') });
+  const s_ = el('section', { class: 'sec' + (closed ? ' closed' : '') }); s_.dataset.tab = SEC_TAB[key] || 'look';
   const h = el('h3', { class: 'sec-h', tabindex: 0, title: 'Свернуть или развернуть' }, el('span', { class: 'sec-chev', html: '<svg viewBox="0 0 24 24"><path d="M8 10l4 4 4-4"/></svg>' }), el('span', { class: 'sec-t' }, title));
   const toggle = () => { secState[key] = s_.classList.toggle('closed'); try { localStorage.setItem(SEC_KEY, JSON.stringify(secState)); } catch {} };
   h.addEventListener('click', toggle); h.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
@@ -2646,13 +2676,12 @@ function layerSection(o, O, upd) {
   const btns = o.type === 'base' ? null : el('div', { class: 'btns', style: 'margin-top:10px' },
     isBox(o) ? B('copy', 'Дублировать', duplicateSel, { cls: 'btn', title: 'Ctrl+D' }) : null,
     B('trash', 'Удалить', deleteSel, { cls: 'btn danger', title: 'Delete', disabled: o.locked }));
-  return sec('Слой',
-    isBox(o) ? el('fieldset', { disabled: o.locked }, cap('Выровнять по стенду'),
-      el('div', { class: 'btns tools', style: 'margin-bottom:10px' }, ALIGN.map(([k, icon, t]) => B(icon, '', () => alignSel(k, true), { cls: 'btn', title: t })))) : null,
+  return [isBox(o) ? sec('Выравнивание', el('fieldset', { disabled: o.locked }, cap('Выровнять по стенду'),
+      el('div', { class: 'btns tools' }, ALIGN.map(([k, icon, t]) => B(icon, '', () => alignSel(k, true), { cls: 'btn', title: t })))) ) : null, sec('Слой',
     el('fieldset', { disabled: o.locked }, cap('Прозрачность слоя'), row(sliderField(() => O().opacity * 100, (v, k) => upd(k, x => x.opacity = v / 100), { key: 'layerOp', def: 100 }))),
     row(checkField('Видимый', () => O().visible, v => upd(null, x => x.visible = v))),
     row(checkField('Заблокирован', () => O().locked, v => upd(null, x => x.locked = v))),
-    btns);
+    btns)];
 }
 const posGrid = (O, upd) => [el('div', { class: 'grid2' },
   lenField('X', () => O().x, (v, k) => upd(k, x => x.x = v), { min: -1e5, title: 'От левого края подложки' }),
@@ -2798,7 +2827,7 @@ function fitFrameBtn(O, upd) {
 function buildShape(o) {
   const [O, upd] = ctx(o);
   return [
-    sec('Слой',
+    sec('Размер и положение',
       el('fieldset', { disabled: o.locked },
         row(textField(() => O().name, v => upd(null, x => x.name = v), 'Слой')),
         contentInfo(O),
@@ -2893,7 +2922,7 @@ function buildPocket(o) {
         row(sliderField(() => O().image.opacity * 100, (v, k) => upd(k, x => x.image && (x.image.opacity = v / 100)), { key: 'insOp', def: 100 })))
     : el('div', { class: 'drop' }, B('image', 'Вставить картинку', () => chooseImage(o.id), { cls: 'btn' }), el('div', {}, 'или перетащите файл прямо на карман'));
   return [
-    sec('Карман',
+    sec('Название',
       el('fieldset', { disabled: L },
         (() => { // кегль названия: «Авто» — от размера кармана; дальше название всё равно ужимается, если не влезает по ширине
           const fs_ = el('select', { title: 'Размер шрифта названия на кармане', class: 'fs-sel' }, el('option', { value: '' }, 'Авто'),
@@ -2902,6 +2931,22 @@ function buildPocket(o) {
           return row(textField(() => O().name, v => upd(null, x => x.name = v), 'Карман'), fs_);
         })(),
         row(checkField('Отображать имя на кармане', () => O().showName, v => upd(null, x => x.showName = v))),
+      )),
+    sec('Наполнение', el('fieldset', { disabled: L },
+      fillGrid(o, () => O().fill, k => upd(null, x => x.fill = k), 's', true),
+      (() => { const w_ = el('div'); bindFn(() => O().fill !== 'none', on => { w_.hidden = !on; });
+        w_.append(cap('Цвет заголовка'), row(colorField(() => O().fillAccent, (v, k) => upd(k ? 'fillacc' : null, x => x.fillAccent = v))),
+          el('div', { class: 'btns', style: 'margin-bottom:8px' }, B('shuffle', 'Другой вариант', () => upd(null, x => x.fillSeed = 1 + Math.floor(Math.random() * 1e6)), { cls: 'btn', title: 'Другие строки и картинки той же схемы' })));
+        return w_; })(),
+      el('p', { class: 'hint', style: 'margin-top:0' }, 'Схема вложенного листа: заголовок, строки текста, нейтральные картинки. Подстраивается под размер вкладыша. Своя картинка во вкладыше — важнее.'))),
+    sec('Вкладыш', el('fieldset', { disabled: L }, ins)),
+    sec('Рамка',
+      el('fieldset', { disabled: L },
+        cap('Цвет рамки'),
+        row(colorField(() => O().tapeColor, (v, k) => upd(k ? 'tapeColor' : null, x => x.tapeColor = v))),
+        row(lenField('Ширина самоклейки', () => O().filmW, (v, k) => upd(k, x => x.filmW = v), { min: 1, max: 100, title: 'Ширина цветной самоклейки по периметру кармана — для площади в спецификации' })))),
+    sec('Формат и положение',
+      el('fieldset', { disabled: L },
         cap('Формат вкладыша'),
         row(fmtSel, flipButton(o.id), rotButton(o.id)),
         el('div', { class: 'wh-swap' },
@@ -2914,17 +2959,13 @@ function buildPocket(o) {
           el('button', { type: 'button', class: 'btn', onclick: () => upd(null, x => { x.x = (base().w - x.w) / 2; }) }, 'По центру ↔'),
           el('button', { type: 'button', class: 'btn', onclick: () => upd(null, x => { x.y = (base().h - x.h) / 2; }) }, 'По центру ↕')),
         warn)),
+    layerSection(o, O, upd),
     sec('Проклейка',
       el('fieldset', { disabled: L },
         sidesField(O, upd),
         el('div', { class: 'grid2', style: 'margin-top:8px' },
           lenField('Лента', () => O().tape, (v, k) => upd(k, x => x.tape = v), { min: 1, max: 60, title: 'Ширина ленты двустороннего скотча' }),
           lenField('Зазор', () => O().gap, (v, k) => upd(k, x => x.gap = v), { min: 0, max: 30, title: 'Запас между вкладышем и скотчем' })))),
-    sec('Рамка',
-      el('fieldset', { disabled: L },
-        cap('Цвет рамки'),
-        row(colorField(() => O().tapeColor, (v, k) => upd(k ? 'tapeColor' : null, x => x.tapeColor = v))),
-        row(lenField('Ширина самоклейки', () => O().filmW, (v, k) => upd(k, x => x.filmW = v), { min: 1, max: 100, title: 'Ширина цветной самоклейки по периметру кармана — для площади в спецификации' })))),
     sec('Выемка под палец',
       el('fieldset', { disabled: L },
         cap('На открытой стороне'),
@@ -2937,15 +2978,6 @@ function buildPocket(o) {
         })(),
         o.notch === 'cornerL' || o.notch === 'cornerR' ? row(lenField('Уголок', () => O().notchSize, (v, k) => upd(k, x => x.notchSize = v), { min: 3, max: 100, title: 'Размер катета скошенного уголка' })) : null,
         (() => { const h = el('p', { class: 'hint', style: 'margin-top:0' }); bind(h, () => { const x = O(); return CW.every(k => x.sides[k]) ? 'Карман проклеен со всех сторон — выемка не нужна.' : (x.notch === 'cornerL' || x.notch === 'cornerR') && ['l', 'r'].includes(['t', 'b', 'l', 'r'].find(k => !x.sides[k])) ? 'У кармана, открытого сбоку, «слева» — верхний угол, «справа» — нижний (до поворота кармана).' : ''; }, 'textContent'); return h; })())),
-    sec('Наполнение', el('fieldset', { disabled: L },
-      (() => { const f_ = el('select', { title: 'Схема того, что будет вложено в карман' }, ...FILLS.map(([v, l_]) => el('option', { value: v }, l_)));
-        bind(f_, () => O().fill); f_.addEventListener('change', () => upd(null, x => x.fill = f_.value)); return row(f_); })(),
-      (() => { const w_ = el('div'); bindFn(() => O().fill !== 'none', on => { w_.hidden = !on; });
-        w_.append(cap('Цвет заголовка'), row(colorField(() => O().fillAccent, (v, k) => upd(k ? 'fillacc' : null, x => x.fillAccent = v))),
-          el('div', { class: 'btns', style: 'margin-bottom:8px' }, B('shuffle', 'Другой вариант', () => upd(null, x => x.fillSeed = 1 + Math.floor(Math.random() * 1e6)), { cls: 'btn', title: 'Другие строки и картинки той же схемы' })));
-        return w_; })(),
-      el('p', { class: 'hint', style: 'margin-top:0' }, 'Схема вложенного листа: заголовок, строки текста, нейтральные картинки. Подстраивается под размер вкладыша. Своя картинка во вкладыше — важнее.'))),
-    sec('Вкладыш', el('fieldset', { disabled: L }, ins)),
     sec('Массив карманов',
       el('fieldset', { disabled: L },
         el('div', { class: 'grid2' },
@@ -2956,7 +2988,6 @@ function buildPocket(o) {
         row(checkField('Разместить по центру стенда', () => arrayOpts.center, v => arrayOpts.center = v)),
         (() => { const i = el('div', { class: 'info' }); bind(i, () => { const x = O(), W = arrayOpts.cols * x.w + (arrayOpts.cols - 1) * arrayOpts.gx, H = arrayOpts.rows * x.h + (arrayOpts.rows - 1) * arrayOpts.gy; return `${arrayOpts.cols * arrayOpts.rows} карманов займут ${fmtLen(W)} × ${fmtLen(H)} ${unitLabel()}`; }, 'textContent'); return i; })(),
         el('div', { class: 'btns' }, B('copy', 'Создать массив', () => makeArray(o.id), { cls: 'btn primary', title: 'Этот карман станет первым, остальные — копиями' })))),
-    layerSection(o, O, upd),
   ];
 }
 function rotButton(id, label = '') {
@@ -3178,6 +3209,7 @@ function buildMulti() {
   const list = selected(); arrangeOpts.cols = null; arrangeOpts.rows = null;
   return [
     selIsGroup() ? groupPanel(selIsGroup()) : '',
+    ...multiCommon(list),
     sec('Выбрано элементов: ' + list.length,
       el('p', { class: 'hint', style: 'margin:0 0 10px' }, 'Рамка мышью — выделить область, с ', el('kbd', {}, 'Shift'), ' — добавить. ', el('kbd', {}, 'Shift'), ' + клик — добавить или убрать элемент. В списке слоёв ', el('kbd', {}, 'Shift'), ' — диапазон, ', el('kbd', {}, 'Ctrl'), ' — по одному.'),
       row(checkField('Относительно стенда', () => alignToStand, v => { alignToStand = v; })),
@@ -3275,6 +3307,92 @@ function placeRot() {
   elTools.style.setProperty('--py', view.y + (o.y + o.h / 2) * view.z + 'px');
 }
 function hideTip() { clearTimeout(tipT); rotTip.hidden = true; }
+/* ================= вкладки свойств: Вид / Размер / Цех ================= */
+const TABS = [['look', 'Вид'], ['deco', 'Оформление'], ['size', 'Размер'], ['prod', 'Цех']];
+const SEC_TAB = { 'Плашка': 'deco', 'Тень': 'deco', 'Формат и положение': 'size', 'Положение': 'size', 'Размер и положение': 'size', 'Выравнивание': 'size', 'Подложка': 'size',
+  'Проклейка': 'prod', 'Выемка под палец': 'prod', 'Массив карманов': 'prod', 'Отверстия под крепёж': 'prod', 'Раздел на части': 'prod' };
+const TAB_KEY = STORE + ':ptab';
+let propsTab = (() => { try { return localStorage.getItem(TAB_KEY) || 'look'; } catch { return 'look'; } })();
+function setPropsTab(t) { propsTab = t; try { localStorage.setItem(TAB_KEY, t); } catch {} applyTabs(true); }
+function applyTabs(on) { // вкладка запоминается; если у элемента такой нет — показываем первую
+  const old = propsEl.querySelector(':scope > .ptabs'); if (old) old.remove();
+  const secs = [...propsEl.querySelectorAll(':scope > .sec')];
+  const have = on ? TABS.filter(([k]) => secs.some(s_ => s_.dataset.tab === k)) : [];
+  if (have.length < 2) { secs.forEach(s_ => { s_.hidden = false; }); return; }
+  const cur = have.some(([k]) => k === propsTab) ? propsTab : have[0][0];
+  secs.forEach(s_ => { s_.hidden = s_.dataset.tab !== cur; });
+  propsEl.prepend(el('div', { class: 'ptabs' }, ...have.map(([k, l]) => el('button', { type: 'button', class: k === cur ? 'on' : '', onclick: () => setPropsTab(k) }, l))));
+  if (old) propsEl.scrollTop = 0;
+}
+/* ================= наполнение — миниатюрами ================= */
+function fillThumb(kind, o, tag) {
+  const land = o && o.iw > o.ih * 1.15, iw = land ? 297 : 210, ih = land ? 210 : 297;
+  const f = { id: 'th' + tag + kind.replace('-', ''), iw, ih, fill: kind, fillSeed: 7, fillAccent: o ? o.fillAccent : '#1f2937' };
+  return `<svg viewBox="0 0 ${iw} ${ih}" style="aspect-ratio:${iw}/${ih}">` + (kind === 'none' ? `<rect width="${iw}" height="${ih}" fill="#f3f4f6"/><path d="M40 40L${iw - 40} ${ih - 40}M${iw - 40} 40L40 ${ih - 40}" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>` : fillMarkup(f, { ix: 0, iy: 0 }, false)) + '</svg>';
+}
+function fillGrid(o, cur, pick, tag, live) {
+  return el('div', { class: 'fill-grid' }, ...FILLS.map(([k, l]) => {
+    const b = el('button', { type: 'button', title: l, html: fillThumb(k, o, tag) + `<span>${esc(l.replace(/^Текст, /, '').replace(/ — .*/, ''))}</span>` });
+    b.addEventListener('click', () => pick(k));
+    if (live) bindFn(() => cur() === k, on => b.classList.toggle('on', on)); else b.classList.toggle('on', cur() === k);
+    return b; }));
+}
+/* ================= панель над выделением: частые действия под рукой ================= */
+const selBar = el('div', { id: 'selBar', hidden: true }), fillPop = el('div', { id: 'fillPop', hidden: true });
+stage.append(selBar, fillPop);
+for (const n of [selBar, fillPop]) for (const ev of ['pointerdown', 'dblclick', 'wheel', 'contextmenu']) n.addEventListener(ev, e => { e.stopPropagation(); if (ev === 'contextmenu') e.preventDefault(); });
+document.addEventListener('pointerdown', e => { if (!fillPop.hidden && !fillPop.contains(e.target) && !selBar.contains(e.target)) fillPop.hidden = true; });
+const selPockets = () => selected().filter(o => o.type === 'pocket' && !o.locked);
+function setFillSel(k) { mutate(null, () => selPockets().forEach(o => { o.fill = k; })); fillPop.hidden = true; }
+function toggleFillPop() {
+  if (!fillPop.hidden) { fillPop.hidden = true; return; }
+  const P = selPockets(); if (!P.length) return;
+  fillPop.replaceChildren(fillGrid(P[0], () => P.every(o => o.fill === P[0].fill) ? P[0].fill : '', setFillSel, 'p', false));
+  fillPop.hidden = false; placeSelBar();
+}
+let selBarSig = '';
+function placeSelBar() {
+  const list = selected().filter(o => isBox(o) && o.visible && !o.locked);
+  const busy = pinch || (drag && drag.moved) || document.body.classList.contains('ro');
+  if (!list.length || busy) { selBar.hidden = true; fillPop.hidden = true; return; }
+  const one = list.length === 1 && selIds.length === 1, hasP = list.some(o => o.type === 'pocket'), sig = [one, hasP, one && !!STYLE_KEYS[list[0].type], !!styleClip].join();
+  if (sig !== selBarSig) {
+    selBarSig = sig;
+    selBar.replaceChildren(...[
+      hasP ? B('image', 'Наполнение', toggleFillPop, { title: 'Что вложено в карман — схема листа или фото' }) : null,
+      B('rotate', '', e => rotateSel(e.ctrlKey || e.metaKey ? -1 : 1), { title: 'Повернуть на 90° (R)' }),
+      B('copy', '', duplicateSel, { title: 'Дублировать (Ctrl+D)' }),
+      one && STYLE_KEYS[list[0].type] ? B('brush', '', copyStyle, { title: 'Копировать стиль (Ctrl+Alt+C)' }) : null,
+      styleClip ? B('paste', '', pasteStyle, { title: 'Вставить стиль (Ctrl+Alt+V)' }) : null,
+      B('trash', '', deleteSel, { cls: 'danger', title: 'Удалить (Delete)' })].filter(Boolean));
+  }
+  selBar.hidden = false;
+  const bb = bboxOf(list), z = view.z, r = stage.getBoundingClientRect(), bw = selBar.offsetWidth || 200;
+  const x = clamp(view.x + (bb.x + bb.w / 2) * z, bw / 2 + 8, r.width - bw / 2 - 8);
+  let y = view.y + bb.y * z - 84; const below = y < 8; if (below) y = Math.min(r.height - 48, view.y + (bb.y + bb.h) * z + 30);
+  selBar.style.transform = `translate(${Math.round(x)}px,${Math.round(y)}px) translate(-50%,0)`;
+  if (!fillPop.hidden) { const pw = fillPop.offsetWidth || 300, ph = fillPop.offsetHeight || 260;
+    const px = clamp(x, pw / 2 + 8, r.width - pw / 2 - 8), py = y + 44 + ph > r.height - 8 ? Math.max(8, y - ph - 8) : y + 44;
+    fillPop.style.transform = `translate(${Math.round(px)}px,${Math.round(py)}px) translate(-50%,0)`; }
+}
+/* ================= общие свойства при выделении нескольких ================= */
+function multiCommon(list) {
+  const P = list.filter(o => o.type === 'pocket'), T = list.filter(o => o.type === 'text'), out = [];
+  const each = (type, key, fn) => mutate(key, () => selected().filter(o => o.type === type && !o.locked).forEach(fn));
+  const first = type => selected().find(o => o.type === type) || {};
+  if (P.length > 1) out.push(sec('Карманы: ' + P.length,
+    cap('Наполнение — всем выбранным'), fillGrid(P[0], () => { const a = selected().filter(o => o.type === 'pocket'); return a.length && a.every(o => o.fill === a[0].fill) ? a[0].fill : ''; }, k => each('pocket', null, o => { o.fill = k; }), 'm', true),
+    el('div', { class: 'btns', style: 'margin:8px 0' }, B('shuffle', 'Другие варианты', () => each('pocket', null, o => { o.fillSeed = 1 + Math.floor(Math.random() * 1e6); }), { cls: 'btn', title: 'Перемешать строки и картинки у всех выбранных' })),
+    cap('Цвет заголовка'), row(colorField(() => first('pocket').fillAccent || '#1f2937', (v, k) => each('pocket', k ? 'mfa' : null, o => { o.fillAccent = v; }))),
+    cap('Цвет рамки'), row(colorField(() => first('pocket').tapeColor || '#ffffff', (v, k) => each('pocket', k ? 'mtc' : null, o => { o.tapeColor = v; }))),
+    row(checkField('Отображать имя на кармане', () => selected().filter(o => o.type === 'pocket').every(o => o.showName), v => each('pocket', null, o => { o.showName = v; })))));
+  if (T.length > 1) out.push(sec('Тексты: ' + T.length,
+    cap('Цвет текста'), row(colorField(() => first('text').color || '#1f2937', (v, k) => each('text', k ? 'mtx' : null, o => { o.color = v; }))),
+    row(lenField('Размер шрифта', () => first('text').size || 30, (v, k) => each('text', k, o => { o.size = v; }), { min: 1, max: 5000 })),
+    el('p', { class: 'hint', style: 'margin-top:0' }, 'Плашку и шрифт переносите через «Копировать стиль» → выделить остальные → «Вставить стиль».')));
+  return out;
+}
+
 elTools.addEventListener('pointerdown', e => e.stopPropagation());
 elTools.addEventListener('dblclick', e => e.stopPropagation());
 rotBtn.addEventListener('click', e => { hideTip(); rotateObj(hoverId, e.ctrlKey || e.metaKey ? -1 : 1); });
@@ -3386,7 +3504,7 @@ stage.addEventListener('pointerdown', e => {
   };
   if (h && cur && !cur.locked) {
     if (cur.type === 'base' && cur.image) { drag = { ...base0, type: 'resize', corner: h.dataset.handle, id: cur.id, start: { ...cur.image } }; return; }
-    if (isBox(cur)) { drag = { ...base0, type: 'boxresize', corner: h.dataset.handle, id: cur.id, start: { x: cur.x, y: cur.y, w: cur.w, h: cur.h, size: cur.size, boxW: cur.boxW }, ...snapTargets(cur.id) }; return; }
+    if (isBox(cur)) { drag = { ...base0, type: 'boxresize', corner: h.dataset.handle, id: cur.id, start: { x: cur.x, y: cur.y, w: cur.w, h: cur.h, size: cur.size, boxW: cur.boxW, pl: cur.plate ? { ...cur.plate } : null }, ...snapTargets(cur.id) }; return; }
   }
   const hit = e.target.closest && e.target.closest('[data-id]');
   if (hit) {
@@ -3503,13 +3621,19 @@ stage.addEventListener('pointermove', e => {
     }
     let nw = mx ? Math.max(10, hW ? ax - ex : ex - ax) : s.w, nh = my ? Math.max(10, hN ? ay - ey : ey - ay) : s.h;
     if (corner && e.shiftKey) { const r = s.w / s.h; if (nw / nh > r) nh = nw / r; else nw = nh * r; gx = gy = null; }
-    if (o.type === 'text' && !corner) {
+    if (o.type === 'text' && !corner && plateBox(o)) { // плашка: бок — ширина «не меньше», верх/низ — фиксированная высота
+      const q = o.rot % 180, L = textLayout(o);
+      if (q ? my : mx) { o.plate.wAuto = false; o.plate.wVal = Math.max(5, Math.round(q ? nh : nw)); }
+      if (q ? mx : my) { o.plate.hLock = true; o.plate.hVal = Math.max(2, Math.round((q ? nw : nh) - (L.lines.length - 1) * L.lineH)); }
+      syncDerived(o); nw = o.w; nh = o.h;
+    } else if (o.type === 'text' && !corner) {
       const L = textLayout(o), pad = L.w - L.tw, q = o.rot % 180;
       o.wrap = true; o.boxW = Math.max(10, Math.round((q ? nh : nw) - pad));
       syncDerived(o); nw = o.w; nh = o.h;
     } else if (o.type === 'text') {
       const f = Math.max(nw / s.w, nh / s.h);
       o.size = r2(clamp(s.size * f, 1, 5000)); if (o.wrap) o.boxW = r2(s.boxW * f);
+      if (s.pl) { o.plate.hVal = r2(s.pl.hVal * f); o.plate.wVal = r2(s.pl.wVal * f); }
       syncDerived(o); nw = o.w; nh = o.h;
     } else if (o.type === 'qr') { // QR всегда квадратный
       const side = Math.max(5, Math.round(mx && my ? Math.max(nw, nh) : mx ? nw : nh)); o.w = o.h = side; nw = nh = side;
@@ -5489,6 +5613,11 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-11c', date: '11 ноября 2026', items: [
+    'Свойства разложены по вкладкам: «Вид» (название, наполнение, цвета, плашка), «Размер» (формат, положение, выравнивание) и «Цех» (проклейка, выемка, массив, отверстия). Вкладка запоминается.',
+    'Над выделенным элементом — панель с частыми действиями: наполнение, поворот, дублировать, копировать и вставить стиль, удалить.',
+    'Наполнение кармана выбирается по картинкам. Выделите несколько карманов — и задайте наполнение, цвет заголовка и рамки всем сразу; у нескольких текстов — цвет и размер.',
+    'Плашка: «Фиксировать высоту» — все плашки одного роста при любом шрифте, вторая строка добавляет высоту. Ширина идёт за текстом; её и высоту можно тянуть за ручки или задать числом.'] },
   { v: '2026-11-11b', date: '11 ноября 2026', items: [
     'Наполнение карманов: в свойствах кармана — «Наполнение». Схема вложенного листа: текст с заголовком, текст с картинками (слева вверху, справа внизу, по диагонали, рядом), две колонки, список, афиша или фото во весь вкладыш. Картинки — мягкие цветные пейзажи. Подстраивается под размер кармана; «Другой вариант» — другие строки и картинки.',
     'Плашки заголовков: «Элемент» → «Плашка заголовка». Пять готовых стилей и донастройка: форма (прямоугольник, скруглённая, срезанные углы, лента, флажок, подчёркивание), заливка, одинарная или двойная рамка, орнамент по краям. Плашка растёт вместе с текстом. Плашку можно включить у любого текста — в его свойствах.',
