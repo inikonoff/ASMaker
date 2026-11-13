@@ -771,7 +771,7 @@ function normalizeObj(raw, ids) {
   if (o.type === 'shape' || o.type === 'pocket' || o.type === 'text' || o.type === 'item' || o.type === 'divider') o.rot = [0, 90, 180, 270].includes(+o.rot) ? +o.rot : 0;
   if (o.type === 'divider') {
     if (!DIV_STYLES.some(d => d[0] === o.style)) o.style = 'line'; if (!ORNAMENTS.some(d => d[0] === o.orn) || o.orn === 'none') o.orn = 'flower';
-    o.color = normHex(o.color) || '#a16207'; o.weight = clamp(+o.weight || 1.5, 0.3, 10); o.lw = clamp(+o.lw || 600, 10, 10000); o.lh = clamp(+o.lh || 24, 2, 500); syncDerived(o);
+    o.color = normHex(o.color) || '#a16207'; o.weight = clamp(+o.weight || 1.5, 0.3, 10); o.cap = DIV_CAPS.some(d => d[0] === o.cap) ? o.cap : 'none'; o.step = clamp(Math.round(+o.step || 100), 40, 300); o.ornN = [1, 2, 3, 5].includes(+o.ornN) ? +o.ornN : 1; o.ornSize = clamp(Math.round(+o.ornSize || 100), 30, 100); o.lw = clamp(+o.lw || 600, 10, 10000); o.lh = clamp(+o.lh || 24, 2, 500); syncDerived(o);
   }
   if (o.type === 'item') {
     if (!ITEM_KINDS[o.kind]) o.kind = 'booklet';
@@ -1718,25 +1718,50 @@ function wrapLine(line, maxW, measure) {
   out.push(cur); return out;
 }
 /* ================= плашки заголовков (подложка у текста) и орнаменты ================= */
-const PLATE_STYLES = [['none', 'Без плашки'], ['rect', 'Прямоугольник'], ['round', 'Скруглённая'], ['cut', 'Срезанные углы'], ['ribbon', 'Лента с хвостами'], ['flag', 'Флажок'], ['under', 'Подчёркивание']];
+const PLATE_STYLES = [['none', 'Без плашки'], ['rect', 'Прямоугольник'], ['round', 'Скруглённая'], ['pill', 'Капсула'], ['cut', 'Срезанные углы'], ['ticket', 'Билет — углы внутрь'], ['plaque', 'Фигурная табличка'], ['petal', 'Лепестки'], ['star', 'Звезда'], ['stamp', 'Марка — зубчатый край'], ['scallop', 'Фестоны'],
+  ['ribbon', 'Лента с хвостами'], ['flag', 'Флажок'], ['banner', 'Вымпел — два хвоста'], ['hex', 'Шестигранник'], ['arrow', 'Указатель'], ['brackets', 'Скобки'], ['under', 'Подчёркивание']];
 const ORNAMENTS = [['none', 'Без орнамента'], ['flower', 'Цветок'], ['diamond', 'Ромб'], ['cross', 'Крест'], ['dot', 'Точка'], ['curl', 'Завиток']];
-const PLATE_DEF = { style: 'none', fill: '#3f4a2a', border: 'double', bColor: '#c9a646', orn: 'flower', oColor: '#c9a646', padX: 0.9, padY: 0.45, hLock: false, hVal: 50, wAuto: true, wVal: 200 };
+// формы с настраиваемыми углами и краями: с чего начинает каждая. corR — % меньшей стороны, edgeD — диаметр дуги края в % кегля
+const PLATE_SHAPE = { rect: { cor: 'sq' }, round: { cor: 'out', corR: 28 }, pill: { cor: 'out', corR: 50 }, cut: { cor: 'cut', corR: 28 }, ticket: { cor: 'in', corR: 30 }, plaque: { cor: 'in', corR: 36, corN: 2 },
+  petal: { cor: 'out', corR: 42, corN: 3 }, star: { cor: 'in', corR: 42, corN: 3 }, stamp: { cor: 'sq', edge: 'in', edgeD: 45 }, scallop: { cor: 'out', corR: 18, edge: 'out', edgeD: 60 } };
+const PLATE_CORNERS = [['sq', 'Прямые'], ['out', 'Скруглены наружу'], ['in', 'Скруглены внутрь'], ['cut', 'Срезаны']];
+const PLATE_EDGES = [['none', 'Ровные'], ['out', 'Фестоны наружу'], ['in', 'Выемки внутрь'], ['zig', 'Зубцы']];
+const PLATE_SIDES = [['all', 'Со всех сторон'], ['h', 'Сверху и снизу'], ['v', 'По бокам']];
+const shapeDef = st => ({ cor: 'sq', corR: 28, corN: 1, edge: 'none', edgeD: 50, edgeS: 'all', ...PLATE_SHAPE[st] });
+const plateBare = p => p.style === 'under' || p.style === 'brackets' || p.fillOn === false; // без заливки: текст берёт основной цвет, а не «текст на плашках»
+const PLATE_DEF = { style: 'none', fill: '#3f4a2a', fillOn: true, border: 'double', bColor: '#c9a646', orn: 'flower', oColor: '#c9a646', padX: 0.9, padY: 0.45, hLock: false, hVal: 50, wAuto: true, wVal: 200 };
 const PLATE_PRESETS = [
   ['Зелёная с золотом', { style: 'cut', fill: '#3f4a2a', border: 'double', bColor: '#c9a646', orn: 'flower', oColor: '#c9a646' }, '#f5ecd2'],
   ['Синяя лента', { style: 'ribbon', fill: '#1e3a8a', border: 'single', bColor: '#dbeafe', orn: 'none', oColor: '#ffffff' }, '#ffffff'],
   ['Белая в рамке', { style: 'round', fill: '#ffffff', border: 'double', bColor: '#1f2937', orn: 'diamond', oColor: '#1f2937' }, '#1f2937'],
   ['Бордовый флажок', { style: 'flag', fill: '#7f1d1d', border: 'none', bColor: '#fde68a', orn: 'dot', oColor: '#fde68a' }, '#fff7ed'],
   ['Подчёркнутый', { style: 'under', fill: '#000000', border: 'double', bColor: '#a16207', orn: 'curl', oColor: '#a16207' }, '#3f2d14'],
+  ['Графитовый билет', { style: 'ticket', fill: '#1f2937', border: 'single', bColor: '#c9a646', orn: 'diamond', oColor: '#c9a646' }, '#ffffff'],
+  ['Бордовая табличка', { style: 'plaque', fill: '#7f1d1d', border: 'double', bColor: '#e7c873', orn: 'flower', oColor: '#e7c873' }, '#fff7ed'],
+  ['Синяя капсула', { style: 'pill', fill: '#1e3a8a', border: 'none', bColor: '#93c5fd', orn: 'none', oColor: '#ffffff' }, '#ffffff'],
+  ['Зелёные лепестки', { style: 'petal', fill: '#14532d', border: 'single', bColor: '#bbf7d0', orn: 'none', oColor: '#bbf7d0' }, '#f0fdf4'],
+  ['Золотая звезда', { style: 'star', fill: '#a16207', border: 'single', bColor: '#fef3c7', orn: 'none', oColor: '#fef3c7' }, '#ffffff'],
+  ['Марка', { style: 'stamp', fill: '#fef3c7', border: 'single', bColor: '#92400e', orn: 'none', oColor: '#92400e' }, '#78350f'],
+  ['Фестоны', { style: 'scallop', fill: '#0f5c63', border: 'single', bColor: '#f2c14e', orn: 'dot', oColor: '#f2c14e' }, '#ffffff'],
+  ['Бирюзовый вымпел', { style: 'banner', fill: '#0f5c63', border: 'single', bColor: '#f2c14e', orn: 'none', oColor: '#f2c14e' }, '#ffffff'],
+  ['Оранжевый указатель', { style: 'arrow', fill: '#b45309', border: 'none', bColor: '#fde68a', orn: 'none', oColor: '#fde68a' }, '#ffffff'],
+  ['Шестигранник', { style: 'hex', fill: '#374151', border: 'single', bColor: '#e5e7eb', orn: 'none', oColor: '#e5e7eb' }, '#ffffff'],
+  ['Только рамка', { style: 'ticket', fillOn: false, fill: '#ffffff', border: 'double', bColor: '#1f2937', orn: 'none', oColor: '#1f2937' }, '#1f2937'],
+  ['Скобки', { style: 'brackets', fill: '#ffffff', border: 'single', bColor: '#1f2937', orn: 'none', oColor: '#1f2937' }, '#1f2937'],
 ];
-const normPlate = p => { p = p && typeof p === 'object' ? p : {}; const d = PLATE_DEF;
-  return { style: PLATE_STYLES.some(s => s[0] === p.style) ? p.style : 'none', fill: normHex(p.fill) || d.fill, border: ['none', 'single', 'double'].includes(p.border) ? p.border : d.border,
+const normPlate = p => { p = p && typeof p === 'object' ? p : {}; const d = PLATE_DEF, style = PLATE_STYLES.some(s => s[0] === p.style) ? p.style : 'none', sd = shapeDef(style), num = (v, a, b, def) => v != null && isFinite(v) ? clamp(+v, a, b) : def;
+  return { style, fill: normHex(p.fill) || d.fill, fillOn: p.fillOn !== false, border: ['none', 'single', 'double'].includes(p.border) ? p.border : d.border,
     bColor: normHex(p.bColor) || d.bColor, orn: ORNAMENTS.some(s => s[0] === p.orn) ? p.orn : d.orn, oColor: normHex(p.oColor) || d.oColor,
+    cor: PLATE_CORNERS.some(s => s[0] === p.cor) ? p.cor : sd.cor, corR: num(p.corR, 0, 50, sd.corR), corN: Math.round(num(p.corN, 1, 6, sd.corN)),
+    edge: PLATE_EDGES.some(s => s[0] === p.edge) ? p.edge : sd.edge, edgeD: num(p.edgeD, 15, 300, sd.edgeD), edgeS: PLATE_SIDES.some(s => s[0] === p.edgeS) ? p.edgeS : sd.edgeS,
     padX: isFinite(p.padX) ? clamp(+p.padX, 0.2, 4) : d.padX, padY: isFinite(p.padY) ? clamp(+p.padY, 0.1, 2) : d.padY,
     hLock: !!p.hLock, hVal: isFinite(p.hVal) ? clamp(+p.hVal, 2, 2000) : d.hVal, wAuto: p.wAuto !== false, wVal: isFinite(p.wVal) ? clamp(+p.wVal, 5, 10000) : d.wVal }; };
+const plateSag = (p, s) => PLATE_SHAPE[p.style] && p.edge !== 'none' ? p.edgeD / 100 * s * 0.3 : 0; // глубина фигурного края
 function plateBox(o) { // поля вокруг текста; null — плашки нет
   const p = o.plate; if (!p || p.style === 'none') return null;
-  const s = o.size, orn = p.orn !== 'none' ? s * 1.1 : 0, tail = p.style === 'ribbon' ? s * 1.1 : p.style === 'flag' ? s * 0.6 : 0;
-  const px = p.padX * s + orn, pt = p.padY * s, drop = p.style === 'ribbon' ? s * 0.35 : 0, pb = p.style === 'under' ? p.padY * s + s * 0.35 : pt + drop;
+  const s = o.size, orn = p.orn !== 'none' ? s * 1.1 : 0, tail = p.style === 'ribbon' ? s * 1.1 : p.style === 'flag' || p.style === 'banner' || p.style === 'arrow' ? s * 0.6 : p.style === 'hex' ? s * 0.55 : 0;
+  const sg = plateSag(p, s), ex = p.edgeS !== 'h' ? sg : 0, ey = p.edgeS !== 'v' ? sg : 0; // фигурный край отодвигает текст
+  const px = p.padX * s + orn + ex, pt = p.padY * s + ey, drop = p.style === 'ribbon' ? s * 0.35 : 0, pb = p.style === 'under' ? p.padY * s + s * 0.35 : pt + drop;
   return { px, pt, pb, tail, orn, drop };
 }
 function ornMarkup(kind, cx, cy, r, col) {
@@ -1749,13 +1774,42 @@ function ornMarkup(kind, cx, cy, r, col) {
   if (kind === 'curl') return `<path d="M${R(cx - r * 0.6)} ${R(cy)}C${R(cx - r * 0.3)} ${R(cy - r * 0.6)} ${R(cx + r * 0.3)} ${R(cy - r * 0.6)} ${R(cx + r * 0.15)} ${R(cy - r * 0.1)}C${R(cx)} ${R(cy + r * 0.25)} ${R(cx - r * 0.3)} ${R(cy + r * 0.05)} ${R(cx - r * 0.1)} ${R(cy - r * 0.15)}M${R(cx - r * 0.6)} ${R(cy)}H${R(cx + r * 0.6)}" fill="none" stroke="${col}" stroke-width="${R(r * 0.1)}" stroke-linecap="round"/>`;
   return '';
 }
+// контур плашки с настраиваемыми углами и краями. Угол — одна или несколько дуг по хорде: наружу — «лепестки», внутрь — «звезда»
+function plateBodyPath(p, X0, Y0, X1, Y1, s, ins) {
+  const R = v => Math.round(v * 100) / 100, sg = plateSag(p, s), out = p.edge === 'out';
+  const eh = sg > 0 && p.edgeS !== 'v', ev = sg > 0 && p.edgeS !== 'h'; // фигурные верх с низом и бока
+  const bx0 = X0 + (ev && out ? sg : 0), bx1 = X1 - (ev && out ? sg : 0), by0 = Y0 + (eh && out ? sg : 0), by1 = Y1 - (eh && out ? sg : 0); // фестоны наружу не выходят за габарит
+  const R0 = p.cor === 'sq' ? 0 : p.corR / 100 * Math.max(0, Math.min(bx1 - bx0, by1 - by0)), d0 = p.edgeD / 100 * s;
+  const nH = Math.max(1, Math.round((bx1 - bx0 - 2 * R0) / d0)), nV = Math.max(1, Math.round((by1 - by0 - 2 * R0) / d0)); // число дуг считаем по внешнему контуру — у рамок оно то же
+  const zig = p.edge === 'zig', eI = ins * (zig ? 0.17 : out ? 0.5 : 1.1), depI = zig || out ? sg : Math.max(0.05, sg - eI); // у рамки острия уходят внутрь сильнее дуг — иначе она вылезет за заливку
+  const x0 = bx0 + ins + (ev ? eI : 0), x1 = bx1 - ins - (ev ? eI : 0), y0 = by0 + ins + (eh ? eI : 0), y1 = by1 - ins - (eh ? eI : 0); if (x1 - x0 < 0.5 || y1 - y0 < 0.5) return '';
+  const k = p.cor === 'out' && p.corN === 1 ? 1 : p.cor === 'cut' ? 0.59 : 0.41;
+  const r = clamp(R0 ? R0 - ins * k : 0, 0, Math.min(x1 - x0, y1 - y0) / 2);
+  const C = [[x1, y0], [x1, y1], [x0, y1], [x0, y0]], D = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+  let d = `M${R(x0 + r)} ${R(y0)}`;
+  for (let i = 0; i < 4; i++) {
+    const [dx, dy] = D[i], [cx, cy] = C[i], [qx, qy] = C[(i + 3) % 4], on = i % 2 ? ev : eh, n = i % 2 ? nV : nH;
+    const ax = qx + dx * r, ay = qy + dy * r, bx = cx - dx * r, by = cy - dy * r, len = Math.hypot(bx - ax, by - ay); // сторона от A до B
+    if (!on || len < 0.5) d += `L${R(bx)} ${R(by)}`;
+    else { const st = len / n, dep = Math.min(depI, st / 2), rho = (st * st / 4 + dep * dep) / (2 * dep);
+      for (let j = 1; j <= n; j++) { const ex = ax + (bx - ax) * j / n, ey = ay + (by - ay) * j / n;
+        d += zig ? `L${R(ex - dx * st / 2 - dy * dep)} ${R(ey - dy * st / 2 + dx * dep)}L${R(ex)} ${R(ey)}` : `A${R(rho)} ${R(rho)} 0 0 ${out ? 1 : 0} ${R(ex)} ${R(ey)}`; } }
+    if (r < 0.01) continue;
+    const [nx, ny] = D[(i + 1) % 4], ex = cx + nx * r, ey = cy + ny * r; // угол от B до E
+    if (p.cor === 'cut') d += `L${R(ex)} ${R(ey)}`;
+    else { const m = p.corN, ar = R(r / m); for (let j = 1; j <= m; j++) d += `A${ar} ${ar} 0 0 ${p.cor === 'out' ? 1 : 0} ${R(bx + (ex - bx) * j / m)} ${R(by + (ey - by) * j / m)}`; }
+  }
+  return d + 'Z';
+}
 function plateMarkup(o, W, H) { // W×H — вся плашка
   const p = o.plate, B_ = plateBox(o), s = o.size, R = v => Math.round(v * 100) / 100, t = B_.tail;
   const shape = (ins, h = H) => { // контур тела плашки с отступом внутрь
-    const x0 = t + ins, x1 = W - t - ins, y0 = ins, y1 = h - ins, c = Math.max(0, h * 0.28 - ins * 0.4);
-    if (p.style === 'round') { const r = Math.max(0, (h / 2) * 0.55 - ins * 0.5); return `M${R(x0 + r)} ${R(y0)}H${R(x1 - r)}Q${R(x1)} ${R(y0)} ${R(x1)} ${R(y0 + r)}V${R(y1 - r)}Q${R(x1)} ${R(y1)} ${R(x1 - r)} ${R(y1)}H${R(x0 + r)}Q${R(x0)} ${R(y1)} ${R(x0)} ${R(y1 - r)}V${R(y0 + r)}Q${R(x0)} ${R(y0)} ${R(x0 + r)} ${R(y0)}Z`; }
-    if (p.style === 'cut') return `M${R(x0 + c)} ${R(y0)}H${R(x1 - c)}L${R(x1)} ${R(y0 + c)}V${R(y1 - c)}L${R(x1 - c)} ${R(y1)}H${R(x0 + c)}L${R(x0)} ${R(y1 - c)}V${R(y0 + c)}Z`;
-    if (p.style === 'flag') { const n = h * 0.3; return `M${R(x0)} ${R(y0)}H${R(W - ins)}L${R(W - ins - n)} ${R((y0 + y1) / 2)}L${R(W - ins)} ${R(y1)}H${R(x0)}Z`; }
+    if (PLATE_SHAPE[p.style]) return plateBodyPath(p, t, 0, W - t, h, s, ins);
+    const x0 = t + ins, x1 = W - t - ins, y0 = ins, y1 = h - ins, my = h / 2, n = h * 0.3, a = ins * 1.3, pt = Math.max(0, h * 0.42 - ins * 0.5);
+    if (p.style === 'flag') return `M${R(x0)} ${R(y0)}H${R(W - ins)}L${R(W - ins - n)} ${R(my)}L${R(W - ins)} ${R(y1)}H${R(x0)}Z`;
+    if (p.style === 'banner') return `M${R(a)} ${R(y0)}H${R(W - a)}L${R(W - a - n)} ${R(my)}L${R(W - a)} ${R(y1)}H${R(a)}L${R(a + n)} ${R(my)}Z`;
+    if (p.style === 'hex') return `M${R(a + pt)} ${R(y0)}H${R(W - a - pt)}L${R(W - a)} ${R(my)}L${R(W - a - pt)} ${R(y1)}H${R(a + pt)}L${R(a)} ${R(my)}Z`;
+    if (p.style === 'arrow') return `M${R(x0)} ${R(y0)}H${R(W - a - pt)}L${R(W - a)} ${R(my)}L${R(W - a - pt)} ${R(y1)}H${R(x0)}Z`;
     return `M${R(x0)} ${R(y0)}H${R(x1)}V${R(y1)}H${R(x0)}Z`;
   };
   let m = '';
@@ -1766,17 +1820,24 @@ function plateMarkup(o, W, H) { // W×H — вся плашка
     if (p.orn !== 'none') m += ornMarkup(p.orn, B_.orn * 0.45, y, s * 0.45, p.oColor) + ornMarkup(p.orn, W - B_.orn * 0.45, y, s * 0.45, p.oColor);
     return m;
   }
+  if (p.style === 'brackets') { // только скобки по бокам, без заливки
+    const w = s * (p.border === 'none' ? 0.05 : 0.09), b = s * 0.45, q = w / 2, g = s * 0.17;
+    m += `<path d="M${R(b + q)} ${R(q)}H${R(q)}V${R(H - q)}H${R(b + q)}M${R(W - b - q)} ${R(q)}H${R(W - q)}V${R(H - q)}H${R(W - b - q)}" fill="none" stroke="${p.bColor}" stroke-width="${R(w)}"/>`;
+    if (p.border === 'double') m += `<path d="M${R(b + q)} ${R(q + g)}H${R(q + g)}V${R(H - q - g)}H${R(b + q)}M${R(W - b - q)} ${R(q + g)}H${R(W - q - g)}V${R(H - q - g)}H${R(W - b - q)}" fill="none" stroke="${p.bColor}" stroke-width="${R(w * 0.45)}"/>`;
+    if (p.orn !== 'none') { const ox = b + p.padX * s * 0.3 + B_.orn * 0.5; m += ornMarkup(p.orn, ox, H / 2, s * 0.42, p.oColor) + ornMarkup(p.orn, W - ox, H / 2, s * 0.42, p.oColor); }
+    return m;
+  }
   const bh = H - B_.drop;
-  if (p.style === 'ribbon') { // хвосты ленты — темнее и ниже тела
+  if (p.style === 'ribbon' && p.fillOn) { // хвосты ленты — темнее и ниже тела
     const y0 = B_.drop, nx = t * 0.45;
     const tails = `M${R(t + s * 0.4)} ${R(y0)}H0L${R(nx)} ${R((y0 + H) / 2)}L0 ${R(H)}H${R(t + s * 0.4)}ZM${R(W - t - s * 0.4)} ${R(y0)}H${R(W)}L${R(W - nx)} ${R((y0 + H) / 2)}L${R(W)} ${R(H)}H${R(W - t - s * 0.4)}Z`;
     m += `<path d="${tails}" fill="${p.fill}"/><path d="${tails}" fill="#000" fill-opacity=".28"/>` +
       `<path d="M${R(t)} ${R(bh)}L${R(t + s * 0.4)} ${R(H)}V${R(bh)}ZM${R(W - t)} ${R(bh)}L${R(W - t - s * 0.4)} ${R(H)}V${R(bh)}Z" fill="#000" fill-opacity=".45"/>`;
   }
-  m += `<path d="${shape(0, bh)}" fill="${p.fill}"/>`;
-  const sw = s * 0.06;
-  if (p.border !== 'none') m += `<path d="${shape(s * 0.12, bh)}" fill="none" stroke="${p.bColor}" stroke-width="${R(sw)}"/>`;
-  if (p.border === 'double') m += `<path d="${shape(s * 0.24, bh)}" fill="none" stroke="${p.bColor}" stroke-width="${R(sw * 0.5)}"/>`;
+  if (p.fillOn) m += `<path d="${shape(0, bh)}" fill="${p.fill}"/>`;
+  const sw = s * 0.06, i1 = p.fillOn ? s * 0.12 : sw / 2; // без заливки рамка идёт по самому контуру
+  if (p.border !== 'none') m += `<path d="${shape(i1, bh)}" fill="none" stroke="${p.bColor}" stroke-width="${R(sw)}" stroke-linejoin="round"/>`;
+  if (p.border === 'double') m += `<path d="${shape(i1 + s * 0.12, bh)}" fill="none" stroke="${p.bColor}" stroke-width="${R(sw * 0.5)}" stroke-linejoin="round"/>`;
   if (p.orn !== 'none') { const cy = bh / 2, r = s * 0.42, ox = t + p.padX * s * 0.45 + B_.orn * 0.5; m += ornMarkup(p.orn, ox, cy, r, p.oColor) + ornMarkup(p.orn, W - (p.style === 'flag' ? bh * 0.3 : 0) - ox, cy, r, p.oColor); }
   return m;
 }
@@ -1784,8 +1845,21 @@ function plateSection(o, O, upd) {
   const sel_ = (title, opts, get, put) => { const s_ = el('select', { title }, ...opts.map(([v, l]) => el('option', { value: v }, l))); bind(s_, get); s_.addEventListener('change', () => upd(null, x => { x.plate = normPlate({ ...x.plate, ...put(s_.value) }); })); return s_; };
   const rest = el('div'); bindFn(() => O().plate.style !== 'none', on => { rest.hidden = !on; });
   const P = k => () => O().plate[k], setP = (k, key) => (v, kk) => upd(kk ? key : null, x => { x.plate = normPlate({ ...x.plate, [k]: v }); });
+  const fillRow = row(colorField(P('fill'), setP('fill', 'plfill'))); bindFn(P('fillOn'), on => { fillRow.hidden = !on; });
+  const fillBox = el('div', {}, cap('Заливка'), row(checkField('Заливать плашку', P('fillOn'), v => upd(null, x => { x.plate = normPlate({ ...x.plate, fillOn: v }); }))), fillRow);
+  bindFn(() => O().plate.style !== 'under' && O().plate.style !== 'brackets', on => { fillBox.hidden = !on; });
+  // углы и края — у форм на основе прямоугольника
+  const slider = (k, key, o_) => sliderField(P(k), (v, kk) => upd(kk, x => { x.plate = normPlate({ ...x.plate, [k]: v }); }), { key, ...o_ });
+  const corR = el('div', {}, cap('Размер угла, % меньшей стороны'), row(slider('corR', 'plcr', { min: 0, max: 50, def: 28 }))); bindFn(() => O().plate.cor !== 'sq', on => { corR.hidden = !on; });
+  const corN = el('div', {}, cap('Окружностей на угол'), row(slider('corN', 'plcn', { min: 1, max: 6, def: 1, suffix: '' })),
+    el('p', { class: 'hint', style: 'margin-top:0' }, 'Несколько окружностей наружу — «лепестки», внутрь — «звезда».')); bindFn(() => O().plate.cor === 'out' || O().plate.cor === 'in', on => { corN.hidden = !on; });
+  const edgeMore = el('div', {}, row(sel_('Какие стороны фигурные', PLATE_SIDES, P('edgeS'), v => ({ edgeS: v }))), cap('Диаметр дуги края, % кегля'), row(slider('edgeD', 'pled', { min: 15, max: 300, def: 50 })));
+  bindFn(() => O().plate.edge !== 'none', on => { edgeMore.hidden = !on; });
+  const shapeBox = el('div', {}, cap('Углы'), row(sel_('Углы плашки', PLATE_CORNERS, P('cor'), v => ({ cor: v }))), corR, corN,
+    cap('Края'), row(sel_('Края плашки', PLATE_EDGES, P('edge'), v => ({ edge: v }))), edgeMore);
+  bindFn(() => !!PLATE_SHAPE[O().plate.style], on => { shapeBox.hidden = !on; });
   rest.append(
-    cap('Заливка'), row(colorField(P('fill'), setP('fill', 'plfill'))),
+    shapeBox, fillBox,
     cap('Рамка'), row(sel_('Рамка плашки', [['none', 'Без рамки'], ['single', 'Одинарная'], ['double', 'Двойная']], P('border'), v => ({ border: v }))),
     row(colorField(P('bColor'), setP('bColor', 'plb'))),
     cap('Орнамент по краям'), row(sel_('Орнамент', ORNAMENTS, P('orn'), v => ({ orn: v }))), row(colorField(P('oColor'), setP('oColor', 'plo'))),
@@ -1800,29 +1874,60 @@ function plateSection(o, O, upd) {
     cap('Поля сверху и снизу, % кегля'), row(sliderField(() => O().plate.padY * 100, (v, k) => upd(k, x => { x.plate = normPlate({ ...x.plate, padY: v / 100 }); }), { min: 10, max: 200, key: 'plpy', def: 45 })));
   return sec('Плашка', el('fieldset', { disabled: o.locked },
     cap('Готовые стили'),
-    el('div', { class: 'plate-presets' }, ...PLATE_PRESETS.map(([n, p, tc]) => el('button', { type: 'button', class: 'btn', title: 'Применить стиль — дальше можно донастроить', onclick: () => upd(null, x => { x.plate = normPlate({ ...x.plate, ...p }); x.color = tc; }) }, n))),
-    cap('Форма'), row(sel_('Форма плашки', PLATE_STYLES, P('style'), v => ({ style: v }))), rest,
+    el('div', { class: 'plate-presets' }, ...PLATE_PRESETS.map(([n, p, tc]) => el('button', { type: 'button', class: 'btn', title: 'Применить стиль — дальше можно донастроить', onclick: () => upd(null, x => { x.plate = normPlate({ ...x.plate, fillOn: true, ...shapeDef(p.style), ...p }); x.color = tc; }) }, n))),
+    cap('Форма'), row(sel_('Форма плашки', PLATE_STYLES, P('style'), v => ({ style: v, ...shapeDef(v) }))), rest,
     el('p', { class: 'hint', style: 'margin-top:0' }, 'Плашка растёт вместе с текстом. Сделайте одну — и перенесите стиль на остальные: правая кнопка → «Копировать стиль».')));
 }
 function addPlate() {
   const o = makeText(); o.text = 'Заголовок раздела'; o.name = 'Плашка'; o.font = 'PT Serif'; o.weight = 400; o.size = 30;
-  const t = standTheme(); o.font = t.font; o.plate = themePlate(); o.color = t.plate === 'under' ? t.accent : t.text;
+  const t = standTheme(); o.font = t.font; o.plate = themePlate(); o.color = plateBare(o.plate) ? t.accent : t.text;
   syncDerived(o); placeInView(o); mutate(null, () => insertObj(o)); select(o.id);
 }
 /* ================= разделители ================= */
-const DIV_STYLES = [['line', 'Линия'], ['double', 'Двойная линия'], ['orn', 'Линия с орнаментом'], ['fade', 'Тающая к краям'], ['wave', 'Волна'], ['dots', 'Точки']];
-const makeDivider = () => ({ ...common(), type: 'divider', name: 'Разделитель', x: 0, y: 0, w: 0, h: 0, rot: 0, lw: 600, lh: 24, style: 'orn', color: '#a16207', weight: 1.5, orn: 'flower' });
+const DIV_STYLES = [['line', 'Линия'], ['double', 'Двойная линия'], ['triple', 'Тройная линия'], ['thick', 'Толстая и тонкая'], ['dash', 'Пунктир'], ['dots', 'Точки'], ['beads', 'Бусины'], ['diamonds', 'Ромбики'],
+  ['orn', 'Линия с орнаментом'], ['fade', 'Тающая к краям'], ['taper', 'Клин'], ['wave', 'Волна'], ['zig', 'Зигзаг'], ['scallop', 'Фестоны'], ['curl', 'Завитки'], ['brace', 'Фигурная скобка']];
+const DIV_SHORT = { double: 'Двойная', triple: 'Тройная', thick: 'Толстая+тонкая', orn: 'С орнаментом', fade: 'Тающая', brace: 'Скобка' };
+const DIV_CAPS = [['none', 'Без окончаний'], ['round', 'Скруглённые'], ['dot', 'Точки'], ['diamond', 'Ромбы'], ['arrow', 'Стрелки'], ['bar', 'Засечки'], ['orn', 'Орнамент']];
+const DIV_STEP = ['dash', 'dots', 'beads', 'diamonds', 'wave', 'zig', 'scallop'], DIV_NOCAP = ['fade', 'taper', 'brace']; // где есть шаг узора и где окончания не к месту
+const makeDivider = () => ({ ...common(), type: 'divider', name: 'Разделитель', x: 0, y: 0, w: 0, h: 0, rot: 0, lw: 600, lh: 24, style: 'orn', color: '#a16207', weight: 1.5, orn: 'flower', cap: 'none', step: 100, ornN: 1, ornSize: 100 });
 function dividerMarkup(o, exp) {
-  const W = o.lw, H = o.lh, cy = H / 2, c = o.color, t = o.weight, R = v => Math.round(v * 100) / 100, id = 'dv' + o.id + (exp ? 'x' : '');
+  const W = o.lw, H = o.lh, cy = H / 2, c = o.color, t = o.weight, R = v => Math.round(v * 100) / 100, id = 'dv' + o.id + (exp ? 'x' : ''), k = (o.step || 100) / 100, ok = o.orn === 'none' ? 'diamond' : o.orn;
   let m = exp ? '' : `<rect width="${W}" height="${H}" fill="transparent"/>`;
-  if (o.style === 'line') m += `<path d="M0 ${R(cy)}H${R(W)}" stroke="${c}" stroke-width="${t}"/>`;
-  else if (o.style === 'double') m += `<path d="M0 ${R(cy - t * 1.6)}H${R(W)}" stroke="${c}" stroke-width="${t}"/><path d="M0 ${R(cy + t * 1.6)}H${R(W)}" stroke="${c}" stroke-width="${R(t * 0.5)}"/>`;
-  else if (o.style === 'orn') { const r = Math.min(H * 0.5, W * 0.1), g = r * 1.4;
-    m += `<path d="M0 ${R(cy)}H${R(W / 2 - g)}M${R(W / 2 + g)} ${R(cy)}H${R(W)}" stroke="${c}" stroke-width="${t}"/>` + ornMarkup(o.orn === 'none' ? 'diamond' : o.orn, W / 2, cy, r, c) +
-      `<circle cx="${R(W / 2 - g * 1.4)}" cy="${R(cy)}" r="${R(t * 1.2)}" fill="${c}"/><circle cx="${R(W / 2 + g * 1.4)}" cy="${R(cy)}" r="${R(t * 1.2)}" fill="${c}"/>`; }
-  else if (o.style === 'fade') m += `<defs><linearGradient id="${id}"><stop offset="0" stop-color="${c}" stop-opacity="0"/><stop offset=".5" stop-color="${c}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient></defs><rect y="${R(cy - t / 2)}" width="${W}" height="${t}" fill="url(#${id})"/>`;
-  else if (o.style === 'wave') { const n = Math.max(2, Math.round(W / (H * 2.5))), st = W / n, a = H * 0.3; let d = `M0 ${R(cy)}`; for (let i = 0; i < n; i++) d += `q${R(st / 4)} ${R(-a)} ${R(st / 2)} 0t${R(st / 2)} 0`; m += `<path d="${d}" fill="none" stroke="${c}" stroke-width="${t}" stroke-linecap="round"/>`; }
-  else { const n = Math.max(2, Math.round(W / (t * 5))); for (let i = 0; i <= n; i++) m += `<circle cx="${R(i / n * W)}" cy="${R(cy)}" r="${R(t * 0.9)}" fill="${c}"/>`; }
+  // окончания: a — где начинается сама линия
+  const cap = DIV_NOCAP.includes(o.style) ? 'none' : o.cap || 'none', cr = clamp(H * 0.32, t * 1.5, H / 2), lc = cap === 'round' ? ' stroke-linecap="round"' : ''; let a = 0;
+  const both = f => f(1) + f(-1), X = (s, v) => R(s > 0 ? v : W - v); // s=1 — левый конец, −1 — правый
+  if (cap === 'round') a = t / 2;
+  else if (cap === 'dot') { a = cr * 0.6; m += both(s => `<circle cx="${X(s, a)}" cy="${R(cy)}" r="${R(cr * 0.6)}" fill="${c}"/>`); }
+  else if (cap === 'diamond') { a = cr * 0.7; m += both(s => `<path d="M${X(s, 0)} ${R(cy)}L${X(s, a)} ${R(cy - cr)}L${X(s, 2 * a)} ${R(cy)}L${X(s, a)} ${R(cy + cr)}Z" fill="${c}"/>`); }
+  else if (cap === 'arrow') { a = t; m += both(s => `<path d="M${X(s, a + cr * 1.2)} ${R(cy - cr * 0.8)}L${X(s, a)} ${R(cy)}L${X(s, a + cr * 1.2)} ${R(cy + cr * 0.8)}" fill="none" stroke="${c}" stroke-width="${t}" stroke-linejoin="round" stroke-linecap="round"/>`); }
+  else if (cap === 'bar') { a = t / 2; m += both(s => `<path d="M${X(s, a)} ${R(cy - cr)}V${R(cy + cr)}" stroke="${c}" stroke-width="${t}"/>`); }
+  else if (cap === 'orn') { const r = H / 2; a = r * 1.5; m += both(s => ornMarkup(ok, s > 0 ? r * 0.7 : W - r * 0.7, cy, r, c)); }
+  const xa = a, xb = W - a, L = Math.max(1, xb - xa), ln = (y, w, x0 = xa, x1 = xb, extra = '') => `<path d="M${R(x0)} ${R(y)}H${R(x1)}" stroke="${c}" stroke-width="${R(w)}"${lc}${extra}/>`;
+  const st = o.style;
+  if (st === 'line') m += ln(cy, t);
+  else if (st === 'double') m += ln(cy - t * 1.6, t) + ln(cy + t * 1.6, t * 0.5);
+  else if (st === 'triple') m += ln(cy - t * 2.2, t * 0.5) + ln(cy, t) + ln(cy + t * 2.2, t * 0.5);
+  else if (st === 'thick') m += ln(cy - t * 1.1, t * 2.2) + ln(cy + t * 1.7, t * 0.6);
+  else if (st === 'dash') { const gap = t * 4 * k, n = Math.max(1, Math.round((L + gap) / (t * 6 * k + gap))), ds = Math.max(t, (L - (n - 1) * gap) / n); m += ln(cy, t, xa, xb, ` stroke-dasharray="${R(ds)} ${R(gap)}"`); }
+  else if (st === 'orn') { const N = o.ornN || 1, r = Math.min(H * 0.5, L * 0.1) * clamp((o.ornSize || 100) / 100, 0.3, 1), g = r * 1.4; let x = xa;
+    for (let i = 1; i <= N; i++) { const cx = xa + L * i / (N + 1); m += ln(cy, t, x, cx - g) + ornMarkup(ok, cx, cy, r, c); x = cx + g;
+      if (N === 1) m += `<circle cx="${R(cx - g * 1.4)}" cy="${R(cy)}" r="${R(t * 1.2)}" fill="${c}"/><circle cx="${R(cx + g * 1.4)}" cy="${R(cy)}" r="${R(t * 1.2)}" fill="${c}"/>`; }
+    m += ln(cy, t, x, xb); }
+  else if (st === 'fade') m += `<defs><linearGradient id="${id}"><stop offset="0" stop-color="${c}" stop-opacity="0"/><stop offset=".5" stop-color="${c}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient></defs><rect y="${R(cy - t / 2)}" width="${W}" height="${t}" fill="url(#${id})"/>`;
+  else if (st === 'taper') m += `<path d="M0 ${R(cy)}Q${R(W / 2)} ${R(cy - t * 2)} ${R(W)} ${R(cy)}Q${R(W / 2)} ${R(cy + t * 2)} 0 ${R(cy)}Z" fill="${c}"/>`;
+  else if (st === 'wave') { const n = Math.max(2, Math.round(L / (H * 2.5 * k))), s_ = L / n, am = H * 0.3; let d = `M${R(xa)} ${R(cy)}`; for (let i = 0; i < n; i++) d += `q${R(s_ / 4)} ${R(-am)} ${R(s_ / 2)} 0t${R(s_ / 2)} 0`; m += `<path d="${d}" fill="none" stroke="${c}" stroke-width="${t}" stroke-linecap="round"/>`; }
+  else if (st === 'zig') { const n = Math.max(2, Math.round(L / (H * 0.9 * k))), s_ = L / n, am = Math.max(0, H / 2 - t); let d = `M${R(xa)} ${R(cy + am)}`; for (let i = 0; i < n; i++) d += `l${R(s_ / 2)} ${R(-2 * am)}l${R(s_ / 2)} ${R(2 * am)}`; m += `<path d="${d}" fill="none" stroke="${c}" stroke-width="${t}" stroke-linejoin="round" stroke-linecap="round"/>`; }
+  else if (st === 'scallop') { const n = Math.max(2, Math.round(L / (H * 1.2 * k))), s_ = L / n, dep = Math.min(Math.max(0, H - 2 * t), s_ / 2), rho = (s_ * s_ / 4 + dep * dep) / (2 * dep || 1); let d = `M${R(xa)} ${R(cy - dep / 2)}`;
+    for (let i = 0; i < n; i++) d += `a${R(rho)} ${R(rho)} 0 0 0 ${R(s_)} 0`; m += `<path d="${d}" fill="none" stroke="${c}" stroke-width="${t}" stroke-linejoin="round" stroke-linecap="round"/>`; }
+  else if (st === 'diamonds') { const hh = Math.min(H / 2, Math.max(t * 2, H * 0.4)), hw = hh * 1.5 * k, n = Math.max(1, Math.round(L / (2 * hw))), w_ = L / n / 2; let d = '';
+    for (let i = 0; i < n; i++) { const cx = xa + w_ * (2 * i + 1); d += `M${R(cx - w_)} ${R(cy)}L${R(cx)} ${R(cy - hh)}L${R(cx + w_)} ${R(cy)}L${R(cx)} ${R(cy + hh)}Z`; } m += `<path d="${d}" fill="${c}"/>`; }
+  else if (st === 'beads') { const n = Math.max(2, Math.round(L / (t * 5 * k) / 2) * 2); for (let i = 0; i <= n; i++) m += `<circle cx="${R(xa + i / n * L)}" cy="${R(cy)}" r="${R(i % 2 ? t * 0.7 : t * 1.7)}" fill="${c}"/>`; }
+  else if (st === 'curl') { const u = Math.min(H * 0.42, L * 0.08), cx = W / 2, P = (s, dx, dy) => `${R(cx + s * dx * u)} ${R(cy + dy * u)}`;
+    const side = s => `M${P(s, 0.45, 0)}C${P(s, 1.4, -1.5)} ${P(s, 3.3, -1.3)} ${P(s, 3.1, -0.1)}C${P(s, 3, 0.75)} ${P(s, 1.9, 0.7)} ${P(s, 2, 0)}C${P(s, 2.05, -0.4)} ${P(s, 2.5, -0.45)} ${P(s, 2.55, -0.1)}`;
+    m += `<path d="${side(1)}${side(-1)}" fill="none" stroke="${c}" stroke-width="${t}" stroke-linecap="round"/>` + ornMarkup('diamond', cx, cy, u * 0.9, c) + ln(cy, t, xa, cx - 3.6 * u) + ln(cy, t, cx + 3.6 * u, xb); }
+  else if (st === 'brace') { const q = Math.min(Math.max(1, H / 2 - t), W / 4), cx = W / 2, y1 = cy + q / 2, y0 = cy - q / 2; // остриё вверх; перевернуть — «Отразить»
+    m += `<path d="M${R(t)} ${R(y1 + q / 2)}Q${R(t)} ${R(y1 - q / 2)} ${R(t + q)} ${R(y1 - q / 2)}H${R(cx - q)}Q${R(cx)} ${R(y1 - q / 2)} ${R(cx)} ${R(y0 - q / 2 + t)}Q${R(cx)} ${R(y1 - q / 2)} ${R(cx + q)} ${R(y1 - q / 2)}H${R(W - t - q)}Q${R(W - t)} ${R(y1 - q / 2)} ${R(W - t)} ${R(y1 + q / 2)}" fill="none" stroke="${c}" stroke-width="${t}" stroke-linecap="round" stroke-linejoin="round"/>`; }
+  else { const n = Math.max(2, Math.round(L / (t * 5 * k))); for (let i = 0; i <= n; i++) m += `<circle cx="${R(xa + i / n * L)}" cy="${R(cy)}" r="${R(t * 0.9)}" fill="${c}"/>`; }
   return m;
 }
 function addDivider() { const o = makeDivider(); o.color = standTheme().accent2; if (standTheme().orn !== 'none') o.orn = standTheme().orn; syncDerived(o); placeInView(o); mutate(null, () => insertObj(o)); select(o.id); }
@@ -1830,11 +1935,16 @@ function buildDivider(o) {
   const [O, upd] = ctx(o), L = o.locked;
   const st = el('select', { title: 'Вид разделителя' }, ...DIV_STYLES.map(([v, l]) => el('option', { value: v }, l))); bind(st, () => O().style); st.addEventListener('change', () => upd(null, x => x.style = st.value));
   const on = el('select', { title: 'Орнамент в центре' }, ...ORNAMENTS.filter(x => x[0] !== 'none').map(([v, l]) => el('option', { value: v }, l))); bind(on, () => O().orn); on.addEventListener('change', () => upd(null, x => x.orn = on.value));
-  const ornRow = row(on); bindFn(() => O().style === 'orn', v => { ornRow.hidden = !v; });
+  const ornRow = row(on); bindFn(() => O().style === 'orn' || (O().cap === 'orn' && !DIV_NOCAP.includes(O().style)), v => { ornRow.hidden = !v; });
+  const cp = el('select', { title: 'Окончания линии' }, ...DIV_CAPS.map(([v, l]) => el('option', { value: v }, l))); bind(cp, () => O().cap); cp.addEventListener('change', () => upd(null, x => x.cap = cp.value));
+  const capBox = el('div', {}, cap('Концы линии'), row(cp)); bindFn(() => !DIV_NOCAP.includes(O().style), v => { capBox.hidden = !v; });
+  const stepBox = el('div', {}, cap('Шаг узора, %'), row(sliderField(() => O().step, (v, k) => upd(k, x => x.step = v), { min: 40, max: 300, key: 'dvs', def: 100 }))); bindFn(() => DIV_STEP.includes(O().style), v => { stepBox.hidden = !v; });
+  const nSel = el('select', { title: 'Сколько орнаментов на линии' }, ...[[1, 'Один орнамент'], [2, 'Два'], [3, 'Три'], [5, 'Пять']].map(([v, l]) => el('option', { value: v }, l))); bind(nSel, () => String(O().ornN)); nSel.addEventListener('change', () => upd(null, x => x.ornN = +nSel.value));
+  const ornBox = el('div', {}, row(nSel), cap('Размер орнамента, %'), row(sliderField(() => O().ornSize, (v, k) => upd(k, x => x.ornSize = v), { min: 30, max: 100, key: 'dvo', def: 100 }))); bindFn(() => O().style === 'orn', v => { ornBox.hidden = !v; });
   const keep = fn => x => { const cx = x.x + x.w / 2, cy = x.y + x.h / 2; fn(x); syncDerived(x); x.x = r2(cx - x.w / 2); x.y = r2(cy - x.h / 2); };
   return [
     sec('Разделитель', el('fieldset', { disabled: L },
-      row(textField(() => O().name, v => upd(null, x => x.name = v), 'Разделитель')), row(st), ornRow,
+      row(textField(() => O().name, v => upd(null, x => x.name = v), 'Разделитель')), row(st), ornRow, ornBox, stepBox, capBox,
       cap('Цвет'), row(colorField(() => O().color, (v, k) => upd(k ? 'dvc' : null, x => x.color = v))),
       el('div', { class: 'grid2' },
         lenField('Длина', () => O().lw, (v, k) => upd(k, keep(x => x.lw = v)), { min: 10, max: 10000 }),
@@ -2413,7 +2523,7 @@ function swatch(o) {
   if (o.type === 'qr') return el('span', { class: 'sw ico', html: ic('qr') });
   if (o.type === 'item') return el('span', { class: 'sw ico', html: ic('item') });
   if (o.type === 'divider') return el('span', { class: 'sw ico', html: ic('divider') });
-  if (o.type === 'text') { const f = fontDef(o.font), pl = o.plate && o.plate.style !== 'none' && o.plate.style !== 'under' ? `;background:${o.plate.fill};border-radius:3px` : ''; return el('span', { class: 'sw txt', style: `font-family:"${f.css}";font-weight:700;color:${o.color}${pl}` }, 'Аа'); }
+  if (o.type === 'text') { const f = fontDef(o.font), pl = o.plate && o.plate.style !== 'none' && !plateBare(o.plate) ? `;background:${o.plate.fill};border-radius:3px` : ''; return el('span', { class: 'sw txt', style: `font-family:"${f.css}";font-weight:700;color:${o.color}${pl}` }, 'Аа'); }
   if (o.type === 'grid') return el('span', { class: 'sw ico', html: ic('grid') });
   if (o.type === 'pocket' || o.type === 'holes') {
     const sw = el('span', { class: 'sw ico', html: ic(o.type) });
@@ -3341,8 +3451,8 @@ function applyStandTheme(keys) { // меняем только то, что св�
     if (o.type === 'divider') { if (has('accent2')) o.color = t.accent2; if (has('orn') && t.orn !== 'none') o.orn = t.orn; }
     if (o.type === 'text' && o.plate && o.plate.style !== 'none') { const p = o.plate;
       if (has('accent')) p.fill = t.accent; if (has('accent2')) { p.bColor = t.accent2; p.oColor = t.accent2; }
-      if (has('text') || has('plate')) o.color = (has('plate') ? t.plate : p.style) === 'under' ? t.accent : t.text;
-      if (has('font')) o.font = t.font; if (has('plate')) p.style = t.plate; if (has('border')) p.border = t.border; if (has('orn')) p.orn = t.orn; }
+      if (has('text') || has('plate')) o.color = plateBare(has('plate') ? { style: t.plate, fillOn: p.fillOn } : p) ? t.accent : t.text;
+      if (has('font')) o.font = t.font; if (has('plate')) { p.style = t.plate; Object.assign(p, shapeDef(t.plate)); } if (has('border')) p.border = t.border; if (has('orn')) p.orn = t.orn; }
   }
 }
 function setStandTheme(patch, key) { mutate(key || null, () => { doc.theme = normTheme({ ...standTheme(), ...patch }); applyStandTheme(Object.keys(patch)); }); }
@@ -3383,11 +3493,15 @@ function standSections() {
 /* ================= библиотека элементов: миниатюры, клик — добавить, можно перетащить на стенд ================= */
 const pk = (iw, ih, name) => () => { const o = makePocket(); o.iw = iw; o.ih = ih; if (name) o.name = name; return o; };
 const tx = (text, size, weight, plate) => () => { const o = makeText(); o.text = text; o.size = size; o.weight = weight; o.name = plate ? 'Плашка' : 'Текст';
-  if (plate) { const t = standTheme(); o.font = t.font; o.weight = 400; o.plate = normPlate({ ...themePlate(), ...plate }); o.color = o.plate.style === 'under' ? t.accent : t.text; } return o; };
+  if (plate) { const t = standTheme(); o.font = t.font; o.weight = 400; o.plate = normPlate({ ...themePlate(), ...(plate.style ? shapeDef(plate.style) : {}), ...plate }); o.color = plateBare(o.plate) ? t.accent : t.text; } return o; };
 const LIB = [
   ['Карманы', [['A4', pk(210, 297)], ['A4 альбомный', pk(297, 210)], ['A3', pk(297, 420)], ['A5', pk(148, 210)], ['A6', pk(105, 148)], ['Фото 10×15', pk(150, 100, 'Фото 10×15')], ['Фото 15×21', pk(210, 150, 'Фото 15×21')], ['Подпись', pk(210, 40, 'Подпись')]]],
-  ['Текст и плашки', [['Заголовок', tx('Заголовок', 60, 700)], ['Текст', tx('Текст', 30, 400)], ['Плашка', tx('Раздел', 30, 400, {})], ['Лента', tx('Раздел', 30, 400, { style: 'ribbon', orn: 'none', border: 'single' })], ['Флажок', tx('Раздел', 30, 400, { style: 'flag', orn: 'none', border: 'none' })], ['Подчёркнутый', tx('Раздел', 30, 400, { style: 'under' })]]],
-  ['Разделители', DIV_STYLES.map(([k, l]) => [l.replace('Линия с орнаментом', 'С орнаментом').replace('Тающая к краям', 'Тающая').replace('Двойная линия', 'Двойная'), () => { const o = makeDivider(); o.style = k; o.color = standTheme().accent2; if (standTheme().orn !== 'none') o.orn = standTheme().orn; return o; }])],
+  ['Текст', [['Заголовок', tx('Заголовок', 60, 700)], ['Текст', tx('Текст', 30, 400)]]],
+  ['Плашки', [['Плашка', tx('Раздел', 30, 400, {})], ...[['rect', 'Прямая'], ['round', 'Круглая'], ['pill', 'Капсула'], ['cut', 'Срез углов'], ['ticket', 'Билет'], ['plaque', 'Табличка'], ['petal', 'Лепестки'], ['star', 'Звезда'], ['stamp', 'Марка'], ['scallop', 'Фестоны']].map(([k, l]) => [l, tx('Раздел', 30, 400, { style: k, orn: 'none', border: 'single' })]),
+    ['Лента', tx('Раздел', 30, 400, { style: 'ribbon', orn: 'none', border: 'single' })], ['Флажок', tx('Раздел', 30, 400, { style: 'flag', orn: 'none', border: 'none' })], ['Вымпел', tx('Раздел', 30, 400, { style: 'banner', orn: 'none', border: 'single' })],
+    ['Гранёная', tx('Раздел', 30, 400, { style: 'hex', orn: 'none', border: 'single' })], ['Указатель', tx('Раздел', 30, 400, { style: 'arrow', orn: 'none', border: 'none' })], ['Рамка', tx('Раздел', 30, 400, { style: 'ticket', fillOn: false, orn: 'none', border: 'double' })],
+    ['Скобки', tx('Раздел', 30, 400, { style: 'brackets', orn: 'none', border: 'single' })], ['Подчёркнутый', tx('Раздел', 30, 400, { style: 'under' })]]],
+  ['Разделители', DIV_STYLES.map(([k, l]) => [DIV_SHORT[k] || l, () => { const o = makeDivider(); o.style = k; o.color = standTheme().accent2; if (standTheme().orn !== 'none') o.orn = standTheme().orn; return o; }])],
   ['Изделия', ITEM_ORDER.map(k => [ITEM_KINDS[k].short, () => makeItem(k)])],
   ['Слои', [['Заливка / градиент', () => { const o = makeShape('solid'); o.w = 400; o.h = 300; return o; }, 'layer'], ['Своя картинка', () => { const o = makeShape('empty'); o.w = 400; o.h = 300; return o; }, 'image'], ['QR-код', () => makeQR()]]],
 ];
@@ -4244,7 +4358,7 @@ const STYLE_KEYS = {
   qr: ['color', 'bg', 'bgOn', 'ecl', 'margin'],
   shape: ['fillType', 'fill', 'fill2', 'angle', 'fillOpacity', 'radius', 'opacity'],
   text: ['font', 'size', 'weight', 'italic', 'underline', 'strike', 'caps', 'align', 'lh', 'ls', 'skew', 'color', 'colorOpacity', 'strokeW', 'strokeColor', 'shadow', 'plate'],
-  divider: ['style', 'color', 'weight', 'orn', 'lh'],
+  divider: ['style', 'color', 'weight', 'orn', 'lh', 'cap', 'step', 'ornN', 'ornSize'],
 };
 const STYLE_TXT = { pocket: 'рамка, проклейка, выемка', shape: 'заливка и скругление', text: 'шрифт, размер, цвет', qr: 'цвета и надёжность' };
 let styleClip = null;
@@ -5786,6 +5900,12 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-13', date: '13 ноября 2026', items: [
+    'Плашки: одиннадцать новых форм — капсула, билет, фигурная табличка, лепестки, звезда, марка, фестоны, вымпел, шестигранник, указатель, скобки — и двенадцать новых готовых стилей.',
+    'У плашек настраиваются углы: прямые, скруглённые наружу или внутрь, срезанные; размер угла и число окружностей на угол. Несколько окружностей наружу дают «лепестки», внутрь — «звезду».',
+    'Края плашки: ровные, фестоны наружу, выемки внутрь или зубцы — со всех сторон, только сверху и снизу или только по бокам; диаметр дуги настраивается. Заливку можно выключить — останется одна рамка.',
+    'Разделители: десять новых видов — тройная, толстая с тонкой, пунктир, бусины, ромбики, клин, зигзаг, фестоны, завитки, фигурная скобка. Настраиваются концы линии (точки, ромбы, стрелки, засечки, орнамент), шаг узора, число и размер орнаментов.',
+  ] },
   { v: '2026-11-11d', date: '11 ноября 2026', items: [
     'Слева — вкладка «Библиотека»: карманы всех форматов, тексты и плашки, разделители, изделия, слои. Клик добавляет элемент, можно перетащить прямо на стенд. Кнопки под списком слоёв заменила одна — «Добавить элемент».',
     '«Стиль стенда» — в свойствах, когда ничего не выбрано: готовые палитры, основной цвет, акцент, шрифт и вид плашек. Меняется сразу весь стенд, новые элементы берут этот стиль.',
