@@ -264,6 +264,8 @@ aside{background:var(--panel);overflow:auto;min-height:0}
 .guide.gap{stroke-width:1.5}
 .dim{fill:var(--muted);font-weight:500;font-family:inherit}
 .dim.acc{fill:var(--acc)}
+.ruler-bg{fill:var(--acc)}.ruler-txt{fill:#fff;font-weight:600;font-family:inherit;font-variant-numeric:tabular-nums}
+#nameTip{position:fixed;z-index:60;background:#111827;color:#fff;font-size:12px;padding:4px 8px;border-radius:6px;pointer-events:none;white-space:nowrap;max-width:320px;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 12px rgba(0,0,0,.25)}
 .lbl{fill:var(--text);font-weight:600;font-family:inherit}
 #hud{position:absolute;left:10px;bottom:10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:4px 9px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;pointer-events:none}
 #hud:empty{display:none}
@@ -557,7 +559,7 @@ const BOOK_MOUNT = { pocket: 'карман-ячейка', shelf: 'полочка
 const makeItem = (kind = 'booklet') => ({ ...common(), type: 'item', kind, name: (ITEM_KINDS[kind] || ITEM_KINDS.booklet).label, x: 0, y: 0, w: 0, h: 0, rot: 0,
   fmt: { flip: 'A4', booklet: 'A4', book: 'A5' }[kind] || 'A4', orient: kind === 'cards' ? 'h' : 'v', pages: 10, mount: 'pocket',
   depth: { booklet: 20, cards: 15, notes: 40 }[kind] || 20, lw: kind === 'board' ? 600 : 100, lh: kind === 'board' ? 450 : 150, color: kind === 'flip' ? '#374151' : '#9ca3af' });
-function itemGeom(o) { // размеры изделия до поворота, мм
+function itemStd(o) { // стандартные размеры изделия до поворота, мм
   const P = PAPER[o.fmt] || PAPER.A4;
   if (o.kind === 'flip') { const [pw, ph] = o.orient === 'h' ? [P[1], P[0]] : P; return { w: 34 + pw + 24 + 6, h: ph + 24 + 6 }; }
   if (o.kind === 'booklet') return { w: P[0] + 12, h: P[1] + 6 };
@@ -565,12 +567,15 @@ function itemGeom(o) { // размеры изделия до поворота, �
   if (o.kind === 'book') { const [bw, bh] = BOOK[o.fmt] || BOOK.A5; return o.mount === 'shelf' ? { w: bw + 40, h: bh + 20 } : o.mount === 'holder' ? { w: bw + 16, h: bh + 16 } : { w: bw + 12, h: bh + 6 }; }
   return { w: o.lw, h: o.lh };
 }
-const itemSizable = o => o.kind === 'notes' || o.kind === 'board';
+function itemGeom(o) { return itemSizable(o) || o.custom ? { w: o.lw, h: o.lh } : itemStd(o); } // свой размер или стандартный по формату
+const itemSizable = o => o.kind === 'notes' || o.kind === 'board'; // у этих стандартного размера нет
+const itemOwnSize = o => !itemSizable(o) && o.custom ? `, свой размер ${mmTxt(o.lw)} × ${mmTxt(o.lh)} мм` : '';
+const cardStacks = o => { const w = itemGeom(o).w, one = o.orient === 'v' ? 60 : 100; return Math.max(1, Math.floor((w + one * 0.15) / one)); }; // сколько стопок визиток влезает по ширине
 function itemParams(o) { // для смет и таблиц
-  if (o.kind === 'flip') return `${PAPER_TXT[o.fmt]}, ${o.orient === 'h' ? 'альбомная' : 'книжная'}, листов: ${o.pages}`;
-  if (o.kind === 'booklet') return `${PAPER_TXT[o.fmt]}, глубина ${mmTxt(o.depth)} мм`;
-  if (o.kind === 'cards') return `${o.orient === 'v' ? 'вертикальный' : 'горизонтальный'}, глубина ${mmTxt(o.depth)} мм`;
-  if (o.kind === 'book') return `${o.fmt}, ${BOOK_MOUNT[o.mount]}`;
+  if (o.kind === 'flip') return `${PAPER_TXT[o.fmt]}, ${o.orient === 'h' ? 'альбомная' : 'книжная'}, листов: ${o.pages}` + itemOwnSize(o);
+  if (o.kind === 'booklet') return `${PAPER_TXT[o.fmt]}, глубина ${mmTxt(o.depth)} мм` + itemOwnSize(o);
+  if (o.kind === 'cards') return `${o.orient === 'v' ? 'вертикальный' : 'горизонтальный'}, глубина ${mmTxt(o.depth)} мм` + (cardStacks(o) > 1 ? `, стопок: ${cardStacks(o)}` : '') + itemOwnSize(o);
+  if (o.kind === 'book') return `${o.fmt}, ${BOOK_MOUNT[o.mount]}` + itemOwnSize(o);
   if (o.kind === 'notes') return `${mmTxt(o.lw)} × ${mmTxt(o.lh)} мм, глубина ${mmTxt(o.depth)} мм, оргстекло`;
   return `${mmTxt(o.lw)} × ${mmTxt(o.lh)} мм`;
 }
@@ -598,16 +603,17 @@ function itemMarkup(o, exp) {
   } else if (o.kind === 'booklet' || o.kind === 'cards') {
     const top = H * (o.kind === 'cards' ? 0.35 : 0.4);
     m += R(0, 0, W, H, '#ffffff', { op: 0.3, stroke: '#9ca3af' });
-    m += R(6, 0, W - 12, H - 4, '#f9fafb', { stroke: '#d1d5db' }); // вложенные буклеты
-    for (let i = 1; i <= 3; i++) m += `<path d="M${r2(W * 0.2)} ${r2(H * 0.1 * i + 4)}H${r2(W * 0.8)}" stroke="#d1d5db" stroke-width="${sw * 1.5}"${ns}/>`;
+    const n = o.kind === 'cards' ? cardStacks(o) : Math.max(1, Math.floor((W - 12 + 8) / ((PAPER[o.fmt] || PAPER.A4)[0] + 8))), cw = (W - 12 - (n - 1) * 4) / n; // стопки рядом, если карман шире одной
+    for (let j = 0; j < n; j++) { const x = 6 + j * (cw + 4); m += R(x, 0, cw, H - 4, '#f9fafb', { stroke: '#d1d5db' }); // вложенные буклеты
+      for (let i = 1; i <= 3; i++) m += `<path d="M${r2(x + cw * 0.18)} ${r2(H * 0.1 * i + 4)}H${r2(x + cw * 0.82)}" stroke="#d1d5db" stroke-width="${sw * 1.5}"${ns}/>`; }
     m += front(0, top, W, H - top);
     if (label) m += cap(o.kind === 'cards' ? 'Визитки' : `Буклеты ${PAPER_TXT[o.fmt]}`, W / 2, top + (H - top) / 2, Math.min(W, H) * (o.kind === 'cards' ? 0.13 : 0.08), '#1e3a8a');
   } else if (o.kind === 'book') {
-    const [bw, bh] = BOOK[o.fmt] || BOOK.A5, bx = o.mount === 'shelf' ? 20 : o.mount === 'holder' ? 8 : 6, by = o.mount === 'holder' ? 8 : 0;
+    const [bw, bh] = BOOK[o.fmt] || BOOK.A5, bx = (W - bw) / 2, by = o.mount === 'shelf' ? H - 20 - bh : o.mount === 'holder' ? (H - bh) / 2 : Math.max(0, H - 6 - bh); // книга по центру, если держатель больше стандартного
     const book = R(bx, by, bw, bh, '#1e3a8a', { stroke: '#172554', rx: 2 }) + R(bx + 8, by + 8, bw - 16, bh - 16, 'none', { stroke: '#fbbf24', sop: 0.7 }) +
       `<text font-size="${r2(bw * 0.075)}" font-family="system-ui,sans-serif" font-weight="700" fill="#fde68a" text-anchor="middle">` +
       ['КНИГА', 'ЗАМЕЧАНИЙ', 'И ПРЕДЛОЖЕНИЙ'].map((t, i) => `<tspan x="${r2(bx + bw / 2)}" y="${r2(by + bh * 0.38 + i * bw * 0.1)}">${t}</tspan>`).join('') + '</text>';
-    if (o.mount === 'shelf') m += book + R(0, bh, W, H - bh, '#9ca3af', { stroke: '#4b5563', rx: 2 });
+    if (o.mount === 'shelf') m += book + R(0, H - 20, W, 20, '#9ca3af', { stroke: '#4b5563', rx: 2 });
     else if (o.mount === 'holder') m += R(0, 0, W, H, '#ffffff', { op: 0.3, stroke: '#9ca3af', rx: 4 }) + book + R(W * 0.2, 0, 22, 14, '#6b7280', { stroke: '#374151', rx: 2 }) + R(W * 0.8 - 22, 0, 22, 14, '#6b7280', { stroke: '#374151', rx: 2 });
     else m += R(0, 0, W, H, '#ffffff', { op: 0.3, stroke: '#9ca3af' }) + book + front(0, H * 0.45, W, H * 0.55);
   } else if (o.kind === 'notes') {
@@ -645,10 +651,12 @@ function buildItem(o) {
   if (o.kind === 'booklet' || o.kind === 'cards' || o.kind === 'notes') kids.push(el('div', { class: 'grid2' }, intField('Глубина', () => O().depth, v => upd(null, x => x.depth = v), 5, 200, 'мм'), el('span')));
   if (o.kind === 'book') kids.push(row(sel_('Формат книги', [['A5', 'Книга A5'], ['A4', 'Книга A4']], () => O().fmt, (x, v) => x.fmt = v),
     sel_('Как держится книга', Object.entries(BOOK_MOUNT).map(([v, l]) => [v, l[0].toUpperCase() + l.slice(1)]), () => O().mount, (x, v) => x.mount = v)));
-  if (itemSizable(o)) kids.push(el('div', { class: 'wh-swap' },
-    lenField('Ш', () => O().lw, (v, k) => upd(k, keep(x => x.lw = v)), { min: 20, max: 5000 }),
-    B('swap', '', () => upd(null, keep(x => { [x.lw, x.lh] = [x.lh, x.lw]; })), { cls: 'btn', title: 'Поменять ширину и высоту местами' }), lenField('В', () => O().lh, (v, k) => upd(k, keep(x => x.lh = v)), { min: 20, max: 5000 })));
-  const info = el('div', { class: 'info' }); bind(info, () => { const g = itemGeom(O()); return `На стенде: ${mmTxt(g.w)} × ${mmTxt(g.h)} мм`; }, 'textContent');
+  const own = x => { if (!itemSizable(x) && !x.custom) { const g = itemGeom(x); x.lw = g.w; x.lh = g.h; x.custom = true; } }; // первый ручной размер отталкивается от стандартного
+  kids.push(cap('Размер изделия'), el('div', { class: 'wh-swap' },
+    lenField('Ш', () => itemGeom(O()).w, (v, k) => upd(k, keep(x => { own(x); x.lw = v; })), { min: 20, max: 5000 }),
+    B('swap', '', () => upd(null, keep(x => { own(x); [x.lw, x.lh] = [x.lh, x.lw]; })), { cls: 'btn', title: 'Поменять ширину и высоту местами' }), lenField('В', () => itemGeom(O()).h, (v, k) => upd(k, keep(x => { own(x); x.lh = v; })), { min: 20, max: 5000 })));
+  if (!itemSizable(o)) { const std = el('div', { class: 'btns' }, el('button', { type: 'button', class: 'btn', onclick: () => upd(null, keep(x => { x.custom = false; })) }, 'Вернуть стандартный размер')); bindFn(() => !!O().custom, v => { std.style.display = v ? '' : 'none'; }); kids.push(std); }
+  const info = el('div', { class: 'info' }); bind(info, () => { const x = O(), g = itemGeom(x); return itemSizable(x) ? `На стенде: ${mmTxt(g.w)} × ${mmTxt(g.h)} мм` : x.custom ? `Свой размер. Стандартный: ${mmTxt(itemStd(x).w)} × ${mmTxt(itemStd(x).h)} мм` + (x.kind === 'cards' && cardStacks(x) > 1 ? `. Стопок визиток: ${cardStacks(x)}` : '') : 'Стандартный размер по формату. Меняется полями выше или мышью за ручки.'; }, 'textContent');
   return [
     sec(K.label,
       el('fieldset', { disabled: L },
@@ -776,7 +784,7 @@ function normalizeObj(raw, ids) {
   if (o.type === 'item') {
     if (!ITEM_KINDS[o.kind]) o.kind = 'booklet';
     if (!PAPER[o.fmt]) o.fmt = 'A4'; if (o.kind === 'book' && !BOOK[o.fmt]) o.fmt = 'A5'; if (o.kind === 'flip' && !['A4', 'A3'].includes(o.fmt)) o.fmt = 'A4';
-    o.orient = o.orient === 'h' ? 'h' : 'v'; if (!BOOK_MOUNT[o.mount]) o.mount = 'pocket';
+    o.orient = o.orient === 'h' ? 'h' : 'v'; if (!BOOK_MOUNT[o.mount]) o.mount = 'pocket'; o.custom = !!o.custom && isFinite(+o.lw) && isFinite(+o.lh);
     o.pages = clamp(Math.round(+o.pages || 10), 1, 100); o.depth = clamp(+o.depth || 20, 5, 200);
     o.lw = clamp(+o.lw || 100, 20, 5000); o.lh = clamp(+o.lh || 150, 20, 5000); o.color = normHex(o.color) || '#374151';
     syncDerived(o);
@@ -1232,6 +1240,12 @@ function addHoles() {
   select(b.id); toast('Отверстия — в свойствах подложки, раздел «Отверстия под крепёж»');
 }
 /* ---- линии раздела подложки ---- */
+const splitShow = () => { // линии раздела видны только в «Производстве» и только на видимой подложке
+  const b = base(); let msg = '';
+  if (!b.visible) msg = 'Подложка скрыта, поэтому линий раздела не видно — включите её в слоях';
+  if (isClient()) { setViewMode('prod'); msg = 'Линии раздела видны в виде «Производство» — переключил'; }
+  if (msg) toast(msg);
+};
 function addSplit() {
   const b = base(); if (b.locked) return toast('Подложка заблокирована');
   const axis = b.w >= b.h ? 'v' : 'h', L = axis === 'v' ? b.w : b.h;
@@ -1239,7 +1253,7 @@ function addSplit() {
   let best = 0; for (let i = 1; i < cuts.length - 1; i++) if (cuts[i + 1] - cuts[i] > cuts[best + 1] - cuts[best]) best = i;
   const pos = Math.round((cuts[best] + cuts[best + 1]) / 2);
   mutate(null, () => base().splits.push({ id: uid(), axis, pos }));
-  select(b.id);
+  select(b.id); splitShow();
 }
 function rotateSplit(id) {
   if (base().locked) return toast('Подложка заблокирована');
@@ -1256,7 +1270,7 @@ function splitBySheets() {
   mutate(null, () => { const x = base(); x.splits = [];
     for (let i = 1; i < cols; i++) x.splits.push({ id: uid(), axis: 'v', pos: Math.round(x.w * i / cols) });
     for (let j = 1; j < rows; j++) x.splits.push({ id: uid(), axis: 'h', pos: Math.round(x.h * j / rows) }); });
-  toast(`Разделено на ${cols * rows} части по ${cols} × ${rows}`);
+  splitShow(); toast(`Разделено на ${cols * rows} части по ${cols} × ${rows}`);
 }
 function deleteSel() {
   const list = selected(); if (!list.length) return;
@@ -2374,7 +2388,9 @@ function renderOverlay() {
     if (list.length) { const bb = bboxOf(list); kids.push(sv('rect', { class: 'group-box', x: bb.x, y: bb.y, width: bb.w, height: bb.h, 'stroke-dasharray': `${4 / z} ${3 / z}` }));
       kids.push(svText(`${fmtLen(bb.w)} × ${fmtLen(bb.h)}`, bb.x + bb.w / 2, bb.y + bb.h + 16 / z, 11 / z, 'dim acc', 'middle')); }
   }
-  if (drag && drag.type === 'marquee') { const r = normRect(drag.sw, drag.cur); kids.push(sv('rect', { class: 'marquee', x: r.x, y: r.y, width: r.w, height: r.h })); }
+  if (drag && drag.type === 'marquee') { const r = normRect(drag.sw, drag.cur); kids.push(sv('rect', { class: 'marquee', x: r.x, y: r.y, width: r.w, height: r.h }));
+    if (drag.moved) { const t = `${fmtLen(r.w)} × ${fmtLen(r.h)} ${unitLabel()}`, fs = 12 / z, tw = t.length * fs * 0.56 + 12 / z, up = drag.cur.y < drag.sw.y, ty = up ? r.y - 20 / z : r.y + r.h + 6 / z; // размер рамки — у того края, где курсор
+      kids.push(sv('rect', { class: 'ruler-bg', x: r.x + r.w / 2 - tw / 2, y: ty, width: tw, height: 18 / z, rx: 4 / z }), svText(t, r.x + r.w / 2, ty + 13 / z, fs, 'ruler-txt', 'middle')); } }
   if (o && o.visible) {
     const cls = 'sel-outline' + (o.locked ? ' locked' : '');
     if (o.type === 'holes') {
@@ -2560,6 +2576,13 @@ function renderLayers() {
   }
   list.replaceChildren(...rows);
   $('#layerHint').style.visibility = doc.objects.length > 2 ? '' : 'hidden';
+  revealSel(list);
+}
+let revealedSel = ''; // выбранное на холсте — прокручиваем к нему список слоёв, один раз на каждое новое выделение
+function revealSel(list = $('#layerList')) {
+  const key = selIds.join(); if (!sel || key === revealedSel || list.hidden) return; revealedSel = key;
+  const o = byId(sel), g = o && groupOf(o), r = list.querySelector(`[data-lid="${sel}"]`) || (g && list.querySelector(`[data-gid="${g.id}"]`));
+  if (r) requestAnimationFrame(() => r.scrollIntoView({ block: 'nearest' }));
 }
 function groupRow(g) {
   const mem = membersOf(g.id), allSel = mem.every(m => selIds.includes(m.id)), vis = mem.some(m => m.visible), lock = mem.every(m => m.locked);
@@ -3419,6 +3442,18 @@ const TIPS = {
 stage.append(elTools, rotTip);
 let hoverId = null, tipT = 0;
 function setHover(id) { if (hoverId !== id) { hoverId = id; placeRot(); } }
+/* имя слоя — если курсор задержался над элементом дольше секунды */
+const nameTip = el('div', { id: 'nameTip', hidden: true }); document.body.append(nameTip);
+let nameTipT = 0, nameTipId = null;
+function hideNameTip() { clearTimeout(nameTipT); nameTipId = null; nameTip.hidden = true; }
+function trackNameTip(id, e) {
+  const o = id && byId(id);
+  if (!o || o.type === 'base' || !o.visible) return hideNameTip();
+  const put = () => { nameTip.style.left = Math.min(e.clientX + 14, innerWidth - nameTip.offsetWidth - 8) + 'px'; nameTip.style.top = e.clientY + 18 + 'px'; };
+  if (nameTipId === id) { if (!nameTip.hidden) put(); return; }
+  hideNameTip(); nameTipId = id;
+  nameTipT = setTimeout(() => { const x = byId(id); if (!x || drag || pinch) return; nameTip.textContent = x.name || 'Без имени'; nameTip.hidden = false; put(); }, 1000);
+}
 function placeRot() {
   const o = hoverId && byId(hoverId);
   const busy = pinch || (drag && (drag.moved || drag.type === 'pan'));
@@ -3529,7 +3564,7 @@ let leftTab = 'layers';
 function setLeftTab(t) {
   leftTab = t; $('#layerList').hidden = t !== 'layers'; $('#layersFoot').hidden = t !== 'layers'; $('#libPane').hidden = t !== 'lib';
   for (const b of document.querySelectorAll('#leftTabs button')) b.classList.toggle('on', b.dataset.t === t);
-  renderLib();
+  renderLib(); if (t === 'layers') { revealedSel = ''; revealSel(); }
 }
 stage.addEventListener('dragover', e => { if (libDrag) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
 stage.addEventListener('drop', e => { if (!libDrag) return; e.preventDefault(); e.stopImmediatePropagation(); const make = libDrag; libDrag = null; if (readOnly) return roToast();
@@ -3822,7 +3857,7 @@ stage.addEventListener('pointermove', e => {
   const w = toWorld(e);
   hud.textContent = `X ${fmtLen(w.x)}  Y ${fmtLen(w.y)} ${unitLabel()}`;
   if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (!drag && !pinch && !elTools.contains(e.target)) { const hit = e.target.closest && e.target.closest('[data-id]'); setHover(hit ? hit.dataset.id : null); }
+  if (!drag && !pinch && !elTools.contains(e.target)) { const hit = e.target.closest && e.target.closest('[data-id]'); setHover(hit ? hit.dataset.id : null); trackNameTip(hit ? hit.dataset.id : null, e); } else hideNameTip();
   if (pinch && pointers.size >= 2) {
     const [a, b] = [...pointers.values()], r = stage.getBoundingClientRect();
     const d = Math.hypot(a.x - b.x, a.y - b.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
@@ -3844,7 +3879,7 @@ stage.addEventListener('pointermove', e => {
   if (drag.type === 'marquee') {
     if (!drag.moved) { if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return; drag.moved = true; }
     drag_pickOne = null;
-    drag.cur = w; const r = normRect(drag.sw, w);
+    drag.cur = w; const r = normRect(drag.sw, w); hud.textContent = `Рамка ${fmtLen(r.w)} × ${fmtLen(r.h)} ${unitLabel()}`;
     const hits = doc.objects.filter(o0 => { if (!isBox(o0) || !o0.visible) return false; const o = AB(o0); return o.x < r.x + r.w && r.x < o.x + o.w && o.y < r.y + r.h && r.y < o.y + o.h; }).map(o => o.id);
     setSel([...drag.keep, ...hits]); invalidate('overlay'); return;
   }
@@ -3925,8 +3960,8 @@ stage.addEventListener('pointermove', e => {
       const side = Math.max(5, Math.round(mx && my ? Math.max(nw, nh) : mx ? nw : nh)); o.w = o.h = side; nw = nh = side;
     } else if (o.type === 'divider') {
       const q = o.rot % 180; o.lw = Math.max(10, Math.round(q ? nh : nw)); o.lh = Math.max(2, Math.round(q ? nw : nh)); syncDerived(o); nw = o.w; nh = o.h;
-    } else if (o.type === 'item') { // у готовых изделий размер задаётся форматом; меняются только ячейка и доска
-      if (itemSizable(o)) { const q = o.rot % 180; o.lw = Math.max(20, Math.round(q ? nh : nw)); o.lh = Math.max(20, Math.round(q ? nw : nh)); }
+    } else if (o.type === 'item') { // размер любого изделия можно задать свой
+      { const q = o.rot % 180; o.lw = Math.max(20, Math.round(q ? nh : nw)); o.lh = Math.max(20, Math.round(q ? nw : nh)); if (!itemSizable(o)) o.custom = true; }
       syncDerived(o); nw = o.w; nh = o.h;
     } else if (o.type === 'pocket') {
       const g = pocketGeom({ ...o, iw: 0, ih: 0 }), q = o.rot % 180, lw = q ? nh : nw, lh = q ? nw : nh;
@@ -3957,7 +3992,8 @@ function endPointer(e) {
 }
 stage.addEventListener('pointerup', endPointer);
 stage.addEventListener('pointercancel', endPointer);
-stage.addEventListener('pointerleave', () => { hud.textContent = ''; setHover(null); });
+stage.addEventListener('pointerleave', () => { hud.textContent = ''; setHover(null); hideNameTip(); });
+stage.addEventListener('pointerdown', hideNameTip, true); stage.addEventListener('wheel', hideNameTip, { passive: true, capture: true });
 stage.addEventListener('wheel', e => {
   e.preventDefault();
   const k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
@@ -4411,7 +4447,7 @@ function splitHere(w, axis) {
   const b = base(); if (b.locked) return toast('Подложка заблокирована');
   const L = axis === 'v' ? b.w : b.h, pos = Math.round(axis === 'v' ? w.x : w.y);
   if (pos < 10 || pos > L - 10) return toast('Линия раздела должна пройти по подложке');
-  mutate(null, () => base().splits.push({ id: uid(), axis, pos })); select(b.id);
+  mutate(null, () => base().splits.push({ id: uid(), axis, pos })); select(b.id); splitShow();
 }
 
 /* ---- наборы пунктов ---- */
@@ -5900,6 +5936,13 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-14', date: '14 ноября 2026', items: [
+    'Линейка: потяните рамку выделения по пустому месту — над ней будет её ширина и высота.',
+    'Если задержать курсор на элементе дольше секунды, появится его имя.',
+    'Выбранный на холсте элемент сразу виден в списке слоёв: список прокручивается к нему.',
+    'Любому изделию можно задать свой размер — полями «Ш» и «В» или мышью за ручки. Широкий карман для визиток или буклетов показывает несколько стопок. «Вернуть стандартный размер» — обратно к формату.',
+    'Исправлено: «Добавить линию» в виде «Клиент» ничего не показывала. Теперь программа переключается в «Производство», где линии раздела видны.',
+  ] },
   { v: '2026-11-13', date: '13 ноября 2026', items: [
     'Плашки: одиннадцать новых форм — капсула, билет, фигурная табличка, лепестки, звезда, марка, фестоны, вымпел, шестигранник, указатель, скобки — и двенадцать новых готовых стилей.',
     'У плашек настраиваются углы: прямые, скруглённые наружу или внутрь, срезанные; размер угла и число окружностей на угол. Несколько окружностей наружу дают «лепестки», внутрь — «звезду».',
