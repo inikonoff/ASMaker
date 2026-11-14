@@ -264,6 +264,14 @@ aside{background:var(--panel);overflow:auto;min-height:0}
 .guide.gap{stroke-width:1.5}
 .dim{fill:var(--muted);font-weight:500;font-family:inherit}
 .dim.acc{fill:var(--acc)}
+.gbar{position:relative;height:40px;margin:4px 8px 2px;cursor:copy;touch-action:none;user-select:none}
+.gtrack{position:absolute;left:0;right:0;top:0;height:22px;border-radius:5px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.gmarks{position:absolute;left:0;right:0;top:20px;height:18px}
+.gm{position:absolute;top:0;width:14px;height:14px;margin-left:-7px;border-radius:3px;background:linear-gradient(var(--c),var(--c)),repeating-conic-gradient(#d1d5db 0 25%,#fff 0 50%) 0 0/6px 6px;box-shadow:0 0 0 2px #fff,0 0 0 3px #9ca3af;cursor:ew-resize}
+.gm.end{cursor:pointer}
+.gm::before{content:'';position:absolute;left:50%;top:-6px;margin-left:-4px;border:4px solid transparent;border-bottom-color:#9ca3af;border-top:0}
+.gm.on{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--acc)}.gm.on::before{border-bottom-color:var(--acc)}
+.grad-pre .btn{flex:1 1 45%;font-size:12px}
 .ruler-bg{fill:var(--acc)}.ruler-txt{fill:#fff;font-weight:600;font-family:inherit;font-variant-numeric:tabular-nums}
 #nameTip{position:fixed;z-index:60;background:#111827;color:#fff;font-size:12px;padding:4px 8px;border-radius:6px;pointer-events:none;white-space:nowrap;max-width:320px;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 12px rgba(0,0,0,.25)}
 .lbl{fill:var(--text);font-weight:600;font-family:inherit}
@@ -529,7 +537,8 @@ const toLocalSide = (v, rot, flip) => { if (flip && (v === 'l' || v === 'r')) v 
 const GRID_STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
 
 const common = () => ({ id: uid(), opacity: 1, locked: false, visible: true });
-const fillDefaults = (fill, fill2, type = 'solid') => ({ fillType: type, fill, fill2, angle: 90, fillOpacity: 1 });
+const fillDefaults = (fill, fill2, type = 'solid') => ({ fillType: type, fill, fill2, angle: 90, fillOpacity: 1, fillA: 1, fill2A: 1, mids: [], rCx: 50, rCy: 50, rR: 71 });
+const GRAD_KEYS = ['fillA', 'fill2A', 'mids', 'rCx', 'rCy', 'rR'];
 const HOLES_DEFAULT = () => ({ on: false, count: 4, d: 6, inset: 20, color: '#374151', finish: 'none', stickerColor: '#ffffff', stickerD: 20 });
 const makeBase = () => ({ ...common(), type: 'base', name: 'База', x: 0, y: 0, w: 1000, h: 700, thickness: 4, ...fillDefaults('#ffffff', '#dbe4ff'), image: null, holes: HOLES_DEFAULT(), splits: [], partMargin: 50 });
 const makeShape = (kind = 'solid') => ({ ...common(), type: 'shape', name: 'Слой', x: 0, y: 0, w: 300, h: 200, rot: 0, radius: 0, image: null,
@@ -765,6 +774,10 @@ function normalizeObj(raw, ids) {
     o.fill = normHex(o.fill) || '#ffffff'; o.fill2 = normHex(o.fill2) || '#dbe4ff';
     if (!['solid', 'linear', 'radial'].concat(o.type === 'shape' ? ['none'] : []).includes(o.fillType)) o.fillType = 'solid';
     o.angle = isFinite(o.angle) ? +o.angle : 90; o.fillOpacity = isFinite(o.fillOpacity) ? clamp(+o.fillOpacity, 0, 1) : 1;
+    const a01 = v => v != null && isFinite(v) ? clamp(+v, 0, 1) : 1, pc = (v, a, b, d) => v != null && isFinite(v) ? clamp(+v, a, b) : d;
+    o.fillA = a01(o.fillA); o.fill2A = a01(o.fill2A); o.rCx = pc(o.rCx, 0, 100, 50); o.rCy = pc(o.rCy, 0, 100, 50); o.rR = pc(o.rR, 5, 200, 71);
+    o.mids = (Array.isArray(o.mids) ? o.mids : []).filter(m => m && typeof m === 'object').slice(0, 10)
+      .map(m => ({ id: String(m.id || uid()), c: normHex(m.c) || '#888888', a: a01(m.a), p: pc(m.p, 0.01, 0.99, 0.5) })).sort((x, y) => x.p - y.p);
   }
   if (o.type === 'base') {
     o.x = 0; o.y = 0; o.thickness = o.thickness === 5 ? 5 : 4;
@@ -864,7 +877,7 @@ function normalize(d) {
   const under = [];
   if (b.fillType !== 'solid' || (b.fill || '#ffffff') !== '#ffffff') {
     const f = makeShape(b.fillType === 'solid' ? 'solid' : 'grad');
-    Object.assign(f, { name: 'Фон', x: 0, y: 0, w: b.w, h: b.h, fillType: b.fillType, fill: b.fill, fill2: b.fill2, angle: b.angle, fillOpacity: b.fillOpacity });
+    Object.assign(f, { name: 'Фон', x: 0, y: 0, w: b.w, h: b.h, fillType: b.fillType, fill: b.fill, fill2: b.fill2, angle: b.angle, fillOpacity: b.fillOpacity }, JSON.parse(JSON.stringify(Object.fromEntries(GRAD_KEYS.map(k => [k, b[k]])))));
     under.push(f);
   }
   if (b.image) {
@@ -1455,17 +1468,27 @@ async function pickColor() {
 
 /* ================= markup (shared by canvas and PNG) ================= */
 const GLARE = '<linearGradient id="glare" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".65"/><stop offset=".3" stop-color="#fff" stop-opacity=".12"/><stop offset=".55" stop-color="#fff" stop-opacity=".02"/><stop offset="1" stop-color="#fff" stop-opacity=".3"/></linearGradient>';
+/* градиент: крайние цвета fill/fill2 со своей непрозрачностью и точки цвета mids между ними */
+const gStops = o => [{ k: 'a', c: o.fill, a: o.fillA ?? 1, p: 0 }, ...(o.mids || []).map(m => ({ k: m.id, c: m.c, a: m.a, p: m.p })).sort((x, y) => x.p - y.p), { k: 'b', c: o.fill2, a: o.fill2A ?? 1, p: 1 }];
+const rgbOf = h => { const n = parseInt(String(h).slice(1), 16) || 0; return [n >> 16, n >> 8 & 255, n & 255]; };
+const rgba = (h, a) => `rgba(${rgbOf(h).join(',')},${r2(a)})`;
+const cssStops = o => gStops(o).map(s => `${rgba(s.c, s.a)} ${r2(s.p * 100)}%`).join(',');
+function gradAt(o, p) { // цвет и непрозрачность градиента в точке p — для новой точки цвета
+  const st = gStops(o); let i = 1; while (i < st.length - 1 && st[i].p < p) i++;
+  const A = st[i - 1], B_ = st[i], t = B_.p > A.p ? (p - A.p) / (B_.p - A.p) : 0, ca = rgbOf(A.c), cb = rgbOf(B_.c);
+  return { c: '#' + ca.map((v, j) => Math.round(v + (cb[j] - v) * t).toString(16).padStart(2, '0')).join(''), a: r2(A.a + (B_.a - A.a) * t) };
+}
 function paint(o, w, h) {
-  const stops = `<stop offset="0" stop-color="${o.fill}"/><stop offset="1" stop-color="${o.fill2}"/>`, id = 'gr-' + o.id;
+  const stops = gStops(o).map(s => `<stop offset="${r2(s.p)}" stop-color="${s.c}"${s.a < 1 ? ` stop-opacity="${r2(s.a)}"` : ''}/>`).join(''), id = 'gr-' + o.id;
   if (o.fillType === 'linear') {
     const a = o.angle * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), L = (Math.abs(w * c) + Math.abs(h * s)) / 2;
     return { defs: `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${r2(w / 2 - c * L)}" y1="${r2(h / 2 - s * L)}" x2="${r2(w / 2 + c * L)}" y2="${r2(h / 2 + s * L)}">${stops}</linearGradient>`, fill: `url(#${id})` };
   }
   if (o.fillType === 'none') return { defs: '', fill: 'none' };
-  if (o.fillType === 'radial') return { defs: `<radialGradient id="${id}" cx=".5" cy=".5" r=".71">${stops}</radialGradient>`, fill: `url(#${id})` };
+  if (o.fillType === 'radial') return { defs: `<radialGradient id="${id}" cx="${r2((o.rCx ?? 50) / 100)}" cy="${r2((o.rCy ?? 50) / 100)}" r="${r2((o.rR ?? 71) / 100)}">${stops}</radialGradient>`, fill: `url(#${id})` };
   return { defs: '', fill: o.fill };
 }
-const cssFill = o => o.fillType === 'linear' ? `linear-gradient(${o.angle + 90}deg,${o.fill},${o.fill2})` : o.fillType === 'radial' ? `radial-gradient(${o.fill},${o.fill2})` : o.fill;
+const cssFill = o => o.fillType === 'linear' ? `linear-gradient(${o.angle + 90}deg,${cssStops(o)})` : o.fillType === 'radial' ? `radial-gradient(circle at ${o.rCx ?? 50}% ${o.rCy ?? 50}%,${cssStops(o)})` : o.fill;
 function basePaint(o) {
   const p = paint(o, o.w, o.h);
   return (p.defs ? `<defs>${p.defs}</defs>` : '') + `<rect width="${o.w}" height="${o.h}" fill="#ffffff"/><rect width="${o.w}" height="${o.h}" fill="${p.fill}" fill-opacity="${o.fillOpacity}"/>`;
@@ -2244,7 +2267,7 @@ function createBaseNode(o) {
 }
 function updateBaseNode(n, o) {
   setA(n.clipRect, { x: 0, y: 0, width: o.w, height: o.h });
-  const sig = [o.w, o.h, o.fill, o.fill2, o.fillType, o.angle, o.fillOpacity].join('|');
+  const sig = [o.w, o.h, o.fill, o.fill2, o.fillType, o.angle, o.fillOpacity, ...GRAD_KEYS.map(k => JSON.stringify(o[k]))].join('|');
   if (sig !== n.sig) { n.sig = sig; n.paintG.innerHTML = basePaint(o); }
   const i = o.image, href = i && assets[i.asset];
   if (href) {
@@ -2674,6 +2697,7 @@ const propsEl = $('#propsPane');
 let propsSig = null, bindings = [];
 function bind(node, read, prop = 'value') { bindings.push({ node, read, prop }); node[prop] = read(); return node; }
 function bindFn(read, apply) { const b = { read, apply, last: read() }; bindings.push(b); apply(b.last); }
+const refreshBindings = () => renderProps(); // перечитать поля без перестройки панели
 function renderProps() {
   const o = sel && byId(sel);
   const multi = selIds.length > 1;
@@ -2763,7 +2787,7 @@ const colorHints = (() => { try { return { on: JSON.parse(localStorage.getItem(S
 function projectColors() {
   const set_ = new Map(), add = h => { h = normHex(h); if (h) set_.set(h, (set_.get(h) || 0) + 1); };
   for (const o of doc.objects) {
-    if (o.type === 'shape' && o.fillType !== 'none') { add(o.fill); if (o.fillType !== 'solid') add(o.fill2); }
+    if (o.type === 'shape' && o.fillType !== 'none') { add(o.fill); if (o.fillType !== 'solid') { add(o.fill2); for (const m of o.mids || []) add(m.c); } }
     if (o.type === 'pocket') add(o.tapeColor);
     if (o.type === 'text') { add(o.color); if (o.strokeW > 0) add(o.strokeColor); }
   }
@@ -2805,16 +2829,69 @@ function fillSection(o, O, upd) {
     row(segField((o.type === 'shape' ? [['none', 'Нет']] : []).concat([['solid', 'Цвет'], ['linear', 'Линейный'], ['radial', 'Радиальный']]), o.fillType, v => upd(null, x => x.fillType = v))),
   ];
   if (o.fillType === 'none') return sec('Заливка', el('fieldset', { disabled: o.locked }, ...parts, el('p', { class: 'hint' }, 'Без заливки: виден только фон под слоем и картинка, если она загружена.')));
-  parts.push(cap(o.fillType === 'solid' ? 'Цвет' : 'Цвет 1'), row(colorField(() => O().fill, (v, k) => upd(k ? 'fill' : null, x => x.fill = v))));
-  if (o.fillType !== 'solid') {
-    parts.push(cap('Цвет 2'), row(colorField(() => O().fill2, (v, k) => upd(k ? 'fill2' : null, x => x.fill2 = v)),
-      B('swap', '', () => upd(null, x => { [x.fill, x.fill2] = [x.fill2, x.fill]; }), { cls: 'btn', title: 'Поменять цвета местами' })));
+  if (o.fillType === 'solid') parts.push(cap('Цвет'), row(colorField(() => O().fill, (v, k) => upd(k ? 'fill' : null, x => x.fill = v))));
+  else {
+    parts.push(...gradEditor(O, upd));
     if (o.fillType === 'linear') parts.push(cap('Направление'), row(sliderField(() => O().angle, (v, k) => upd(k, x => x.angle = v), { min: 0, max: 360, key: 'angle', suffix: '°', def: 90 })));
+    else parts.push(cap('Центр: по горизонтали и по вертикали'), row(sliderField(() => O().rCx, (v, k) => upd(k, x => x.rCx = v), { key: 'rcx', def: 50 })), row(sliderField(() => O().rCy, (v, k) => upd(k, x => x.rCy = v), { key: 'rcy', def: 50 })),
+      cap('Размер'), row(sliderField(() => O().rR, (v, k) => upd(k, x => x.rR = v), { min: 5, max: 200, key: 'rr', def: 71 })));
   }
   // без картинки прозрачность заливки и слоя дают одно и то же — оставляем одну, в разделе «Слой»
   if (o.type !== 'shape' || (o.image && assets[o.image.asset]) || o.fillOpacity < 1)
     parts.push(cap('Прозрачность заливки (картинка не меняется)'), row(sliderField(() => O().fillOpacity * 100, (v, k) => upd(k, x => x.fillOpacity = v / 100), { key: 'fillOp', def: 100 })));
   return sec('Заливка', el('fieldset', { disabled: o.locked }, ...parts));
+}
+let gSelKey = 'a'; // выбранная точка градиента: 'a' — начало, 'b' — конец, иначе id точки посередине
+const GRAD_PRESETS = [
+  ['Виньетка', 'Тёмные края, прозрачная середина — положите слой поверх картинки', x => ({ fillType: 'radial', fill: '#000000', fill2: '#000000', fillA: 0, fill2A: 0.8, mids: [{ id: uid(), c: '#000000', a: 0, p: 0.55 }], rCx: 50, rCy: 50, rR: 71 })],
+  ['Рамка цветом', 'Плавный переход от цвета по краю к прозрачной середине', x => ({ fillType: 'radial', fill: x.fill2, fillA: 0, fill2A: 1, mids: [{ id: uid(), c: x.fill2, a: 0, p: 0.75 }], rCx: 50, rCy: 50, rR: 71 })],
+  ['Растворение вниз', 'Цвет сверху плавно уходит в прозрачность', x => ({ fillType: 'linear', angle: 90, fill2: x.fill, fillA: 1, fill2A: 0, mids: [] })],
+  ['Тень снизу', 'Прозрачно сверху, темнеет к низу', x => ({ fillType: 'linear', angle: 90, fill: '#000000', fill2: '#000000', fillA: 0, fill2A: 0.75, mids: [] })],
+];
+function gradEditor(O, upd) {
+  const track = el('div', { class: 'gtrack' }), marks = el('div', { class: 'gmarks' }), ctl = el('div');
+  const bar = el('div', { class: 'gbar', title: 'Клик по полосе — новая точка цвета. Точки посередине тянутся мышью, двойной клик удаляет' }, track, marks);
+  const cur = () => { const st = gStops(O()); return st.find(t => t.k === gSelKey) || st[0]; };
+  const setStop = (k, pt) => x => {
+    if (k === 'a') { if (pt.c) x.fill = pt.c; if (pt.a != null) x.fillA = pt.a; }
+    else if (k === 'b') { if (pt.c) x.fill2 = pt.c; if (pt.a != null) x.fill2A = pt.a; }
+    else { const m = (x.mids || []).find(z => z.id === k); if (m) { Object.assign(m, pt); x.mids.sort((u, v) => u.p - v.p); } }
+  };
+  const delStop = k => { upd(null, x => { x.mids = (x.mids || []).filter(z => z.id !== k); }); gSelKey = 'a'; };
+  const reverse = () => { upd(null, x => { [x.fill, x.fill2] = [x.fill2, x.fill]; [x.fillA, x.fill2A] = [x.fill2A, x.fillA]; for (const m of x.mids || []) m.p = r2(1 - m.p); x.mids.sort((u, v) => u.p - v.p); }); gSelKey = gSelKey === 'a' ? 'b' : gSelKey === 'b' ? 'a' : gSelKey; };
+  bindFn(() => cssStops(O()) + '|' + gSelKey, () => {
+    track.style.background = `linear-gradient(90deg,${cssStops(O())}),repeating-conic-gradient(#d1d5db 0 25%,#fff 0 50%) 0 0/10px 10px`;
+    marks.replaceChildren(...gStops(O()).map(t => el('span', { class: 'gm' + (t.k === gSelKey ? ' on' : '') + (t.k === 'a' || t.k === 'b' ? ' end' : ''), style: `left:${t.p * 100}%;--c:${rgba(t.c, Math.max(t.a, 0.15))}`, 'data-k': t.k,
+      title: (t.k === 'a' ? 'Начальный цвет' : t.k === 'b' ? 'Конечный цвет' : 'Точка цвета') + ` · ${t.c.toUpperCase()} · ${Math.round(t.a * 100)}%` })));
+  });
+  let dragK = null, downK = null; // downK — точка под последним нажатием: dblclick при захвате указателя приходит на полосу
+  const posOf = e => { const r = bar.getBoundingClientRect(); return clamp((e.clientX - r.left) / r.width, 0.01, 0.99); };
+  bar.addEventListener('pointerdown', e => {
+    if (O().locked) return; e.preventDefault();
+    const m = e.target.closest('.gm'); downK = m ? m.dataset.k : null;
+    if (m) { gSelKey = m.dataset.k; if (gSelKey !== 'a' && gSelKey !== 'b') { dragK = gSelKey; bar.setPointerCapture(e.pointerId); } refreshBindings(); return; }
+    if ((O().mids || []).length >= 10) return toast('Не больше 10 точек цвета посередине');
+    const p = r2(posOf(e)), id = uid(), g = gradAt(O(), p);
+    upd(null, x => { x.mids = [...(x.mids || []), { id, c: g.c, a: g.a, p }].sort((u, v) => u.p - v.p); }); gSelKey = id; refreshBindings();
+  });
+  bar.addEventListener('pointermove', e => { if (dragK) upd('gpos', setStop(dragK, { p: r2(posOf(e)) })); });
+  bar.addEventListener('pointerup', () => { dragK = null; });
+  bar.addEventListener('dblclick', () => { const k = downK; if (k && k !== 'a' && k !== 'b' && (O().mids || []).some(z => z.id === k)) { delStop(k); refreshBindings(); } });
+  bindFn(() => cur().k + '|' + (O().mids || []).length, () => {
+    const t0 = cur(), k = t0.k, mid = k !== 'a' && k !== 'b'; gSelKey = k;
+    const get = f => () => { const t = gStops(O()).find(z => z.k === k); return f(t || t0); };
+    ctl.replaceChildren(...[
+      cap(k === 'a' ? 'Начальный цвет' : k === 'b' ? 'Конечный цвет' : 'Точка цвета посередине'),
+      row(colorField(get(t => t.c), (v, kk) => upd(kk ? 'gc' + k : null, setStop(k, { c: v })))),
+      cap('Непрозрачность этого цвета'), row(sliderField(get(t => t.a * 100), (v, kk) => upd(kk, setStop(k, { a: v / 100 })), { key: 'ga' + k, def: 100 })),
+      mid ? cap('Положение на полосе') : null,
+      mid ? row(sliderField(get(t => t.p * 100), (v, kk) => upd(kk, setStop(k, { p: clamp(v / 100, 0.01, 0.99) })), { min: 1, max: 99, key: 'gp' + k, def: 50 })) : null,
+      el('div', { class: 'btns' }, mid ? B('trash', 'Удалить точку', () => { delStop(k); refreshBindings(); }, { cls: 'btn' }) : null,
+        B('swap', 'Развернуть', () => { reverse(); refreshBindings(); }, { cls: 'btn', title: 'Поменять начало и конец градиента' })),
+    ].filter(Boolean));
+  });
+  const pre = el('div', { class: 'btns grad-pre' }, GRAD_PRESETS.map(([n, t, f]) => el('button', { type: 'button', class: 'btn', title: t, onclick: () => { upd(null, x => Object.assign(x, f(x))); gSelKey = 'a'; } }, n)));
+  return [cap('Градиент'), bar, el('p', { class: 'hint', style: 'margin:2px 0 6px' }, 'Клик по полосе добавляет точку цвета. У каждой точки свой цвет и непрозрачность.'), ctl, cap('Готовые переходы'), pre];
 }
 function layerSection(o, O, upd) {
   const btns = o.type === 'base' ? null : el('div', { class: 'btns', style: 'margin-top:10px' },
@@ -4392,7 +4469,7 @@ async function menuPaste(at) {
 const STYLE_KEYS = {
   pocket: ['tape', 'tapeColor', 'gap', 'notch', 'notchSize', 'showName', 'nameFs', 'fill', 'fillAccent', 'film', 'filmW'],
   qr: ['color', 'bg', 'bgOn', 'ecl', 'margin'],
-  shape: ['fillType', 'fill', 'fill2', 'angle', 'fillOpacity', 'radius', 'opacity'],
+  shape: ['fillType', 'fill', 'fill2', 'angle', 'fillOpacity', 'radius', 'opacity', ...GRAD_KEYS],
   text: ['font', 'size', 'weight', 'italic', 'underline', 'strike', 'caps', 'align', 'lh', 'ls', 'skew', 'color', 'colorOpacity', 'strokeW', 'strokeColor', 'shadow', 'plate'],
   divider: ['style', 'color', 'weight', 'orn', 'lh', 'cap', 'step', 'ornN', 'ornSize'],
 };
@@ -5936,6 +6013,11 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-14b', date: '14 ноября 2026', items: [
+    'Градиент: у каждого цвета своя непрозрачность — можно делать виньетку, цветные края с плавным переходом к картинке, растворение в прозрачность.',
+    'Многоцветный градиент: клик по полосе градиента добавляет точку цвета. Точки посередине тянутся мышью, двойной клик удаляет.',
+    'У радиального градиента настраиваются центр и размер. Готовые переходы: «Виньетка», «Рамка цветом», «Растворение вниз», «Тень снизу».',
+  ] },
   { v: '2026-11-14', date: '14 ноября 2026', items: [
     'Линейка: потяните рамку выделения по пустому месту — над ней будет её ширина и высота.',
     'Если задержать курсор на элементе дольше секунды, появится его имя.',
