@@ -3273,11 +3273,9 @@ let saveT = 0, quotaWarned = false;
 function scheduleSave() { clearTimeout(saveT); saveT = setTimeout(saveNow, 500); }
 function saveNow(lib = true) {
   clearTimeout(saveT); if (lib) scheduleLibSave();
-  try { localStorage.setItem(STORE, JSON.stringify(serialize())); }
-  catch {
-    try { localStorage.setItem(STORE, JSON.stringify(serialize(false))); } catch {}
-    if (!quotaWarned) { quotaWarned = true; console.warn('localStorage quota: картинки хранятся только в библиотеке'); }
-  }
+  persistAssets(); // картинки — в IndexedDB, в localStorage — только сам проект
+  try { localStorage.setItem(STORE, JSON.stringify(serialize(false))); }
+  catch { if (!quotaWarned) { quotaWarned = true; console.warn('localStorage: автосохранение не поместилось'); } }
 }
 let hadStored = false, storedSaved = 0;
 function loadStored() {
@@ -3334,9 +3332,9 @@ async function newStand(quiet) {
 let idbP = null;
 function idbOpen() {
   return idbP || (idbP = new Promise((ok, err) => {
-    const r = indexedDB.open('stand-designer', 4);
+    const r = indexedDB.open('stand-designer', 5);
     r.onupgradeneeded = () => { const db = r.result;
-      for (const [n, k] of [['fonts', 'label'], ['faces', 'key'], ['projects', 'id'], ['handles', 'id'], ['templates', 'id']]) if (!db.objectStoreNames.contains(n)) db.createObjectStore(n, { keyPath: k }); };
+      for (const [n, k] of [['fonts', 'label'], ['faces', 'key'], ['projects', 'id'], ['handles', 'id'], ['templates', 'id'], ['assets', 'id']]) if (!db.objectStoreNames.contains(n)) db.createObjectStore(n, { keyPath: k }); };
     r.onsuccess = () => ok(r.result); r.onerror = () => { idbP = null; err(r.error); };
   }));
 }
@@ -3352,12 +3350,43 @@ const projects = {
   setHandle: (id, h) => idbTx('handles', 'readwrite', s_ => s_.put({ id, h })),
   delHandle: id => idbTx('handles', 'readwrite', s_ => s_.delete(id)),
 };
+/* картинки — отдельными записями: в автосохранение (localStorage) они не помещаются, а неизменны — пишутся один раз */
+const assetDB = {
+  get: id => idbTx('assets', 'readonly', s_ => s_.get(id)).then(r => r && r.data),
+  put: (id, data) => idbTx('assets', 'readwrite', s_ => s_.put({ id, data })),
+  keys: () => idbTx('assets', 'readonly', s_ => s_.getAllKeys()).then(a => a || []),
+  del: id => idbTx('assets', 'readwrite', s_ => s_.delete(id)),
+};
+async function gcAssets() { // картинки, на которые не ссылается ни один проект библиотеки и ни текущий, удаляем
+  try {
+    const keep = new Set(Object.keys(assets));
+    for (const o of allObjects()) if (o.image && o.image.asset) keep.add(o.image.asset);
+    for (const r of await projects.all()) { const d = r.data; if (!d) continue; for (const k of Object.keys(d.assets || {})) keep.add(k);
+      const objs = d.doc && d.doc.objects ? d.doc.objects.concat(...(d.doc.vars && d.doc.vars.store || []).filter(Boolean).map(v => v.objects || [])) : [];
+      for (const o of objs) if (o && o.image && o.image.asset) keep.add(o.image.asset); }
+    for (const k of await assetDB.keys()) if (!keep.has(k)) { await assetDB.del(k); assetsSaved.delete(k); }
+  } catch {}
+}
+const assetsSaved = new Set();
+function persistAssets() { // новые картинки проекта — в IndexedDB, по одной; ошибки не мешают работе
+  for (const [id, data] of Object.entries(assets)) if (data && !assetsSaved.has(id)) { assetsSaved.add(id); assetDB.put(id, data).catch(() => assetsSaved.delete(id)); }
+}
+async function restoreAssets() { // картинки, которых нет в памяти: из хранилища картинок, затем из записи проекта в библиотеке
+  const need = () => [...new Set(allObjects().filter(o => o.image && o.image.asset && !assets[o.image.asset]).map(o => o.image.asset))];
+  let miss = need(); if (!miss.length) return 0; let got = 0;
+  for (const id of miss) { const d = await assetDB.get(id).catch(() => null); if (d && !assets[id]) { assets[id] = d; assetsSaved.add(id); got++; } }
+  miss = need();
+  if (miss.length && pid) { const r = await projects.get(pid).catch(() => null), a = r && r.data && r.data.assets || {}; for (const id of miss) if (a[id]) { assets[id] = a[id]; got++; } }
+  if (got) { nodes.forEach(n => n.sig = null); invalidate('all'); persistAssets(); }
+  return got;
+}
 const PID_KEY = STORE + ':pid';
 let pid = null, pristine = null, libT = 0, libQ = Promise.resolve();
 try { pid = localStorage.getItem(PID_KEY); } catch {}
 function setPid(id) { pid = id; try { localStorage.setItem(PID_KEY, id); } catch {} }
 const docKey = () => unit + JSON.stringify(doc);
 const resetHistory = () => { past = []; future = []; lastKey = null; };
+const idle = () => new Promise(r => window.requestIdleCallback ? requestIdleCallback(() => r(), { timeout: 2000 }) : setTimeout(r, 50));
 function scheduleLibSave() { clearTimeout(libT); libT = setTimeout(libSave, 1500); }
 /* запись в библиотеку по очереди: снимок данных берётся сразу, превью рисуется следом */
 function libSave() {
@@ -3366,9 +3395,13 @@ function libSave() {
   if (json === pristine) return libQ; // без изменений с последней записи (или новый нетронутый проект) — не переписываем
   pristine = json; if (!pid) setPid(uid());
   const id = pid, b = base(), data = structuredClone(serialize()), meta = { title: doc.title || DEFAULT_TITLE, w: b.w, h: b.h, parts: partsOf(b).length };
-  const thumbP = renderStand(360).then(c => c.toDataURL('image/jpeg', 0.82), () => null);
+  const thumbP = idle().then(() => renderStand(360, true)).then(c => c.toDataURL('image/jpeg', 0.82), () => null);
   return libQ = libQ.then(async () => {
     const thumb = await thumbP, old = await projects.get(id).catch(() => null), now = Date.now();
+    if (data.doc && old && old.data && old.data.assets) { // картинка ещё не загрузилась в память — не затираем её в библиотеке
+      data.assets = data.assets || {}; const objs = data.doc.vars ? data.doc.objects.concat(...data.doc.vars.store.filter(Boolean).map(v => v.objects)) : data.doc.objects;
+      for (const o of objs) { const k = o.image && o.image.asset; if (k && !data.assets[k] && old.data.assets[k]) data.assets[k] = old.data.assets[k]; }
+    }
     const rec = { ...(old || {}), id, ...meta, created: (old && old.created) || now, updated: now, thumb: thumb || (old && old.thumb) || null, data };
     delete rec.stub; if (account && !rec.acct && !rec.localOnly && rec.kind !== 'shared') rec.acct = account.email;
     await projects.put(rec);
@@ -3410,6 +3443,7 @@ async function duplicateProject(r) {
 async function libInit() {
   try {
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    await restoreAssets();
     const r = pid && await projects.get(pid);
     if (r && (!r.data || r.kind === 'shared')) { if (r.data && r.kind === 'shared') { applyData(r.data); pristine = docKey(); } return; } // общий и не скачанный — откроет cloudInit
     if (r) {
@@ -3923,7 +3957,7 @@ function fillMarkup(o, g, exp) { // всё — в пределах вклады�
 function pocketMarkup(o, exp) {
   const g = pocketGeom(o), t = o.tape, s = o.sides, w = g.w, h = g.h, vs = exp ? '' : ' vector-effect="non-scaling-stroke"';
   let m = '';
-  const href = o.image && assets[o.image.asset];
+  const href = o.image && assetHref(o.image.asset, exp);
   if (href) m += `<image href="${href}"${exp ? ` xlink:href="${href}"` : ''} x="${g.ix}" y="${g.iy}" width="${o.iw}" height="${o.ih}" preserveAspectRatio="xMidYMid slice" opacity="${o.image.opacity}"/>`;
   else if (o.fill && o.fill !== 'none') { // наполнение не зеркалим при отражении кармана
     const f = fillMarkup(o, g, exp); m += o.flip ? `<g transform="translate(${w} 0) scale(-1 1)">${f}</g>` : f;
@@ -4014,9 +4048,44 @@ function qrMarkup(o, exp) {
   }
   return out + `<path d="${d}" fill="${o.color}" shape-rendering="crispEdges"/>`;
 }
+/* blob-ссылка вместо base64 в разметке: перерисовка слоя с фото не гоняет мегабайты текста */
+const assetUrls = new Map();
+function assetUrl(id) {
+  const d = assets[id]; if (!d) return null;
+  const c = assetUrls.get(id); if (c && c.d === d) return c.u;
+  if (c) URL.revokeObjectURL(c.u);
+  let u = d;
+  try { const m = /^data:([^;,]+)(;base64)?,/.exec(d); if (m) { const raw = d.slice(m[0].length), bin = m[2] ? atob(raw) : decodeURIComponent(raw), a = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); u = URL.createObjectURL(new Blob([a], { type: m[1] })); } } catch { u = d; }
+  assetUrls.set(id, { d, u }); screenCopy(id, d, u); return u;
+}
+const SCREEN_PX = 2560; // на холсте большие фото показываем копией: оригинал идёт только в экспорт
+async function screenCopy(id, d, u) {
+  try {
+    const blob = await (await fetch(u)).blob(), bm0 = await createImageBitmap(blob), k = SCREEN_PX / Math.max(bm0.width, bm0.height);
+    if (k >= 1) { bm0.close(); return; }
+    const W = Math.round(bm0.width * k), H = Math.round(bm0.height * k), bm = await createImageBitmap(bm0, { resizeWidth: W, resizeHeight: H, resizeQuality: 'high' }); bm0.close();
+    const cv = el('canvas'); cv.width = W; cv.height = H; cv.getContext('2d').drawImage(bm, 0, 0); bm.close();
+    const png = /^data:image\/(png|webp|gif)/.test(d), b2 = await new Promise(r => cv.toBlob(r, png ? 'image/png' : 'image/jpeg', 0.92));
+    const c = assetUrls.get(id); if (!b2 || !c || c.d !== d) return; // картинку успели заменить
+    c.u = URL.createObjectURL(b2); nodes.forEach(n => n.sig = null); invalidate('scene', 'layers', 'props');
+    // прежнюю ссылку не отзываем: на неё ещё могут ссылаться миниатюры в панелях
+  } catch {}
+}
+let expAsset = null; // подмена картинок при экспорте (лёгкие копии для превью)
+const assetHref = (id, exp) => !id ? null : !exp ? assetUrl(id) : expAsset ? expAsset(id) || assets[id] : assets[id];
+const previews = new Map(); // id → уменьшенная копия (до 640 px) для превью проектов
+async function makePreview(id) {
+  const d = assets[id]; if (!d) return null; const c = previews.get(id); if (c && c.d === d) return c.p;
+  try { // декодирование и уменьшение — в фоне браузера, интерфейс не замирает
+    const blob = await (await fetch(assetUrl(id))).blob(), bm = await createImageBitmap(blob, { resizeWidth: 640, resizeQuality: 'medium' });
+    const cv = el('canvas'); cv.width = bm.width; cv.height = Math.min(bm.height, 2400); cv.getContext('2d').drawImage(bm, 0, 0, bm.width, bm.height); bm.close && bm.close();
+    const p = cv.toDataURL(/png/.test(d.slice(0, 20)) ? 'image/png' : 'image/jpeg', 0.85); previews.set(id, { d, p }); return p;
+  } catch { previews.set(id, { d, p: d }); return d; }
+}
 const FIT_PAR = { cover: 'xMidYMid slice', contain: 'xMidYMid meet', stretch: 'none' };
 function shapeMarkup(o, exp) {
-  const l = localWH(o), p = paint(o, l.w, l.h), href = o.image && assets[o.image.asset];
+  const l = localWH(o), p = paint(o, l.w, l.h), href = o.image && assetHref(o.image.asset, exp);
   let m = (p.defs ? `<defs>${p.defs}</defs>` : '');
   if (p.fill !== 'none') m += `<rect width="${l.w}" height="${l.h}" rx="${o.radius}" fill="${p.fill}" fill-opacity="${o.fillOpacity}"/>`;
   else if (!exp) m += `<rect width="${l.w}" height="${l.h}" rx="${o.radius}" fill="transparent"/>`;
@@ -4485,7 +4554,7 @@ function exportSVG(W, H, opts = {}) {
   const parts = doc.objects.filter(o => o.visible && o.type !== 'grid' && !(baseOnly && (o.type === 'pocket' || o.type === 'item'))).map(o => {
     if (o.type === 'base') {
       // с вылетами фон подложки продлевается за край на величину вылета
-      const i = o.image, href = i && assets[i.asset], c = 'c' + o.id;
+      const i = o.image, href = i && assetHref(i.asset, true), c = 'c' + o.id;
       const paint_ = bl ? `<g transform="translate(${-bl} ${-bl})">${basePaint({ ...o, w: o.w + 2 * bl, h: o.h + 2 * bl })}</g>` : basePaint(o);
       return `<g opacity="${o.opacity}">${paint_}` + (href ? `<clipPath id="${c}"><rect x="${-bl}" y="${-bl}" width="${o.w + 2 * bl}" height="${o.h + 2 * bl}"/></clipPath><g clip-path="url(#${c})"><image href="${href}" xlink:href="${href}" x="${i.x}" y="${i.y}" width="${i.w}" height="${i.h}" preserveAspectRatio="none" opacity="${i.opacity}"/></g>` : '') + '</g>';
     }
@@ -4507,9 +4576,15 @@ function exportSVG(W, H, opts = {}) {
   const white = opts.white ? `<rect x="${R.x - off}" y="${R.y - off}" width="${VW}" height="${VH}" fill="#ffffff"/>` : '';
   return `<svg xmlns="${NS}" xmlns:xlink="http://www.w3.org/1999/xlink" ${size} viewBox="${R.x - off} ${R.y - off} ${VW} ${VH}"><defs>${css}${GLARE}</defs>${white}<clipPath id="stand"><rect x="${R.x - bl}" y="${R.y - bl}" width="${R.w + 2 * bl}" height="${R.h + 2 * bl}"/></clipPath><g clip-path="url(#stand)">${parts}</g>${marks}</svg>`;
 }
-async function renderStand(maxPx) {
+async function renderStand(maxPx, light) {
   const b = base(), k = Math.min(maxPx / Math.max(b.w, b.h), 8), W = Math.round(b.w * k), H = Math.round(b.h * k);
-  const url = URL.createObjectURL(new Blob([exportSVG(W, H)], { type: 'image/svg+xml' }));
+  let svg;
+  if (light) { // превью: фото уменьшены, иначе браузер декодирует их в полном размере ради картинки в 360 px
+    const ids = [...new Set(doc.objects.filter(o => o.image && assets[o.image.asset]).map(o => o.image.asset))], small = {};
+    for (const id of ids) small[id] = await makePreview(id);
+    expAsset = id => small[id]; try { svg = exportSVG(W, H); } finally { expAsset = null; }
+  } else svg = exportSVG(W, H);
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
   try {
     const img = await loadImg(url);
     try { await img.decode(); } catch {}
@@ -4568,7 +4643,7 @@ function updateBaseNode(n, o) {
   setA(n.clipRect, { x: 0, y: 0, width: o.w, height: o.h });
   const sig = [o.w, o.h, o.fill, o.fill2, o.fillType, o.angle, o.fillOpacity, ...GRAD_KEYS.map(k => JSON.stringify(o[k]))].join('|');
   if (sig !== n.sig) { n.sig = sig; n.paintG.innerHTML = basePaint(o); }
-  const i = o.image, href = i && assets[i.asset];
+  const i = o.image, href = i && assetUrl(i.asset);
   if (href) {
     if (n.href !== href) { n.img.setAttribute('href', href); n.href = href; }
     setA(n.img, { x: i.x, y: i.y, width: i.w, height: i.h, opacity: i.opacity, display: null });
@@ -4747,7 +4822,7 @@ function renderOverlay() {
   overlay.replaceChildren(...kids);
   placeSelBar();
   const showGhost = drag && drag.moved && (drag.type === 'move' || drag.type === 'resize');
-  const go = showGhost && byId(drag.id), gi = go && go.image, gh = gi && assets[gi.asset];
+  const go = showGhost && byId(drag.id), gi = go && go.image, gh = gi && assetUrl(gi.asset);
   if (gh) {
     if (ghost._href !== gh) { ghost.setAttribute('href', gh); ghost._href = gh; }
     setA(ghost, { x: gi.x, y: gi.y, width: gi.w, height: gi.h, display: null });
@@ -4865,13 +4940,13 @@ function swatch(o) {
   if (o.type === 'grid') return el('span', { class: 'sw ico', html: ic('grid') });
   if (o.type === 'pocket' || o.type === 'holes') {
     const sw = el('span', { class: 'sw ico', html: ic(o.type) });
-    if (o.type === 'pocket' && o.image && assets[o.image.asset]) { sw.className = 'sw'; sw.innerHTML = ''; sw.style.backgroundImage = `url("${assets[o.image.asset]}")`; }
+    if (o.type === 'pocket' && o.image && assets[o.image.asset]) { sw.className = 'sw'; sw.innerHTML = ''; sw.style.backgroundImage = `url("${assetUrl(o.image.asset)}")`; }
     return sw;
   }
   const sw = el('span', { class: 'sw' + (o.fillType === 'none' ? ' none' : '') });
   if (o.fillType !== 'none') sw.style.background = cssFill(o);
-  if (o.type === 'shape' && o.image && assets[o.image.asset]) { sw.style.backgroundImage = `url("${assets[o.image.asset]}")`; sw.style.backgroundSize = 'cover'; }
-  if (o.type === 'base' && o.image && assets[o.image.asset]) { sw.style.backgroundImage = `url("${assets[o.image.asset]}")`; sw.style.backgroundSize = 'cover'; }
+  if (o.type === 'shape' && o.image && assets[o.image.asset]) { sw.style.backgroundImage = `url("${assetUrl(o.image.asset)}")`; sw.style.backgroundSize = 'cover'; }
+  if (o.type === 'base' && o.image && assets[o.image.asset]) { sw.style.backgroundImage = `url("${assetUrl(o.image.asset)}")`; sw.style.backgroundSize = 'cover'; }
   return sw;
 }
 function layerTag(o) {
@@ -4886,6 +4961,7 @@ function layerTag(o) {
   if (o.image && assets[o.image.asset]) return 'картинка';
   return { solid: '', none: 'пустой', linear: 'градиент', radial: 'градиент' }[o.fillType];
 }
+const rowCache = new Map(); // id → готовая строка списка слоёв и ключ её состояния
 function renderLayers() {
   renderVarBar(); if (leftTab === 'lib') renderLib();
   if (renaming) return;
@@ -4894,9 +4970,12 @@ function renderLayers() {
     const g = groupOf(o);
     if (g && !shownGroups.has(g.id)) { shownGroups.add(g.id); rows.push(groupRow(g)); }
     if (g && g.collapsed) continue;
-    rows.push(layerRow(o, !!g));
+    const key = [objSig(o), o.name, o.visible, o.locked, selIds.includes(o.id), !!g, o.image && assets[o.image.asset] ? assetUrl(o.image.asset) : ''].join('|'), c = rowCache.get(o.id);
+    if (c && c.key === key) { rows.push(c.node); continue; } // элемент не менялся — строка та же
+    const node = layerRow(o, !!g); rowCache.set(o.id, { key, node }); rows.push(node);
   }
-  list.replaceChildren(...rows);
+  for (const id of rowCache.keys()) if (!byId(id)) rowCache.delete(id);
+  if (rows.length !== list.children.length || rows.some((r, i) => list.children[i] !== r)) list.replaceChildren(...rows);
   $('#layerHint').style.visibility = doc.objects.length > 2 ? '' : 'hidden';
   revealSel(list);
 }
@@ -4949,7 +5028,7 @@ function layerRow(o, inGroup) {
 }
 function startRename(id, span) {
   const o = byId(id); if (!o) return;
-  renaming = true;
+  renaming = true; rowCache.delete(id); // строка с полем ввода в кэш не идёт
   const inp = el('input', { class: 'txt rn', value: o.name });
   span.replaceWith(inp); inp.focus(); inp.select();
   let done = false;
@@ -5242,7 +5321,7 @@ function buildBase(o) {
   } else {
     const I = () => O().image;
     const updI = (key, fn) => upd(key, x => x.image && fn(x.image, x));
-    const thumb = el('div', { class: 'thumb' }); thumb.style.backgroundImage = `url("${assets[i.asset]}")`;
+    const thumb = el('div', { class: 'thumb' }); thumb.style.backgroundImage = `url("${assetUrl(i.asset)}")`;
     imgSec = el('div', {},
       thumb,
       el('div', { class: 'btns', style: 'margin-bottom:12px' },
@@ -5301,7 +5380,7 @@ function alphaBox(asset) {
     alphaBoxes.set(asset, box); invalidate('overlay', 'props');
   };
   img.onerror = () => alphaBoxes.set(asset, { x0: 0, y0: 0, x1: 1, y1: 1 });
-  img.src = assets[asset];
+  img.src = assetUrl(asset);
   return null;
 }
 function imageRect(o, l = localWH(o)) { // где лежит вся картинка в рамке слоя (локальные мм)
@@ -5370,7 +5449,7 @@ function shapeImageSection(o, O, upd) {
   const i = o.image;
   if (!i || !assets[i.asset]) return sec('Изображение', el('fieldset', { disabled: o.locked },
     el('div', { class: 'drop' }, B('image', 'Выбрать изображение', () => chooseImage(o.id), { cls: 'btn' }), el('div', {}, 'или перетащите файл прямо на слой'))));
-  const t = el('div', { class: 'thumb' }); t.style.backgroundImage = `url("${assets[i.asset]}")`;
+  const t = el('div', { class: 'thumb' }); t.style.backgroundImage = `url("${assetUrl(i.asset)}")`;
   const fitSeg = el('div', { class: 'seg full' }, [['cover', 'Заполнить'], ['contain', 'Вписать'], ['stretch', 'Растянуть']].map(([v, l]) => {
     const b = el('button', { type: 'button' }, l); b.addEventListener('click', () => upd(null, x => { if (x.image) { x.image.fit = v; delete x.image.crop; } }));
     bindFn(() => O().image?.fit === v, on => b.classList.toggle('on', on)); return b;
@@ -5434,7 +5513,7 @@ function buildPocket(o) {
   const i = o.image;
   const ins = i && assets[i.asset]
     ? el('div', {},
-        (() => { const t = el('div', { class: 'thumb' }); t.style.backgroundImage = `url("${assets[i.asset]}")`; return t; })(),
+        (() => { const t = el('div', { class: 'thumb' }); t.style.backgroundImage = `url("${assetUrl(i.asset)}")`; return t; })(),
         el('div', { class: 'btns', style: 'margin-bottom:12px' },
           B('folder', 'Заменить', () => chooseImage(o.id), { cls: 'btn' }),
           B('trash', 'Убрать', () => upd(null, x => x.image = null), { cls: 'btn' })),
@@ -8312,6 +8391,10 @@ function renderSharedBar() {
 
 /* ---- «Что нового» ---- */
 const WHATS_NEW = [
+  { v: '2026-11-17', date: '17 ноября 2026', items: [
+    'Исправлено: при запуске пропадали картинки проекта, если вкладку закрыли сразу после правки. Картинки теперь хранятся в браузере отдельно от автосохранения и не теряются.',
+    'Работа стала плавнее на проектах с большими фото: на холсте показываются облегчённые копии (в экспорт и печать по-прежнему идёт оригинал), превью в «Моих проектах» рисуется в фоне, список слоёв обновляется только там, где что-то изменилось.',
+  ] },
   { v: '2026-11-14b', date: '14 ноября 2026', items: [
     'Градиент: у каждого цвета своя непрозрачность — можно делать виньетку, цветные края с плавным переходом к картинке, растворение в прозрачность.',
     'Многоцветный градиент: клик по полосе градиента добавляет точку цвета. Точки посередине тянутся мышью, двойной клик удаляет.',
@@ -8509,7 +8592,7 @@ propsRz.addEventListener('dblclick', () => setPropsW(296));
 /* ================= start ================= */
 loadStored();
 sel = base().id; selIds = [sel];
-libInit().then(cloudInit);
+libInit().then(cloudInit); setTimeout(() => idle().then(gcAssets), 20000);
 if (document.fonts) document.fonts.ready.then(relayoutTexts);
 try { fontStore.all().then(loadCustomFonts, () => {}); } catch {}
 invalidate('all');
