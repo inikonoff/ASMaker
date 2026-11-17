@@ -1,0 +1,60 @@
+# Проверка и публикация ASMaker.
+# Каждый push и pull request: сверка index.html с исходником и все браузерные тесты.
+# Публикация на GitHub Pages — только из main и только если тесты прошли.
+# Чтобы сайт публиковался отсюда, в настройках репозитория:
+#   Settings → Pages → Build and deployment → Source: GitHub Actions
+name: Проверка и публикация
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Тесты
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tests/requirements.txt
+      - run: pip install -r tests/requirements.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: python -m pytest tests -q --timeout 180 -p no:cacheprovider
+
+  deploy:
+    name: Публикация на сайт
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Только файлы сайта
+        run: |
+          mkdir _site
+          cp index.html privacy.html favicon.svg apple-touch-icon.png og.jpg .nojekyll _site/
+          cp -r docs _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

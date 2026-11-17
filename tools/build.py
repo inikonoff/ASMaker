@@ -29,6 +29,11 @@ FONTS = [  # подпись, npm-пакет, имя семейства в CSS, �
 QR_PKG = 'qrcode-generator@2.0.4'
 
 
+def src_hash(text):
+    import hashlib
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()[:16]
+
+
 def fetch(pkg):
     """Скачивает и распаковывает npm-пакет в кэш, возвращает путь к package/."""
     dest = os.path.join(CACHE, pkg.replace('@', '').replace('/', '-'))
@@ -71,7 +76,10 @@ def main():
     assert src.count('/*QRCODE*/') == 1, 'в src/app.html должна быть ровно одна метка /*QRCODE*/'
     qr = open(os.path.join(fetch(QR_PKG), 'dist', 'qrcode.js'), encoding='utf-8').read()
     out = os.path.join(ROOT, 'index.html')
-    open(out, 'w', encoding='utf-8').write(src.replace('/*FONTS*/', js).replace('/*QRCODE*/', qr))
+    html = src.replace('/*FONTS*/', js).replace('/*QRCODE*/', qr)
+    # отпечаток исходника: тест tests/test_build.py сверяет его, чтобы на сайт не ушёл устаревший index.html
+    html = html.replace('</html>', f'<!-- src-sha256: {src_hash(src)} -->\n</html>', 1)
+    open(out, 'w', encoding='utf-8').write(html)
     print(f'index.html: {os.path.getsize(out) / 1e6:.1f} МБ', file=sys.stderr)
 
 

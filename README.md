@@ -193,12 +193,29 @@ python3 tools/build.py
 
 Скрипт скачает пакеты шрифтов [Fontsource](https://fontsource.org/) в `build/` и соберёт `index.html` в корне.
 
+Сборка дописывает в конец `index.html` отпечаток исходника; тест сверяет его, чтобы на сайт не ушла устаревшая сборка. Поэтому после любой правки `src/app.html` сборку нужно запустить заново.
+
+### Тесты
+
+Тесты открывают `index.html` в настоящем браузере (Playwright, Chromium) и проверяют запуск, правку, отмену, сохранение и чтение проекта, картинки после перезапуска, все виды плашек, разделителей и изделий, экспорт в PNG, PDF и SVG, пакет для цеха.
+
+```bash
+pip install -r tests/requirements.txt
+python -m playwright install chromium
+python -m pytest tests -q
+```
+
+На GitHub они запускаются сами при каждом push (`.github/workflows/pages.yml`). Сайт публикуется только из `main` и только если тесты прошли. Для этого в настройках репозитория должно стоять **Settings → Pages → Source: GitHub Actions**.
+
 ### Структура
 
 ```
 index.html              готовая страница (собрана из src/app.html)
 src/app.html            исходник: HTML, CSS и JavaScript в одном файле
 tools/build.py          встраивание шрифтов
+tests/                  браузерные тесты (pytest + Playwright)
+.github/workflows/      проверка и публикация на GitHub Pages
+AGENTS.md               как устроен проект и правила работы — для ИИ-помощников и разработчиков
 og.jpg, favicon.svg,    превью для мессенджеров и иконки
 apple-touch-icon.png
 docs/                   скриншоты для README
